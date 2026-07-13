@@ -1,0 +1,6 @@
+{
+  "name": "Controle Financeiro Inteligente",
+  "description": "Aplicativo completo de controle financeiro mensal e anual com gráficos intuitivos, tabelas editáveis e importação inteligente de planilhas e imagens por IA.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
