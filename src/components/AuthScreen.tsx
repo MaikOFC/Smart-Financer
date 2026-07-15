@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
-import { Wallet, Mail, Lock, User, KeyRound, ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { Wallet, Mail, Lock, User, KeyRound, ArrowRight, Loader2, Sparkles, Database } from "lucide-react";
+import { isSupabaseConfigured, signInSupabase, signUpSupabase } from "../lib/supabaseService";
 
 interface AuthScreenProps {
   onSuccess: (token: string, user: { id: string; name: string; email: string }) => void;
@@ -14,29 +15,43 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const supabaseActive = isSupabaseConfigured();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    const endpoint = isLogin ? "/api/auth/login" : "/api/auth/register";
-    const body = isLogin ? { email, password } : { name, email, password };
-
     try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      if (supabaseActive) {
+        // --- SUPABASE DIRECT AUTH ---
+        if (isLogin) {
+          const result = await signInSupabase(email, password);
+          onSuccess(result.token, result.user);
+        } else {
+          const result = await signUpSupabase(name, email, password);
+          onSuccess(result.token, result.user);
+        }
+      } else {
+        // --- LOCAL NODE EXPRESS SERVER AUTH ---
+        const endpoint = isLogin ? "/api/auth/login" : "/api/auth/register";
+        const body = isLogin ? { email, password } : { name, email, password };
 
-      const data = await response.json();
-      if (!response.ok || data.error) {
-        throw new Error(data.error || "Algo deu errado. Verifique suas credenciais.");
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        const data = await response.json();
+        if (!response.ok || data.error) {
+          throw new Error(data.error || "Algo deu errado. Verifique suas credenciais.");
+        }
+
+        onSuccess(data.token, data.user);
       }
-
-      onSuccess(data.token, data.user);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Erro desconhecido ao processar autenticação.");
     } finally {
       setLoading(false);
     }
@@ -51,33 +66,54 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
     const demoName = "Miqueias";
 
     try {
-      // Try to login
-      let response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: demoEmail, password: demoPassword }),
-      });
-
-      let data = await response.json();
-
-      // If login fails (user does not exist yet), automatically register the demo user!
-      if (!response.ok || data.error) {
-        const registerResponse = await fetch("/api/auth/register", {
+      if (supabaseActive) {
+        // --- SUPABASE DIRECT DEMO LOGIN ---
+        try {
+          const result = await signInSupabase(demoEmail, demoPassword);
+          onSuccess(result.token, result.user);
+        } catch (err: any) {
+          // If demo user doesn't exist, automatically register them!
+          if (
+            err.message && 
+            (err.message.includes("Invalid login credentials") || 
+             err.message.includes("Email not confirmed") || 
+             err.status === 400)
+          ) {
+            const result = await signUpSupabase(demoName, demoEmail, demoPassword);
+            onSuccess(result.token, result.user);
+          } else {
+            throw err;
+          }
+        }
+      } else {
+        // --- LOCAL NODE EXPRESS SERVER DEMO LOGIN ---
+        let response = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: demoName, email: demoEmail, password: demoPassword }),
+          body: JSON.stringify({ email: demoEmail, password: demoPassword }),
         });
 
-        const registerData = await registerResponse.json();
-        if (!registerResponse.ok || registerData.error) {
-          throw new Error(registerData.error || "Erro ao criar conta demonstrativa.");
-        }
-        data = registerData;
-      }
+        let data = await response.json();
 
-      onSuccess(data.token, data.user);
+        // If login fails (user does not exist yet), automatically register the demo user!
+        if (!response.ok || data.error) {
+          const registerResponse = await fetch("/api/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: demoName, email: demoEmail, password: demoPassword }),
+          });
+
+          const registerData = await registerResponse.json();
+          if (!registerResponse.ok || registerData.error) {
+            throw new Error(registerData.error || "Erro ao criar conta demonstrativa.");
+          }
+          data = registerData;
+        }
+
+        onSuccess(data.token, data.user);
+      }
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Erro ao efetuar login demonstrativo.");
     } finally {
       setLoading(false);
     }
@@ -106,6 +142,21 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
           <p className="text-xs text-slate-500 mt-1 font-medium max-w-xs">
             Acesse seu gerenciador financeiro com tabelas e relatórios completos.
           </p>
+          
+          {/* BADGE DE CONEXÃO DO BANCO */}
+          <div className="mt-4 flex items-center justify-center">
+            {supabaseActive ? (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold uppercase tracking-wider font-mono">
+                <Database className="w-3 h-3" />
+                Supabase Conectado (Seguro & Individual)
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-400 text-[10px] font-bold uppercase tracking-wider font-mono">
+                <Database className="w-3 h-3" />
+                Servidor Local (Modo Desenvolvedor)
+              </div>
+            )}
+          </div>
         </div>
 
         {/* CARD PRINCIPAL */}

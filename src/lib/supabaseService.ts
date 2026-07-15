@@ -1,0 +1,293 @@
+import { supabase } from "./supabase";
+import { Transaction } from "../types";
+import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from "../initialData";
+
+// Helper to check if Supabase is properly configured in the environment
+export function isSupabaseConfigured(): boolean {
+  const url = import.meta.env.VITE_SUPABASE_URL || localStorage.getItem("VITE_SUPABASE_URL");
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_KEY || localStorage.getItem("VITE_SUPABASE_ANON_KEY");
+  return !!url && !!key;
+}
+
+// Convert a Supabase row to React camelCase Transaction
+export function mapFromSupabase(row: any): Transaction {
+  return {
+    id: row.id,
+    description: row.description,
+    amount: parseFloat(row.amount) || 0,
+    date: row.date,
+    type: row.type,
+    tableSection: row.table_section,
+    category: row.category || "Outros",
+    isOrangeHighlight: row.is_orange_highlight,
+    isDiscount: row.is_discount,
+    note: row.note || "",
+  };
+}
+
+// Convert a React camelCase Transaction to Supabase snake_case
+export function mapToSupabase(t: Omit<Transaction, "id"> & { id?: string }, userId: string): any {
+  const mapped: any = {
+    user_id: userId,
+    description: t.description,
+    amount: t.amount,
+    date: t.date,
+    type: t.type,
+    table_section: t.tableSection,
+    category: t.category || "Outros",
+    is_orange_highlight: !!t.isOrangeHighlight,
+    is_discount: !!t.isDiscount,
+    note: t.note || null,
+  };
+  if (t.id && !t.id.startsWith("manual-")) {
+    mapped.id = t.id;
+  }
+  return mapped;
+}
+
+// --- AUTHENTICATION ---
+
+export async function signUpSupabase(name: string, email: string, passwordPlain: string) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password: passwordPlain,
+    options: {
+      data: {
+        name: name,
+      },
+    },
+  });
+
+  if (error) throw error;
+  if (!data.user) throw new Error("Não foi possível criar o usuário no Supabase.");
+
+  // Se o usuário foi criado, rodamos o seed para criar os dados iniciais na conta dele
+  try {
+    await seedUserIfNeeded(data.user.id);
+  } catch (err) {
+    console.error("Erro ao rodar seed inicial do usuário:", err);
+  }
+
+  return {
+    token: data.session?.access_token || "supabase-session-active",
+    user: {
+      id: data.user.id,
+      name: data.user.user_metadata?.name || name,
+      email: data.user.email || email,
+    },
+  };
+}
+
+export async function signInSupabase(email: string, passwordPlain: string) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password: passwordPlain,
+  });
+
+  if (error) throw error;
+  if (!data.user) throw new Error("E-mail ou senha incorretos no Supabase.");
+
+  // Se o usuário fez login com sucesso, tentamos rodar o seed inicial caso seja a primeira vez dele
+  try {
+    await seedUserIfNeeded(data.user.id);
+  } catch (err) {
+    console.error("Erro ao verificar/rodar seed do usuário:", err);
+  }
+
+  return {
+    token: data.session?.access_token || "supabase-session-active",
+    user: {
+      id: data.user.id,
+      name: data.user.user_metadata?.name || data.user.email?.split("@")[0] || "Usuário",
+      email: data.user.email || email,
+    },
+  };
+}
+
+export async function signOutSupabase() {
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+}
+
+// --- DATA SEEDING (Idempotent initial data for new user accounts) ---
+
+export async function seedUserIfNeeded(userId: string) {
+  // 1. Check if the user is already seeded in 'user_seeded' table
+  const { data: seedCheck, error: checkError } = await supabase
+    .from("user_seeded")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (checkError) {
+    console.warn("Aviso ao checar user_seeded (tabela pode não existir):", checkError);
+    return;
+  }
+
+  if (seedCheck) {
+    // Already seeded, do nothing
+    return;
+  }
+
+  console.log(`Iniciando seed de dados iniciais para o usuário Supabase: ${userId}`);
+
+  // 2. Insert INITIAL_BUDGETS for this user
+  const budgetRows = Object.entries(INITIAL_BUDGETS).map(([month, amount]) => ({
+    user_id: userId,
+    month,
+    amount,
+  }));
+
+  if (budgetRows.length > 0) {
+    const { error: budgetErr } = await supabase
+      .from("budgets")
+      .insert(budgetRows);
+    if (budgetErr) {
+      console.error("Erro ao inserir orçamentos de seed no Supabase:", budgetErr);
+    }
+  }
+
+  // 3. Insert INITIAL_TRANSACTIONS for this user
+  const transactionRows = INITIAL_TRANSACTIONS.map((t) => {
+    const row = mapToSupabase(t, userId);
+    row.seed_key = t.id; // Chave única para evitar duplicados caso o script rode de novo
+    return row;
+  });
+
+  if (transactionRows.length > 0) {
+    const { error: transErr } = await supabase
+      .from("transactions")
+      .insert(transactionRows);
+    if (transErr) {
+      console.error("Erro ao inserir transações de seed no Supabase:", transErr);
+    }
+  }
+
+  // 4. Mark user as seeded to prevent doing it again
+  const { error: markErr } = await supabase
+    .from("user_seeded")
+    .insert({ user_id: userId });
+
+  if (markErr) {
+    console.error("Erro ao marcar usuário como seeded no Supabase:", markErr);
+  }
+
+  console.log("Seed concluído com sucesso para o usuário!");
+}
+
+// --- TRANSACTION OPERATIONS ---
+
+export async function getSupabaseTransactions(userId: string): Promise<Transaction[]> {
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("user_id", userId)
+    .order("date", { ascending: true });
+
+  if (error) throw error;
+  return (data || []).map(mapFromSupabase);
+}
+
+export async function addSupabaseTransaction(userId: string, t: Omit<Transaction, "id"> & { id?: string }): Promise<Transaction> {
+  const row = mapToSupabase(t, userId);
+  const { data, error } = await supabase
+    .from("transactions")
+    .insert(row)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return mapFromSupabase(data);
+}
+
+export async function addSupabaseTransactionsBatch(userId: string, list: (Omit<Transaction, "id"> & { id?: string })[]): Promise<Transaction[]> {
+  const rows = list.map(t => mapToSupabase(t, userId));
+  const { data, error } = await supabase
+    .from("transactions")
+    .insert(rows)
+    .select();
+
+  if (error) throw error;
+  return (data || []).map(mapFromSupabase);
+}
+
+export async function updateSupabaseTransaction(userId: string, id: string, updates: Partial<Transaction>): Promise<Transaction> {
+  // Convert updates fields to snake_case if they exist
+  const rowUpdates: any = {};
+  if (updates.description !== undefined) rowUpdates.description = updates.description;
+  if (updates.amount !== undefined) rowUpdates.amount = updates.amount;
+  if (updates.date !== undefined) rowUpdates.date = updates.date;
+  if (updates.type !== undefined) rowUpdates.type = updates.type;
+  if (updates.tableSection !== undefined) rowUpdates.table_section = updates.tableSection;
+  if (updates.category !== undefined) rowUpdates.category = updates.category;
+  if (updates.isOrangeHighlight !== undefined) rowUpdates.is_orange_highlight = updates.isOrangeHighlight;
+  if (updates.isDiscount !== undefined) rowUpdates.is_discount = updates.isDiscount;
+  if (updates.note !== undefined) rowUpdates.note = updates.note;
+
+  const { data, error } = await supabase
+    .from("transactions")
+    .update(rowUpdates)
+    .eq("id", id)
+    .eq("user_id", userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return mapFromSupabase(data);
+}
+
+export async function deleteSupabaseTransaction(userId: string, id: string): Promise<void> {
+  const { error } = await supabase
+    .from("transactions")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
+
+  if (error) throw error;
+}
+
+// --- BUDGET OPERATIONS ---
+
+export async function getSupabaseBudgets(userId: string): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from("budgets")
+    .select("month, amount")
+    .eq("user_id", userId);
+
+  if (error) throw error;
+
+  const budgets: Record<string, number> = {};
+  (data || []).forEach((b: any) => {
+    budgets[b.month] = parseFloat(b.amount) || 0;
+  });
+  return budgets;
+}
+
+export async function setSupabaseBudget(userId: string, month: string, amount: number): Promise<void> {
+  // Check if budget exists to either update or insert
+  const { data: existing, error: fetchErr } = await supabase
+    .from("budgets")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("month", month)
+    .maybeSingle();
+
+  if (fetchErr) throw fetchErr;
+
+  if (existing) {
+    const { error: updateErr } = await supabase
+      .from("budgets")
+      .update({ amount })
+      .eq("id", existing.id);
+    if (updateErr) throw updateErr;
+  } else {
+    const { error: insertErr } = await supabase
+      .from("budgets")
+      .insert({
+        user_id: userId,
+        month,
+        amount,
+      });
+    if (insertErr) throw insertErr;
+  }
+}

@@ -24,6 +24,18 @@ import TransactionTable from "./components/TransactionTable";
 import FinanceCharts from "./components/FinanceCharts";
 import SpreadsheetUpload from "./components/SpreadsheetUpload";
 import AuthScreen from "./components/AuthScreen";
+import {
+  isSupabaseConfigured,
+  getSupabaseTransactions,
+  addSupabaseTransaction,
+  addSupabaseTransactionsBatch,
+  updateSupabaseTransaction,
+  deleteSupabaseTransaction,
+  getSupabaseBudgets,
+  setSupabaseBudget,
+  signOutSupabase,
+  seedUserIfNeeded
+} from "./lib/supabaseService";
 
 export default function App() {
   // Authentication states
@@ -56,16 +68,22 @@ export default function App() {
     setUser(newUser);
   };
 
+  const supabaseActive = isSupabaseConfigured();
+
   // Logout Handler
   const handleLogout = async () => {
     if (token) {
       try {
-        await fetch("/api/auth/logout", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${token}` },
-        });
+        if (supabaseActive) {
+          await signOutSupabase();
+        } else {
+          await fetch("/api/auth/logout", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${token}` },
+          });
+        }
       } catch (err) {
-        console.error("Erro ao efetuar logout no servidor:", err);
+        console.error("Erro ao efetuar logout:", err);
       }
     }
     localStorage.removeItem("finances_token");
@@ -79,38 +97,45 @@ export default function App() {
 
   // Fetch transactions and budgets from server when token is active
   useEffect(() => {
-    if (!token) return;
+    if (!token || !user) return;
 
     const fetchData = async () => {
       setDataLoading(true);
       try {
-        // Fetch transactions
-        const tRes = await fetch("/api/transactions", {
-          headers: { "Authorization": `Bearer ${token}` },
-        });
-        if (tRes.status === 401) {
-          handleLogout();
-          return;
-        }
-        const tData = await tRes.json();
-        
-        // Fetch budgets
-        const bRes = await fetch("/api/budgets", {
-          headers: { "Authorization": `Bearer ${token}` },
-        });
-        const bData = await bRes.json();
+        if (supabaseActive) {
+          // --- FETCH DIRECT FROM SUPABASE ---
+          const tList = await getSupabaseTransactions(user.id);
+          const bMap = await getSupabaseBudgets(user.id);
+          setTransactions(tList);
+          setBudgets(bMap);
+        } else {
+          // --- FETCH FROM LOCAL EXPRESS SERVER ---
+          const tRes = await fetch("/api/transactions", {
+            headers: { "Authorization": `Bearer ${token}` },
+          });
+          if (tRes.status === 401) {
+            handleLogout();
+            return;
+          }
+          const tData = await tRes.json();
+          
+          const bRes = await fetch("/api/budgets", {
+            headers: { "Authorization": `Bearer ${token}` },
+          });
+          const bData = await bRes.json();
 
-        setTransactions(tData.transactions || []);
-        setBudgets(bData.budgets || {});
+          setTransactions(tData.transactions || []);
+          setBudgets(bData.budgets || {});
+        }
       } catch (err) {
-        console.error("Erro ao buscar dados do servidor:", err);
+        console.error("Erro ao buscar dados:", err);
       } finally {
         setDataLoading(false);
       }
     };
 
     fetchData();
-  }, [token]);
+  }, [token, user]);
 
   // Handle active budget setting for the current selected month
   const activeBudget = budgets[selectedMonth] !== undefined ? budgets[selectedMonth] : 843.15;
@@ -122,18 +147,22 @@ export default function App() {
       [selectedMonth]: val,
     }));
 
-    if (!token) return;
+    if (!token || !user) return;
     try {
-      const response = await fetch("/api/budgets", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({ month: selectedMonth, amount: val }),
-      });
-      if (!response.ok) {
-        throw new Error("Erro ao salvar orçamento.");
+      if (supabaseActive) {
+        await setSupabaseBudget(user.id, selectedMonth, val);
+      } else {
+        const response = await fetch("/api/budgets", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({ month: selectedMonth, amount: val }),
+        });
+        if (!response.ok) {
+          throw new Error("Erro ao salvar orçamento.");
+        }
       }
     } catch (err) {
       console.error(err);
@@ -194,23 +223,29 @@ export default function App() {
       category: section === "right" ? "Tecnologia" : "Outros",
       isOrangeHighlight: false,
       isDiscount: false,
+      note: "",
     };
 
-    if (!token) return;
+    if (!token || !user) return;
     try {
-      const response = await fetch("/api/transactions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify(newTransaction),
-      });
-      const data = await response.json();
-      if (!response.ok || data.error) {
-        throw new Error(data.error || "Erro ao adicionar transação.");
+      if (supabaseActive) {
+        const created = await addSupabaseTransaction(user.id, newTransaction);
+        setTransactions((prev) => [...prev, created]);
+      } else {
+        const response = await fetch("/api/transactions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify(newTransaction),
+        });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+          throw new Error(data.error || "Erro ao adicionar transação.");
+        }
+        setTransactions((prev) => [...prev, data.transaction]);
       }
-      setTransactions((prev) => [...prev, data.transaction]);
     } catch (err) {
       console.error(err);
     }
@@ -223,18 +258,22 @@ export default function App() {
       prev.map((t) => (t.id === id ? { ...t, ...updatedFields } : t))
     );
 
-    if (!token) return;
+    if (!token || !user) return;
     try {
-      const response = await fetch(`/api/transactions/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify(updatedFields),
-      });
-      if (!response.ok) {
-        throw new Error("Erro ao atualizar transação no servidor.");
+      if (supabaseActive) {
+        await updateSupabaseTransaction(user.id, id, updatedFields);
+      } else {
+        const response = await fetch(`/api/transactions/${id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify(updatedFields),
+        });
+        if (!response.ok) {
+          throw new Error("Erro ao atualizar transação no servidor.");
+        }
       }
     } catch (err) {
       console.error(err);
@@ -246,16 +285,20 @@ export default function App() {
     // Optimistic update
     setTransactions((prev) => prev.filter((t) => t.id !== id));
 
-    if (!token) return;
+    if (!token || !user) return;
     try {
-      const response = await fetch(`/api/transactions/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Erro ao excluir transação no servidor.");
+      if (supabaseActive) {
+        await deleteSupabaseTransaction(user.id, id);
+      } else {
+        const response = await fetch(`/api/transactions/${id}`, {
+          method: "DELETE",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+        if (!response.ok) {
+          throw new Error("Erro ao excluir transação no servidor.");
+        }
       }
     } catch (err) {
       console.error(err);
@@ -276,21 +319,26 @@ export default function App() {
       note: item.note || "",
     }));
 
-    if (!token) return;
+    if (!token || !user) return;
     try {
-      const response = await fetch("/api/transactions/batch", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({ transactions: parsedImported }),
-      });
-      const data = await response.json();
-      if (!response.ok || data.error) {
-        throw new Error(data.error || "Erro ao importar transações.");
+      if (supabaseActive) {
+        const createdList = await addSupabaseTransactionsBatch(user.id, parsedImported);
+        setTransactions((prev) => [...prev, ...createdList]);
+      } else {
+        const response = await fetch("/api/transactions/batch", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({ transactions: parsedImported }),
+        });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+          throw new Error(data.error || "Erro ao importar transações.");
+        }
+        setTransactions((prev) => [...prev, ...(data.transactions || [])]);
       }
-      setTransactions((prev) => [...prev, ...(data.transactions || [])]);
     } catch (err) {
       console.error(err);
     }
@@ -422,31 +470,52 @@ export default function App() {
   // Clear all data to restart
   const handleResetAll = async () => {
     if (window.confirm("Deseja realmente redefinir todos os dados para o modelo original do print?")) {
-      if (!token) return;
+      if (!token || !user) return;
       setDataLoading(true);
       try {
-        const response = await fetch("/api/auth/reset", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${token}` },
-        });
-        const data = await response.json();
-        if (!response.ok || data.error) {
-          throw new Error(data.error || "Erro ao resetar dados.");
+        if (supabaseActive) {
+          // --- RESET DIRECTLY ON SUPABASE ---
+          const { supabase } = await import("./lib/supabase");
+          
+          // Delete user rows
+          await supabase.from("transactions").delete().eq("user_id", user.id);
+          await supabase.from("budgets").delete().eq("user_id", user.id);
+          await supabase.from("user_seeded").delete().eq("user_id", user.id);
+          
+          // Run the seed again
+          await seedUserIfNeeded(user.id);
+          
+          // Fetch fresh data
+          const tList = await getSupabaseTransactions(user.id);
+          const bMap = await getSupabaseBudgets(user.id);
+          setTransactions(tList);
+          setBudgets(bMap);
+        } else {
+          // --- RESET ON LOCAL SERVER ---
+          const response = await fetch("/api/auth/reset", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${token}` },
+          });
+          const data = await response.json();
+          if (!response.ok || data.error) {
+            throw new Error(data.error || "Erro ao resetar dados.");
+          }
+          
+          // Reload fresh data from server
+          const tRes = await fetch("/api/transactions", {
+            headers: { "Authorization": `Bearer ${token}` },
+          });
+          const tData = await tRes.json();
+          
+          const bRes = await fetch("/api/budgets", {
+            headers: { "Authorization": `Bearer ${token}` },
+          });
+          const bData = await bRes.json();
+
+          setTransactions(tData.transactions || []);
+          setBudgets(bData.budgets || {});
         }
         
-        // Reload fresh data from server
-        const tRes = await fetch("/api/transactions", {
-          headers: { "Authorization": `Bearer ${token}` },
-        });
-        const tData = await tRes.json();
-        
-        const bRes = await fetch("/api/budgets", {
-          headers: { "Authorization": `Bearer ${token}` },
-        });
-        const bData = await bRes.json();
-
-        setTransactions(tData.transactions || []);
-        setBudgets(bData.budgets || {});
         setSelectedMonth("2026-07");
         setAdvisorResponse(null);
       } catch (err: any) {
@@ -492,27 +561,41 @@ export default function App() {
           </div>
 
           <div className="flex flex-col lg:flex-row items-center gap-3">
-            {/* Campo ID do Usuário Supabase para evitar erro de Foreign Key na importação */}
-            <div className="flex items-center gap-2 bg-slate-950/60 border border-emerald-500/20 px-3 py-1.5 rounded-2xl transition-all hover:border-emerald-500/30 focus-within:border-emerald-500/50">
-              <div className="w-6 h-6 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center border border-emerald-500/20">
-                <Database className="w-3.5 h-3.5" />
+            {/* Campo ID do Usuário Supabase ou indicador ativo */}
+            {supabaseActive ? (
+              <div className="flex items-center gap-2 bg-slate-950/60 border border-emerald-500/20 px-3 py-1.5 rounded-2xl">
+                <div className="w-6 h-6 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center border border-emerald-500/20">
+                  <Database className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[9px] text-emerald-400 leading-none font-bold uppercase tracking-wider">Supabase Ativo</span>
+                  <span className="text-[11px] text-slate-300 font-bold font-mono mt-0.5 max-w-[150px] truncate leading-tight" title={user.id}>
+                    {user.id}
+                  </span>
+                </div>
               </div>
-              <div className="flex flex-col text-left">
-                <span className="text-[9px] text-emerald-400 leading-none font-bold uppercase tracking-wider">ID Supabase (UUID)</span>
-                <input
-                  type="text"
-                  placeholder="Cole seu auth.uid() do Supabase"
-                  value={supabaseUserId}
-                  onChange={(e) => {
-                    const val = e.target.value.trim();
-                    setSupabaseUserId(val);
-                    localStorage.setItem("supabase_user_id", val);
-                  }}
-                  className="bg-transparent text-[11px] text-slate-200 font-bold font-mono focus:outline-none placeholder-slate-600 w-40 sm:w-48 mt-0.5"
-                  title="Cole seu UUID do Supabase aqui para que os CSVs sejam exportados com o ID correto e não deem erro de Chave Estrangeira."
-                />
+            ) : (
+              <div className="flex items-center gap-2 bg-slate-950/60 border border-slate-800/80 px-3 py-1.5 rounded-2xl transition-all hover:border-slate-700/50 focus-within:border-indigo-500/50">
+                <div className="w-6 h-6 bg-slate-500/10 text-slate-400 rounded-full flex items-center justify-center border border-slate-700/20">
+                  <Database className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[9px] text-slate-400 leading-none font-bold uppercase tracking-wider">ID Supabase (CSV)</span>
+                  <input
+                    type="text"
+                    placeholder="Cole seu auth.uid() do Supabase"
+                    value={supabaseUserId}
+                    onChange={(e) => {
+                      const val = e.target.value.trim();
+                      setSupabaseUserId(val);
+                      localStorage.setItem("supabase_user_id", val);
+                    }}
+                    className="bg-transparent text-[11px] text-slate-200 font-bold font-mono focus:outline-none placeholder-slate-600 w-40 sm:w-48 mt-0.5"
+                    title="Cole seu UUID do Supabase aqui para que os CSVs sejam exportados com o ID correto e não deem erro de Chave Estrangeira."
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="flex items-center gap-2 bg-slate-950/60 border border-slate-800/80 px-3 py-1.5 rounded-2xl">
               <div className="w-6 h-6 bg-indigo-500/10 text-indigo-400 rounded-full flex items-center justify-center border border-indigo-500/20">
