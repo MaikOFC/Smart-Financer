@@ -3,6 +3,18 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import { 
+  registerUser, 
+  loginUser, 
+  getUserByToken, 
+  logoutUser,
+  getUserTransactions,
+  createTransaction,
+  updateTransaction,
+  deleteTransaction,
+  getUserBudgets,
+  setUserBudget
+} from "./src/serverDb";
 
 dotenv.config();
 
@@ -25,6 +37,198 @@ if (process.env.GEMINI_API_KEY) {
     },
   });
 }
+
+// Authentication middleware
+const authMiddleware = (req: any, res: any, next: any) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Token de autenticação ausente ou inválido." });
+  }
+  const token = authHeader.split(" ")[1];
+  const user = getUserByToken(token);
+  if (!user) {
+    return res.status(401).json({ error: "Sessão inválida ou expirada." });
+  }
+  req.user = user;
+  req.token = token;
+  next();
+};
+
+// --- AUTENTICAÇÃO ---
+
+// Registro de Usuário
+app.post("/api/auth/register", (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: "Nome, e-mail e senha são obrigatórios." });
+    }
+    registerUser(name, email, password);
+    const loginResult = loginUser(email, password);
+    res.status(201).json({ 
+      message: "Usuário registrado com sucesso!",
+      user: { id: loginResult.user.id, name: loginResult.user.name, email: loginResult.user.email },
+      token: loginResult.token
+    });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Login de Usuário
+app.post("/api/auth/login", (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
+    }
+    const { user, token } = loginUser(email, password);
+    res.json({
+      message: "Login realizado com sucesso!",
+      user: { id: user.id, name: user.name, email: user.email },
+      token
+    });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Obter dados do usuário autenticado
+app.get("/api/auth/me", authMiddleware, (req: any, res) => {
+  res.json({
+    user: { id: req.user.id, name: req.user.name, email: req.user.email }
+  });
+});
+
+// Logout
+app.post("/api/auth/logout", authMiddleware, (req: any, res) => {
+  logoutUser(req.token);
+  res.json({ message: "Logout realizado com sucesso." });
+});
+
+// --- TRANSAÇÕES (PROTEGIDAS) ---
+
+// Obter todas as transações do usuário logado
+app.get("/api/transactions", authMiddleware, (req: any, res) => {
+  try {
+    const transactions = getUserTransactions(req.user.id);
+    res.json({ transactions });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Criar nova transação
+app.post("/api/transactions", authMiddleware, (req: any, res) => {
+  try {
+    const transaction = createTransaction(req.user.id, req.body);
+    res.status(201).json({ transaction });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Criar múltiplas transações (importação em massa)
+app.post("/api/transactions/batch", authMiddleware, (req: any, res) => {
+  try {
+    const { transactions } = req.body;
+    if (!Array.isArray(transactions)) {
+      return res.status(400).json({ error: "O corpo da requisição deve conter um array 'transactions'." });
+    }
+    const created = transactions.map((t: any) => createTransaction(req.user.id, t));
+    res.status(201).json({ transactions: created });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Atualizar transação existente
+app.put("/api/transactions/:id", authMiddleware, (req: any, res) => {
+  try {
+    const transaction = updateTransaction(req.user.id, req.params.id, req.body);
+    res.json({ transaction });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Deletar transação
+app.delete("/api/transactions/:id", authMiddleware, (req: any, res) => {
+  try {
+    deleteTransaction(req.user.id, req.params.id);
+    res.json({ success: true, message: "Transação excluída com sucesso." });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// --- ORÇAMENTOS (PROTEGIDOS) ---
+
+// Obter todos os orçamentos do usuário logado
+app.get("/api/budgets", authMiddleware, (req: any, res) => {
+  try {
+    const budgets = getUserBudgets(req.user.id);
+    res.json({ budgets });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Definir ou atualizar orçamento para um mês
+app.post("/api/budgets", authMiddleware, (req: any, res) => {
+  try {
+    const { month, amount } = req.body;
+    if (!month || amount === undefined) {
+      return res.status(400).json({ error: "Mês e valor do orçamento são obrigatórios." });
+    }
+    setUserBudget(req.user.id, month, parseFloat(amount) || 0);
+    res.json({ success: true, message: "Orçamento atualizado com sucesso." });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Redefinir dados para o modelo original (semente)
+app.post("/api/auth/reset", authMiddleware, (req: any, res) => {
+  try {
+    // Import dynamically from initialData to prevent any ESM vs CommonJS issue
+    const { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } = require("./src/initialData");
+    const crypto = require("crypto");
+    const fs = require("fs");
+    const path = require("path");
+    const DB_FILE = path.join(process.cwd(), "database.json");
+
+    const content = fs.readFileSync(DB_FILE, "utf-8");
+    const db = JSON.parse(content);
+
+    // Filter out existing user transactions and budgets
+    db.transactions = db.transactions.filter((t: any) => t.userId !== req.user.id);
+    db.budgets = db.budgets.filter((b: any) => b.userId !== req.user.id);
+
+    // Re-seed
+    const userTransactions = INITIAL_TRANSACTIONS.map((t: any) => ({
+      ...t,
+      id: `${t.id}-${crypto.randomUUID().substring(0, 8)}`,
+      userId: req.user.id,
+    }));
+    db.transactions.push(...userTransactions);
+
+    Object.entries(INITIAL_BUDGETS).forEach(([month, amount]) => {
+      db.budgets.push({
+        userId: req.user.id,
+        month,
+        amount,
+      });
+    });
+
+    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), "utf-8");
+
+    res.json({ success: true, message: "Dados redefinidos com sucesso para o modelo original." });
+  } catch (error: any) {
+    console.error("Erro ao resetar dados:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // API Endpoint to check health and API key configuration
 app.get("/api/health", (req, res) => {

@@ -13,6 +13,8 @@ import {
   PiggyBank,
   Download,
   Upload,
+  LogOut,
+  User as UserIcon,
 } from "lucide-react";
 import { Transaction } from "./types";
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from "./initialData";
@@ -20,20 +22,21 @@ import MetricCards from "./components/MetricCards";
 import TransactionTable from "./components/TransactionTable";
 import FinanceCharts from "./components/FinanceCharts";
 import SpreadsheetUpload from "./components/SpreadsheetUpload";
+import AuthScreen from "./components/AuthScreen";
 
 export default function App() {
-  // Load transactions and budgets from localStorage or fall back to pre-populated data
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const saved = localStorage.getItem("finances_transactions");
-    return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
+  // Authentication states
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem("finances_token"));
+  const [user, setUser] = useState<{ id: string; name: string; email: string } | null>(() => {
+    const saved = localStorage.getItem("finances_user");
+    return saved ? JSON.parse(saved) : null;
   });
 
-  const [budgets, setBudgets] = useState<Record<string, number>>(() => {
-    const saved = localStorage.getItem("finances_budgets");
-    return saved ? JSON.parse(saved) : INITIAL_BUDGETS;
-  });
-
-  // Active year-month filter, defaulting to "2026-07" (matches the user starting point)
+  // Client states loaded from the database
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [budgets, setBudgets] = useState<Record<string, number>>({});
+  
+  const [dataLoading, setDataLoading] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>("2026-07");
 
   // AI Advisor state
@@ -41,23 +44,96 @@ export default function App() {
   const [advisorResponse, setAdvisorResponse] = useState<string | null>(null);
   const [advisorLoading, setAdvisorLoading] = useState(false);
 
-  // Sync with localStorage
-  useEffect(() => {
-    localStorage.setItem("finances_transactions", JSON.stringify(transactions));
-  }, [transactions]);
+  // Auth Success Handler
+  const handleAuthSuccess = (newToken: string, newUser: { id: string; name: string; email: string }) => {
+    localStorage.setItem("finances_token", newToken);
+    localStorage.setItem("finances_user", JSON.stringify(newUser));
+    setToken(newToken);
+    setUser(newUser);
+  };
 
+  // Logout Handler
+  const handleLogout = async () => {
+    if (token) {
+      try {
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}` },
+        });
+      } catch (err) {
+        console.error("Erro ao efetuar logout no servidor:", err);
+      }
+    }
+    localStorage.removeItem("finances_token");
+    localStorage.removeItem("finances_user");
+    setToken(null);
+    setUser(null);
+    setTransactions([]);
+    setBudgets({});
+    setAdvisorResponse(null);
+  };
+
+  // Fetch transactions and budgets from server when token is active
   useEffect(() => {
-    localStorage.setItem("finances_budgets", JSON.stringify(budgets));
-  }, [budgets]);
+    if (!token) return;
+
+    const fetchData = async () => {
+      setDataLoading(true);
+      try {
+        // Fetch transactions
+        const tRes = await fetch("/api/transactions", {
+          headers: { "Authorization": `Bearer ${token}` },
+        });
+        if (tRes.status === 401) {
+          handleLogout();
+          return;
+        }
+        const tData = await tRes.json();
+        
+        // Fetch budgets
+        const bRes = await fetch("/api/budgets", {
+          headers: { "Authorization": `Bearer ${token}` },
+        });
+        const bData = await bRes.json();
+
+        setTransactions(tData.transactions || []);
+        setBudgets(bData.budgets || {});
+      } catch (err) {
+        console.error("Erro ao buscar dados do servidor:", err);
+      } finally {
+        setDataLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [token]);
 
   // Handle active budget setting for the current selected month
   const activeBudget = budgets[selectedMonth] !== undefined ? budgets[selectedMonth] : 843.15;
 
-  const handleSetBudget = (val: number) => {
+  const handleSetBudget = async (val: number) => {
+    // Optimistic update
     setBudgets((prev) => ({
       ...prev,
       [selectedMonth]: val,
     }));
+
+    if (!token) return;
+    try {
+      const response = await fetch("/api/budgets", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ month: selectedMonth, amount: val }),
+      });
+      if (!response.ok) {
+        throw new Error("Erro ao salvar orçamento.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Calculations for active filtered month
@@ -104,10 +180,8 @@ export default function App() {
   const sobra = activeBudget - leftExpensesTotal;
 
   // Add a new empty row to a table section
-  const handleAddTransaction = (section: "left" | "right" | "bottom_left") => {
-    const newId = `manual-${Date.now()}`;
-    const newTransaction: Transaction = {
-      id: newId,
+  const handleAddTransaction = async (section: "left" | "right" | "bottom_left") => {
+    const newTransaction: Omit<Transaction, "id"> = {
       description: section === "bottom_left" ? "Nova Parcela" : "Novo Item",
       amount: section === "bottom_left" ? 100 : 0,
       date: `${selectedMonth}-15`, // Default to middle of month
@@ -118,31 +192,104 @@ export default function App() {
       isDiscount: false,
     };
 
-    setTransactions((prev) => [...prev, newTransaction]);
+    if (!token) return;
+    try {
+      const response = await fetch("/api/transactions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(newTransaction),
+      });
+      const data = await response.json();
+      if (!response.ok || data.error) {
+        throw new Error(data.error || "Erro ao adicionar transação.");
+      }
+      setTransactions((prev) => [...prev, data.transaction]);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Update transaction row
-  const handleUpdateTransaction = (id: string, updatedFields: Partial<Transaction>) => {
+  const handleUpdateTransaction = async (id: string, updatedFields: Partial<Transaction>) => {
+    // Optimistic update
     setTransactions((prev) =>
       prev.map((t) => (t.id === id ? { ...t, ...updatedFields } : t))
     );
+
+    if (!token) return;
+    try {
+      const response = await fetch(`/api/transactions/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(updatedFields),
+      });
+      if (!response.ok) {
+        throw new Error("Erro ao atualizar transação no servidor.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Delete transaction row
-  const handleDeleteTransaction = (id: string) => {
+  const handleDeleteTransaction = async (id: string) => {
+    // Optimistic update
     setTransactions((prev) => prev.filter((t) => t.id !== id));
+
+    if (!token) return;
+    try {
+      const response = await fetch(`/api/transactions/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error("Erro ao excluir transação no servidor.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Import transactions from file parsing or AI image analysis
-  const handleImportTransactions = (imported: Transaction[]) => {
-    // Generate fresh unique IDs to avoid conflicts and set correct date formats
-    const parsedImported = imported.map((item, idx) => ({
-      ...item,
-      id: `imported-${Date.now()}-${idx}`,
+  const handleImportTransactions = async (imported: Transaction[]) => {
+    const parsedImported = imported.map((item) => ({
+      description: item.description,
+      amount: item.amount,
       date: item.date || `${selectedMonth}-01`,
+      type: item.type,
+      tableSection: item.tableSection,
+      category: item.category || "Outros",
+      isOrangeHighlight: !!item.isOrangeHighlight,
+      isDiscount: !!item.isDiscount,
+      note: item.note || "",
     }));
 
-    setTransactions((prev) => [...prev, ...parsedImported]);
+    if (!token) return;
+    try {
+      const response = await fetch("/api/transactions/batch", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ transactions: parsedImported }),
+      });
+      const data = await response.json();
+      if (!response.ok || data.error) {
+        throw new Error(data.error || "Erro ao importar transações.");
+      }
+      setTransactions((prev) => [...prev, ...(data.transactions || [])]);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Ask AI Advisor
@@ -186,17 +333,45 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `controle_financeiro_backup.json`;
+    link.download = `controle_financeiro_backup_${user?.name.toLowerCase().replace(/\s+/g, "_")}.json`;
     link.click();
   };
 
   // Clear all data to restart
-  const handleResetAll = () => {
+  const handleResetAll = async () => {
     if (window.confirm("Deseja realmente redefinir todos os dados para o modelo original do print?")) {
-      setTransactions(INITIAL_TRANSACTIONS);
-      setBudgets(INITIAL_BUDGETS);
-      setSelectedMonth("2026-07");
-      setAdvisorResponse(null);
+      if (!token) return;
+      setDataLoading(true);
+      try {
+        const response = await fetch("/api/auth/reset", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}` },
+        });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+          throw new Error(data.error || "Erro ao resetar dados.");
+        }
+        
+        // Reload fresh data from server
+        const tRes = await fetch("/api/transactions", {
+          headers: { "Authorization": `Bearer ${token}` },
+        });
+        const tData = await tRes.json();
+        
+        const bRes = await fetch("/api/budgets", {
+          headers: { "Authorization": `Bearer ${token}` },
+        });
+        const bData = await bRes.json();
+
+        setTransactions(tData.transactions || []);
+        setBudgets(bData.budgets || {});
+        setSelectedMonth("2026-07");
+        setAdvisorResponse(null);
+      } catch (err: any) {
+        alert(`Erro ao redefinir dados: ${err.message}`);
+      } finally {
+        setDataLoading(false);
+      }
     }
   };
 
@@ -210,6 +385,10 @@ export default function App() {
     { value: "2026-12", label: "Dezembro 2026" },
     { value: "2027-01", label: "Janeiro 2027" },
   ];
+
+  if (!token || !user) {
+    return <AuthScreen onSuccess={handleAuthSuccess} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-12 selection:bg-indigo-500/35 selection:text-white">
@@ -230,27 +409,53 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleExportData}
-              className="flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-xl transition-all border border-slate-800 text-slate-300"
-              title="Exportar backup completo de transações em JSON"
-            >
-              <Download className="w-4 h-4" /> Exportar Backup
-            </button>
-            <button
-              onClick={handleResetAll}
-              className="flex items-center gap-1.5 text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-3.5 py-2 rounded-xl transition-all border border-rose-500/20"
-              title="Redefinir planilhas para o padrão"
-            >
-              <RefreshCw className="w-4 h-4" /> Resetar Dados
-            </button>
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="flex items-center gap-2 bg-slate-950/60 border border-slate-800/80 px-3 py-1.5 rounded-2xl">
+              <div className="w-6 h-6 bg-indigo-500/10 text-indigo-400 rounded-full flex items-center justify-center border border-indigo-500/20">
+                <UserIcon className="w-3.5 h-3.5" />
+              </div>
+              <div className="flex flex-col text-left">
+                <span className="text-[9px] text-slate-500 leading-none font-bold uppercase tracking-wider">Usuário</span>
+                <span className="text-xs text-slate-200 font-bold leading-tight">{user.name}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleExportData}
+                className="flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 px-3 py-2 rounded-xl transition-all border border-slate-800 text-slate-300"
+                title="Exportar backup completo de transações em JSON"
+              >
+                <Download className="w-4 h-4" /> Exportar
+              </button>
+              <button
+                onClick={handleResetAll}
+                className="flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 px-3 py-2 rounded-xl transition-all border border-slate-800"
+                title="Redefinir planilhas para o padrão"
+              >
+                <RefreshCw className="w-4 h-4" /> Resetar
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-3.5 py-2 rounded-xl transition-all border border-rose-500/20"
+                title="Sair da Conta"
+              >
+                <LogOut className="w-4 h-4" /> Sair
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       {/* CONTÊINER GERAL */}
       <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        {dataLoading ? (
+          <div className="flex flex-col items-center justify-center py-32 space-y-4">
+            <RefreshCw className="w-10 h-10 animate-spin text-indigo-500" />
+            <p className="text-sm text-slate-400 font-medium font-sans">Carregando seus dados financeiros...</p>
+          </div>
+        ) : (
+          <>
         {/* CONTROLES DE DATA E SELEÇÃO DE MÊS */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-2">
@@ -400,6 +605,8 @@ export default function App() {
             </div>
           </div>
         </div>
+          </>
+        )}
       </main>
     </div>
   );
