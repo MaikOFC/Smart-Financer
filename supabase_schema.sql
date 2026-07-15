@@ -40,7 +40,10 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     is_orange_highlight BOOLEAN NOT NULL DEFAULT FALSE,
     is_discount BOOLEAN NOT NULL DEFAULT FALSE,
     note TEXT DEFAULT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    seed_key VARCHAR(100) DEFAULT NULL, -- Chave única opcional para transações do template/seed
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    -- Garante que transações do seed não sejam duplicadas para o mesmo usuário
+    CONSTRAINT unique_user_seed_key UNIQUE (user_id, seed_key)
 );
 
 -- Ativar Row Level Security (RLS)

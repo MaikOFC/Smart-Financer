@@ -15,6 +15,7 @@ import {
   Upload,
   LogOut,
   User as UserIcon,
+  Database,
 } from "lucide-react";
 import { Transaction } from "./types";
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from "./initialData";
@@ -38,6 +39,9 @@ export default function App() {
   
   const [dataLoading, setDataLoading] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>("2026-07");
+  const [supabaseUserId, setSupabaseUserId] = useState<string>(() => {
+    return localStorage.getItem("supabase_user_id") || "1703bc04-af6d-4bfa-9d6f-422fa3b077a6";
+  });
 
   // AI Advisor state
   const [advisorQuery, setAdvisorQuery] = useState("");
@@ -337,6 +341,84 @@ export default function App() {
     link.click();
   };
 
+  // Export active user's data as Supabase compatible CSVs
+  const handleExportSupabaseCSV = (type: "transactions" | "budgets") => {
+    const trimmedId = supabaseUserId.trim();
+    if (!trimmedId) {
+      const confirmUseDefault = window.confirm(
+        "Aviso: Você não configurou seu User ID do Supabase.\n\n" +
+        "Como a tabela do Supabase exige que cada registro pertença a um usuário real da tabela auth.users " +
+        "para passar pela chave estrangeira (Foreign Key), você deve copiar seu UUID do Supabase e colar no campo verde do topo antes de exportar.\n\n" +
+        "Quer exportar mesmo assim usando um ID provisório de teste?"
+      );
+      if (!confirmUseDefault) return;
+    }
+
+    const userId = trimmedId || user?.id || "00000000-0000-0000-0000-000000000000";
+    let csvContent = "";
+
+    if (type === "transactions") {
+      const headers = [
+        "user_id",
+        "description",
+        "amount",
+        "date",
+        "type",
+        "table_section",
+        "category",
+        "is_orange_highlight",
+        "is_discount",
+        "note",
+        "seed_key"
+      ];
+      const rows = transactions.map((t) => {
+        const description = (t.description || "").replace(/"/g, '""');
+        const amount = (t.amount || 0).toFixed(2);
+        const date = t.date || "";
+        const txType = t.type || "expense";
+        const table_section = t.tableSection || "left";
+        const category = (t.category || "Outros").replace(/"/g, '""');
+        const is_orange_highlight = t.isOrangeHighlight ? "TRUE" : "FALSE";
+        const is_discount = t.isDiscount ? "TRUE" : "FALSE";
+        const note = (t.note || "").replace(/"/g, '""');
+        // If it was a preloaded seed, keep its seed_key, else empty
+        const seed_key = t.id && !t.id.startsWith("manual") && !t.id.startsWith("imported") ? t.id : "";
+
+        return [
+          userId,
+          `"${description}"`,
+          amount,
+          date,
+          txType,
+          table_section,
+          `"${category}"`,
+          is_orange_highlight,
+          is_discount,
+          `"${note}"`,
+          `"${seed_key}"`
+        ].join(",");
+      });
+      csvContent = [headers.join(","), ...rows].join("\n");
+    } else {
+      const headers = ["user_id", "month", "amount"];
+      const rows = Object.entries(budgets).map(([month, amount]) => {
+        return [
+          userId,
+          month,
+          (Number(amount) || 0).toFixed(2)
+        ].join(",");
+      });
+      csvContent = [headers.join(","), ...rows].join("\n");
+    }
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `supabase_${type}_${user?.name.toLowerCase().replace(/\s+/g, "_")}.csv`;
+    link.click();
+  };
+
   // Clear all data to restart
   const handleResetAll = async () => {
     if (window.confirm("Deseja realmente redefinir todos os dados para o modelo original do print?")) {
@@ -409,7 +491,29 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="flex flex-col lg:flex-row items-center gap-3">
+            {/* Campo ID do Usuário Supabase para evitar erro de Foreign Key na importação */}
+            <div className="flex items-center gap-2 bg-slate-950/60 border border-emerald-500/20 px-3 py-1.5 rounded-2xl transition-all hover:border-emerald-500/30 focus-within:border-emerald-500/50">
+              <div className="w-6 h-6 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center border border-emerald-500/20">
+                <Database className="w-3.5 h-3.5" />
+              </div>
+              <div className="flex flex-col text-left">
+                <span className="text-[9px] text-emerald-400 leading-none font-bold uppercase tracking-wider">ID Supabase (UUID)</span>
+                <input
+                  type="text"
+                  placeholder="Cole seu auth.uid() do Supabase"
+                  value={supabaseUserId}
+                  onChange={(e) => {
+                    const val = e.target.value.trim();
+                    setSupabaseUserId(val);
+                    localStorage.setItem("supabase_user_id", val);
+                  }}
+                  className="bg-transparent text-[11px] text-slate-200 font-bold font-mono focus:outline-none placeholder-slate-600 w-40 sm:w-48 mt-0.5"
+                  title="Cole seu UUID do Supabase aqui para que os CSVs sejam exportados com o ID correto e não deem erro de Chave Estrangeira."
+                />
+              </div>
+            </div>
+
             <div className="flex items-center gap-2 bg-slate-950/60 border border-slate-800/80 px-3 py-1.5 rounded-2xl">
               <div className="w-6 h-6 bg-indigo-500/10 text-indigo-400 rounded-full flex items-center justify-center border border-indigo-500/20">
                 <UserIcon className="w-3.5 h-3.5" />
@@ -426,7 +530,21 @@ export default function App() {
                 className="flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 px-3 py-2 rounded-xl transition-all border border-slate-800 text-slate-300"
                 title="Exportar backup completo de transações em JSON"
               >
-                <Download className="w-4 h-4" /> Exportar
+                <Download className="w-4 h-4" /> Exportar JSON
+              </button>
+              <button
+                onClick={() => handleExportSupabaseCSV("transactions")}
+                className="flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 px-3 py-2 rounded-xl transition-all border border-slate-800 text-emerald-400 hover:text-emerald-300"
+                title="Exportar transações formatadas para o Supabase CSV"
+              >
+                <Database className="w-4 h-4" /> CSV Transações
+              </button>
+              <button
+                onClick={() => handleExportSupabaseCSV("budgets")}
+                className="flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 px-3 py-2 rounded-xl transition-all border border-slate-800 text-emerald-400 hover:text-emerald-300"
+                title="Exportar orçamentos formatados para o Supabase CSV"
+              >
+                <Database className="w-4 h-4" /> CSV Orçamentos
               </button>
               <button
                 onClick={handleResetAll}
