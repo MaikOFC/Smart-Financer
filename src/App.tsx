@@ -251,24 +251,6 @@ export default function App() {
 
       {/* CONTÊINER GERAL */}
       <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        {/* EXPLICAÇÃO DO MODELO DA PLANILHA */}
-        <div className="bg-slate-900 rounded-3xl border border-slate-800/80 p-6 mb-8 flex flex-col md:flex-row gap-6 items-center hover:border-slate-700/50 transition-all">
-          <div className="p-4 bg-indigo-500/10 text-indigo-400 rounded-2xl border border-indigo-500/20 flex-shrink-0">
-            <FileSpreadsheet className="w-12 h-12" />
-          </div>
-          <div className="space-y-1">
-            <h2 className="text-sm font-bold text-white flex items-center gap-1.5">
-              Sua planilha do print integrada <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[9px] px-2 py-0.5 rounded-lg font-black uppercase tracking-wider">MODELO ATIVO</span>
-            </h2>
-            <p className="text-xs text-slate-400 leading-relaxed max-w-4xl">
-              Estruturamos as transações exatamente como em sua planilha original: 
-              a <strong>Tabela Esquerda</strong> calcula suas despesas regulares e desconta as deduções; 
-              a <strong>Tabela Direita</strong> organiza suas compras especiais de eletrônicos ou pessoais; 
-              e a <strong>Tabela Inferior</strong> gerencia recebíveis, reembolsos familiares e parcelas datadas de devedores.
-            </p>
-          </div>
-        </div>
-
         {/* CONTROLES DE DATA E SELEÇÃO DE MÊS */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-2">
