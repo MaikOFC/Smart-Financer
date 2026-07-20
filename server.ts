@@ -238,6 +238,14 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// API Endpoint to expose public Supabase credentials at runtime to avoid Vite build-time baking issues
+app.get("/api/config", (req, res) => {
+  res.json({
+    supabaseUrl: process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "",
+    supabaseKey: process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || "",
+  });
+});
+
 // API Endpoint to parse spreadsheets or images of spreadsheets using Gemini
 app.post("/api/parse-spreadsheet", async (req, res) => {
   try {

@@ -24,6 +24,7 @@ import TransactionTable from "./components/TransactionTable";
 import FinanceCharts from "./components/FinanceCharts";
 import SpreadsheetUpload from "./components/SpreadsheetUpload";
 import AuthScreen from "./components/AuthScreen";
+import AddTransactionModal from "./components/AddTransactionModal";
 import {
   isSupabaseConfigured,
   getSupabaseTransactions,
@@ -50,6 +51,7 @@ export default function App() {
   const [budgets, setBudgets] = useState<Record<string, number>>({});
   
   const [dataLoading, setDataLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string>("2026-07");
   const [supabaseUserId, setSupabaseUserId] = useState<string>(() => {
     return localStorage.getItem("supabase_user_id") || "1703bc04-af6d-4bfa-9d6f-422fa3b077a6";
@@ -60,6 +62,10 @@ export default function App() {
   const [advisorResponse, setAdvisorResponse] = useState<string | null>(null);
   const [advisorLoading, setAdvisorLoading] = useState(false);
 
+  // Add Transaction Modal state
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addModalSection, setAddModalSection] = useState<"left" | "right" | "bottom_left">("left");
+
   // Auth Success Handler
   const handleAuthSuccess = (newToken: string, newUser: { id: string; name: string; email: string }) => {
     localStorage.setItem("finances_token", newToken);
@@ -68,7 +74,48 @@ export default function App() {
     setUser(newUser);
   };
 
-  const supabaseActive = isSupabaseConfigured();
+  // Synchronize Supabase configurations from backend server dynamically on mount
+  useEffect(() => {
+    const syncConfig = async () => {
+      try {
+        const res = await fetch("/api/config");
+        if (!res.ok) return;
+        const config = await res.json();
+        
+        const cleanUrl = (url: string) => {
+          let cleaned = (url || "").trim();
+          if (cleaned.endsWith("/rest/v1/")) {
+            cleaned = cleaned.slice(0, -9);
+          } else if (cleaned.endsWith("/rest/v1")) {
+            cleaned = cleaned.slice(0, -8);
+          }
+          return cleaned;
+        };
+
+        const currentUrl = cleanUrl(localStorage.getItem("VITE_SUPABASE_URL") || import.meta.env.VITE_SUPABASE_URL || "");
+        const currentKey = (localStorage.getItem("VITE_SUPABASE_ANON_KEY") || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
+        
+        const newUrl = cleanUrl(config.supabaseUrl);
+        const newKey = (config.supabaseKey || "").trim();
+        
+        if (newUrl && newKey && (currentUrl !== newUrl || currentKey !== newKey)) {
+          console.log("Configuração do Supabase atualizada pelo servidor. Sincronizando e recarregando...");
+          localStorage.setItem("VITE_SUPABASE_URL", newUrl);
+          localStorage.setItem("VITE_SUPABASE_ANON_KEY", newKey);
+          
+          const { updateSupabaseClient } = await import("./lib/supabase");
+          updateSupabaseClient(newUrl, newKey);
+        }
+      } catch (err) {
+        console.error("Erro ao sincronizar configurações do Supabase:", err);
+      }
+    };
+    
+    syncConfig();
+  }, []);
+
+  const isDemoUser = user?.email === "miqueias@demo.com";
+  const supabaseActive = isSupabaseConfigured() && !isDemoUser;
 
   // Logout Handler
   const handleLogout = async () => {
@@ -76,7 +123,7 @@ export default function App() {
       try {
         if (supabaseActive) {
           await signOutSupabase();
-        } else {
+        } else if (!isDemoUser) {
           await fetch("/api/auth/logout", {
             method: "POST",
             headers: { "Authorization": `Bearer ${token}` },
@@ -101,8 +148,28 @@ export default function App() {
 
     const fetchData = async () => {
       setDataLoading(true);
+      setFetchError(null);
       try {
-        if (supabaseActive) {
+        if (isDemoUser) {
+          // --- LOCAL STORAGE PERSISTENCE FOR DEMO USER ---
+          const savedTransactions = localStorage.getItem("demo_transactions");
+          const savedBudgets = localStorage.getItem("demo_budgets");
+
+          if (savedTransactions) {
+            setTransactions(JSON.parse(savedTransactions));
+          } else {
+            // First time demo user: initialize with default data
+            setTransactions(INITIAL_TRANSACTIONS);
+            localStorage.setItem("demo_transactions", JSON.stringify(INITIAL_TRANSACTIONS));
+          }
+
+          if (savedBudgets) {
+            setBudgets(JSON.parse(savedBudgets));
+          } else {
+            setBudgets(INITIAL_BUDGETS);
+            localStorage.setItem("demo_budgets", JSON.stringify(INITIAL_BUDGETS));
+          }
+        } else if (supabaseActive) {
           // --- FETCH DIRECT FROM SUPABASE ---
           const tList = await getSupabaseTransactions(user.id);
           const bMap = await getSupabaseBudgets(user.id);
@@ -127,8 +194,9 @@ export default function App() {
           setTransactions(tData.transactions || []);
           setBudgets(bData.budgets || {});
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Erro ao buscar dados:", err);
+        setFetchError(err.message || String(err));
       } finally {
         setDataLoading(false);
       }
@@ -149,7 +217,13 @@ export default function App() {
 
     if (!token || !user) return;
     try {
-      if (supabaseActive) {
+      if (isDemoUser) {
+        const updatedBudgets = {
+          ...budgets,
+          [selectedMonth]: val,
+        };
+        localStorage.setItem("demo_budgets", JSON.stringify(updatedBudgets));
+      } else if (supabaseActive) {
         await setSupabaseBudget(user.id, selectedMonth, val);
       } else {
         const response = await fetch("/api/budgets", {
@@ -212,23 +286,19 @@ export default function App() {
   // Sobra = Budget (Income) - Left expenses
   const sobra = activeBudget - leftExpensesTotal;
 
-  // Add a new empty row to a table section
-  const handleAddTransaction = async (section: "left" | "right" | "bottom_left") => {
-    const newTransaction: Omit<Transaction, "id"> = {
-      description: section === "bottom_left" ? "Nova Parcela" : "Novo Item",
-      amount: section === "bottom_left" ? 100 : 0,
-      date: `${selectedMonth}-15`, // Default to middle of month
-      type: section === "bottom_left" ? "income" : "expense",
-      tableSection: section,
-      category: section === "right" ? "Tecnologia" : "Outros",
-      isOrangeHighlight: false,
-      isDiscount: false,
-      note: "",
-    };
-
+  // Add a new transaction (called from the AddTransactionModal)
+  const handleAddTransaction = async (newTransaction: Omit<Transaction, "id">) => {
     if (!token || !user) return;
     try {
-      if (supabaseActive) {
+      if (isDemoUser) {
+        const created: Transaction = {
+          ...newTransaction,
+          id: `demo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        } as Transaction;
+        const updated = [...transactions, created];
+        setTransactions(updated);
+        localStorage.setItem("demo_transactions", JSON.stringify(updated));
+      } else if (supabaseActive) {
         const created = await addSupabaseTransaction(user.id, newTransaction);
         setTransactions((prev) => [...prev, created]);
       } else {
@@ -260,7 +330,10 @@ export default function App() {
 
     if (!token || !user) return;
     try {
-      if (supabaseActive) {
+      if (isDemoUser) {
+        const updated = transactions.map((t) => (t.id === id ? { ...t, ...updatedFields } : t));
+        localStorage.setItem("demo_transactions", JSON.stringify(updated));
+      } else if (supabaseActive) {
         await updateSupabaseTransaction(user.id, id, updatedFields);
       } else {
         const response = await fetch(`/api/transactions/${id}`, {
@@ -287,7 +360,10 @@ export default function App() {
 
     if (!token || !user) return;
     try {
-      if (supabaseActive) {
+      if (isDemoUser) {
+        const updated = transactions.filter((t) => t.id !== id);
+        localStorage.setItem("demo_transactions", JSON.stringify(updated));
+      } else if (supabaseActive) {
         await deleteSupabaseTransaction(user.id, id);
       } else {
         const response = await fetch(`/api/transactions/${id}`, {
@@ -321,7 +397,15 @@ export default function App() {
 
     if (!token || !user) return;
     try {
-      if (supabaseActive) {
+      if (isDemoUser) {
+        const createdList = parsedImported.map((t, idx) => ({
+          ...t,
+          id: `demo-import-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 5)}`,
+        })) as Transaction[];
+        const updated = [...transactions, ...createdList];
+        setTransactions(updated);
+        localStorage.setItem("demo_transactions", JSON.stringify(updated));
+      } else if (supabaseActive) {
         const createdList = await addSupabaseTransactionsBatch(user.id, parsedImported);
         setTransactions((prev) => [...prev, ...createdList]);
       } else {
@@ -473,7 +557,13 @@ export default function App() {
       if (!token || !user) return;
       setDataLoading(true);
       try {
-        if (supabaseActive) {
+        if (isDemoUser) {
+          // --- RESET LOCALLY FOR DEMO ---
+          setTransactions(INITIAL_TRANSACTIONS);
+          setBudgets(INITIAL_BUDGETS);
+          localStorage.setItem("demo_transactions", JSON.stringify(INITIAL_TRANSACTIONS));
+          localStorage.setItem("demo_budgets", JSON.stringify(INITIAL_BUDGETS));
+        } else if (supabaseActive) {
           // --- RESET DIRECTLY ON SUPABASE ---
           const { supabase } = await import("./lib/supabase");
           
@@ -650,7 +740,69 @@ export default function App() {
 
       {/* CONTÊINER GERAL */}
       <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        {dataLoading ? (
+        {fetchError ? (
+          <div className="max-w-3xl mx-auto my-12 bg-slate-900 border border-red-500/30 rounded-3xl p-8 shadow-2xl text-slate-200">
+            <div className="flex items-center gap-4 mb-6 text-red-400">
+              <div className="p-3 bg-red-500/10 rounded-2xl border border-red-500/20">
+                <Database className="w-8 h-8 text-red-500" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold font-sans">Erro de Banco de Dados (Supabase)</h3>
+                <p className="text-sm text-slate-400 font-medium font-sans">
+                  Não foi possível comunicar ou ler os dados das tabelas do seu projeto Supabase.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 font-mono text-xs text-red-400 mb-6 overflow-auto max-h-40 leading-relaxed whitespace-pre-wrap">
+              {fetchError}
+            </div>
+
+            {fetchError.toLowerCase().includes("relation") || fetchError.toLowerCase().includes("does not exist") || fetchError.toLowerCase().includes("undefined") ? (
+              <div className="space-y-4 text-sm text-slate-300">
+                <p className="font-semibold text-white">💡 Como resolver esse erro em 1 minuto:</p>
+                <p>
+                  As tabelas do banco de dados (como <code>transactions</code>, <code>budgets</code> e <code>user_seeded</code>) ainda não foram criadas no seu projeto do Supabase. Para criá-las automaticamente:
+                </p>
+                <ol className="list-decimal list-inside space-y-2.5 text-slate-400 font-sans ml-1">
+                  <li>Acesse o seu <strong>Painel do Supabase</strong> em <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="text-indigo-400 underline hover:text-indigo-300">supabase.com</a>.</li>
+                  <li>Selecione o seu projeto e vá na aba <strong>SQL Editor</strong> (ícone de prompt de comando no menu lateral esquerdo).</li>
+                  <li>Clique em <strong>New Query</strong> para abrir uma folha de comandos em branco.</li>
+                  <li>Abra o arquivo <strong className="text-slate-200">supabase_schema.sql</strong> do seu projeto e copie todo o seu conteúdo.</li>
+                  <li>Cole o script copiado no editor SQL do Supabase e clique em <strong>Run</strong> (no canto inferior direito) para executá-lo.</li>
+                  <li>Pronto! Recarregue a página do aplicativo e faça o login novamente. Seu banco de dados agora está configurado e seguro!</li>
+                </ol>
+              </div>
+            ) : (
+              <div className="space-y-4 text-sm text-slate-300">
+                <p className="font-semibold text-white">💡 Dicas de Configuração:</p>
+                <ul className="list-disc list-inside space-y-2.5 text-slate-400 ml-1">
+                  <li>Verifique se as credenciais <strong>VITE_SUPABASE_URL</strong> e <strong>VITE_SUPABASE_ANON_KEY</strong> estão preenchidas corretamente no seu painel da Render ou no arquivo <code>.env</code>.</li>
+                  <li>Garanta que não há aspas extras ou espaços nas variáveis.</li>
+                  <li>Certifique-se de que o seu projeto do Supabase não está pausado.</li>
+                </ul>
+              </div>
+            )}
+
+            <div className="mt-8 pt-6 border-t border-slate-800 flex flex-wrap gap-3">
+              <button
+                onClick={handleLogout}
+                className="px-6 py-2.5 bg-red-500/15 hover:bg-red-500/25 border border-red-500/20 rounded-xl text-xs font-bold text-red-400 transition-all cursor-pointer"
+              >
+                Voltar à Tela de Login / Sair
+              </button>
+              <button
+                onClick={() => {
+                  setFetchError(null);
+                  window.location.reload();
+                }}
+                className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-bold text-slate-200 transition-all cursor-pointer"
+              >
+                Tentar Novamente
+              </button>
+            </div>
+          </div>
+        ) : dataLoading ? (
           <div className="flex flex-col items-center justify-center py-32 space-y-4">
             <RefreshCw className="w-10 h-10 animate-spin text-indigo-500" />
             <p className="text-sm text-slate-400 font-medium font-sans">Carregando seus dados financeiros...</p>
@@ -712,9 +864,21 @@ export default function App() {
         {/* TABELAS DE TRANSAÇÕES */}
         <TransactionTable
           transactions={transactions}
-          onAddTransaction={handleAddTransaction}
+          onAddTransaction={(section) => {
+            setAddModalSection(section);
+            setIsAddModalOpen(true);
+          }}
           onUpdateTransaction={handleUpdateTransaction}
           onDeleteTransaction={handleDeleteTransaction}
+          selectedMonth={selectedMonth}
+        />
+
+        {/* MODAL DE ADICIONAR TRANSAÇÃO */}
+        <AddTransactionModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onAdd={handleAddTransaction}
+          section={addModalSection}
           selectedMonth={selectedMonth}
         />
 

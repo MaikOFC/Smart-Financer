@@ -62,56 +62,15 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
     setLoading(true);
 
     const demoEmail = "miqueias@demo.com";
-    const demoPassword = "demo_password_123";
     const demoName = "Miqueias";
 
     try {
-      if (supabaseActive) {
-        // --- SUPABASE DIRECT DEMO LOGIN ---
-        try {
-          const result = await signInSupabase(demoEmail, demoPassword);
-          onSuccess(result.token, result.user);
-        } catch (err: any) {
-          // If demo user doesn't exist, automatically register them!
-          if (
-            err.message && 
-            (err.message.includes("Invalid login credentials") || 
-             err.message.includes("Email not confirmed") || 
-             err.status === 400)
-          ) {
-            const result = await signUpSupabase(demoName, demoEmail, demoPassword);
-            onSuccess(result.token, result.user);
-          } else {
-            throw err;
-          }
-        }
-      } else {
-        // --- LOCAL NODE EXPRESS SERVER DEMO LOGIN ---
-        let response = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: demoEmail, password: demoPassword }),
-        });
-
-        let data = await response.json();
-
-        // If login fails (user does not exist yet), automatically register the demo user!
-        if (!response.ok || data.error) {
-          const registerResponse = await fetch("/api/auth/register", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: demoName, email: demoEmail, password: demoPassword }),
-          });
-
-          const registerData = await registerResponse.json();
-          if (!registerResponse.ok || registerData.error) {
-            throw new Error(registerData.error || "Erro ao criar conta demonstrativa.");
-          }
-          data = registerData;
-        }
-
-        onSuccess(data.token, data.user);
-      }
+      // Direct offline local session for guaranteed access (bypassing Supabase errors/secrets)
+      onSuccess("demo-session-token", {
+        id: "demo-user-id-miqueias",
+        name: demoName,
+        email: demoEmail,
+      });
     } catch (err: any) {
       setError(err.message || "Erro ao efetuar login demonstrativo.");
     } finally {
