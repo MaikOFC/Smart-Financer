@@ -61,6 +61,17 @@ export async function signUpSupabase(name: string, email: string, passwordPlain:
   if (error) throw error;
   if (!data.user) throw new Error("Não foi possível criar o usuário no Supabase.");
 
+  // Tenta salvar o perfil público do usuário na tabela 'users'
+  try {
+    await supabase.from("users").upsert({
+      id: data.user.id,
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+    });
+  } catch (err) {
+    console.warn("Aviso ao salvar perfil na tabela 'users' pública:", err);
+  }
+
   // Se o usuário foi criado, rodamos o seed para criar os dados iniciais na conta dele
   try {
     await seedUserIfNeeded(data.user.id);
@@ -86,6 +97,17 @@ export async function signInSupabase(email: string, passwordPlain: string) {
 
   if (error) throw error;
   if (!data.user) throw new Error("E-mail ou senha incorretos no Supabase.");
+
+  // Garante o perfil público do usuário na tabela 'users'
+  try {
+    await supabase.from("users").upsert({
+      id: data.user.id,
+      name: data.user.user_metadata?.name || email.split("@")[0],
+      email: data.user.email || email,
+    });
+  } catch (err) {
+    console.warn("Aviso ao salvar perfil no login na tabela 'users' pública:", err);
+  }
 
   // Se o usuário fez login com sucesso, tentamos rodar o seed inicial caso seja a primeira vez dele
   try {
@@ -131,6 +153,33 @@ export async function seedUserIfNeeded(userId: string) {
 
   console.log(`Iniciando seed de dados iniciais para o usuário Supabase: ${userId}`);
 
+  // 1.5. Inserir CATEGORIAS padrão para este usuário
+  const defaultCategories = [
+    "Moradia",
+    "Alimentação",
+    "Transporte",
+    "Lazer",
+    "Tecnologia",
+    "Saúde",
+    "Família",
+    "Outros"
+  ];
+  const categoryRows = defaultCategories.map((name) => ({
+    user_id: userId,
+    name,
+  }));
+
+  try {
+    const { error: catErr } = await supabase
+      .from("categories")
+      .insert(categoryRows);
+    if (catErr) {
+      console.error("Erro ao inserir categorias de seed no Supabase:", catErr);
+    }
+  } catch (err) {
+    console.error("Falha ao semear categorias:", err);
+  }
+
   // 2. Insert INITIAL_BUDGETS for this user
   const budgetRows = Object.entries(INITIAL_BUDGETS).map(([month, amount]) => ({
     user_id: userId,
@@ -173,6 +222,51 @@ export async function seedUserIfNeeded(userId: string) {
   }
 
   console.log("Seed concluído com sucesso para o usuário!");
+}
+
+// --- CATEGORY OPERATIONS ---
+
+export async function getSupabaseCategories(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("categories")
+    .select("name")
+    .eq("user_id", userId)
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.warn("Erro ao buscar categorias do Supabase:", error);
+    return [];
+  }
+  
+  if (!data || data.length === 0) {
+    return [];
+  }
+  
+  return data.map((c: any) => c.name);
+}
+
+export async function addSupabaseCategory(userId: string, name: string): Promise<string> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("O nome da categoria não pode ser vazio.");
+  
+  const { data, error } = await supabase
+    .from("categories")
+    .insert({ user_id: userId, name: trimmed })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data.name;
+}
+
+export async function deleteSupabaseCategory(userId: string, name: string): Promise<void> {
+  const { error } = await supabase
+    .from("categories")
+    .delete()
+    .eq("user_id", userId)
+    .eq("name", name);
+
+  if (error) throw error;
 }
 
 // --- TRANSACTION OPERATIONS ---

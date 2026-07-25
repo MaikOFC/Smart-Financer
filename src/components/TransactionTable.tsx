@@ -8,6 +8,7 @@ interface TransactionTableProps {
   onUpdateTransaction: (id: string, updatedFields: Partial<Transaction>) => void;
   onDeleteTransaction: (id: string) => void;
   selectedMonth: string; // YYYY-MM
+  categories?: string[];
 }
 
 export default function TransactionTable({
@@ -16,6 +17,7 @@ export default function TransactionTable({
   onUpdateTransaction,
   onDeleteTransaction,
   selectedMonth,
+  categories,
 }: TransactionTableProps) {
   // Local state for editing rows
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -71,7 +73,8 @@ export default function TransactionTable({
   const rightTotal = rightTransactions.reduce((acc, t) => acc + t.amount, 0);
 
   // Categories list
-  const CATEGORIES = ["Moradia", "Alimentação", "Transporte", "Lazer", "Tecnologia", "Saúde", "Família", "Outros"];
+  const defaultCategories = ["Moradia", "Alimentação", "Transporte", "Lazer", "Tecnologia", "Saúde", "Família", "Outros"];
+  const finalCategories = categories && categories.length > 0 ? categories : defaultCategories;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -150,7 +153,7 @@ export default function TransactionTable({
                               onChange={(e) => setEditCategory(e.target.value)}
                               className="bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg text-xs text-white focus:outline-none"
                             >
-                              {CATEGORIES.map((c) => (
+                              {finalCategories.map((c) => (
                                 <option key={c} value={c} className="bg-slate-900">
                                   {c}
                                 </option>
@@ -362,7 +365,7 @@ export default function TransactionTable({
                               onChange={(e) => setEditCategory(e.target.value)}
                               className="bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg text-xs text-white focus:outline-none"
                             >
-                              {CATEGORIES.map((c) => (
+                              {finalCategories.map((c) => (
                                 <option key={c} value={c} className="bg-slate-900">
                                   {c}
                                 </option>

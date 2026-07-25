@@ -9,9 +9,11 @@ interface AddTransactionModalProps {
   onAdd: (transactionData: Omit<Transaction, "id">) => void;
   section: "left" | "right" | "bottom_left";
   selectedMonth: string; // YYYY-MM
+  categories?: string[];
+  onAddCategory?: (name: string) => Promise<string>;
 }
 
-const CATEGORIES = [
+const DEFAULT_CATEGORIES = [
   "Moradia",
   "Alimentação",
   "Transporte",
@@ -28,14 +30,20 @@ export default function AddTransactionModal({
   onAdd,
   section,
   selectedMonth,
+  categories,
+  onAddCategory,
 }: AddTransactionModalProps) {
   const [description, setDescription] = useState("");
   const [amountStr, setAmountStr] = useState("");
   const [category, setCategory] = useState("Outros");
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [date, setDate] = useState("");
   const [note, setNote] = useState("");
   const [isOrangeHighlight, setIsOrangeHighlight] = useState(false);
   const [isDiscount, setIsDiscount] = useState(false);
+
+  const availableCategories = categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES;
 
   // Set default values when modal opens or section changes
   useEffect(() => {
@@ -43,6 +51,8 @@ export default function AddTransactionModal({
       setDescription("");
       setAmountStr("");
       setCategory(section === "right" ? "Tecnologia" : "Outros");
+      setNewCategoryName("");
+      setIsCreatingCategory(false);
       setNote("");
       setIsOrangeHighlight(false);
       setIsDiscount(false);
@@ -59,11 +69,28 @@ export default function AddTransactionModal({
     }
   }, [isOpen, section, selectedMonth]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!description.trim()) return;
 
     const amount = parseFloat(amountStr) || 0;
+    let finalCategory = category;
+
+    if (category === "__NEW__") {
+      const trimmedNewCat = newCategoryName.trim();
+      if (!trimmedNewCat) {
+        finalCategory = "Outros";
+      } else if (onAddCategory) {
+        try {
+          finalCategory = await onAddCategory(trimmedNewCat);
+        } catch (err) {
+          console.error("Erro ao cadastrar nova categoria:", err);
+          finalCategory = trimmedNewCat;
+        }
+      } else {
+        finalCategory = trimmedNewCat;
+      }
+    }
 
     const newTransaction: Omit<Transaction, "id"> = {
       description: description.trim(),
@@ -71,7 +98,7 @@ export default function AddTransactionModal({
       date,
       type: section === "bottom_left" ? "income" : "expense",
       tableSection: section,
-      category,
+      category: finalCategory,
       isOrangeHighlight: section === "left" ? isOrangeHighlight : false,
       isDiscount: section === "left" ? isDiscount : false,
       note: section === "right" ? note.trim() : "",
@@ -202,11 +229,14 @@ export default function AddTransactionModal({
                     onChange={(e) => setCategory(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 px-4 py-3 pl-11 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium appearance-none"
                   >
-                    {CATEGORIES.map((cat) => (
+                    {availableCategories.map((cat) => (
                       <option key={cat} value={cat} className="bg-slate-900 text-white">
                         {cat}
                       </option>
                     ))}
+                    <option value="__NEW__" className="bg-slate-900 text-indigo-400 font-bold">
+                      + Criar Nova Categoria...
+                    </option>
                   </select>
                   {/* Custom arrow decoration */}
                   <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
@@ -215,6 +245,23 @@ export default function AddTransactionModal({
                     </svg>
                   </div>
                 </div>
+
+                {category === "__NEW__" && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="pt-2"
+                  >
+                    <input
+                      type="text"
+                      required
+                      placeholder="Nome da Nova Categoria (ex: Viagem, Presentes)"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      className="w-full bg-slate-950 border border-indigo-500/50 px-4 py-2.5 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all font-medium"
+                    />
+                  </motion.div>
+                )}
               </div>
 
               {/* Extra Sections depending on Left vs Right Table */}

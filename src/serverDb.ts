@@ -81,7 +81,12 @@ export function registerUser(name: string, email: string, passwordPlain: string)
     throw new Error("Este e-mail já está cadastrado.");
   }
 
-  const userId = crypto.randomUUID();
+  let userId = crypto.randomUUID();
+  // Garante que o ID gerado seja único e não conflite com nenhum já cadastrado no banco
+  while (db.users.some((u) => u.id === userId)) {
+    userId = crypto.randomUUID();
+  }
+
   const newUser: User = {
     id: userId,
     name: name.trim(),

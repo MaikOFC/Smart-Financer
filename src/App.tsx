@@ -35,8 +35,12 @@ import {
   getSupabaseBudgets,
   setSupabaseBudget,
   signOutSupabase,
-  seedUserIfNeeded
+  seedUserIfNeeded,
+  getSupabaseCategories,
+  addSupabaseCategory,
+  deleteSupabaseCategory,
 } from "./lib/supabaseService";
+import { supabase } from "./lib/supabase";
 
 export default function App() {
   // Authentication states
@@ -49,6 +53,7 @@ export default function App() {
   // Client states loaded from the database
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Record<string, number>>({});
+  const [categories, setCategories] = useState<string[]>([]);
   
   const [dataLoading, setDataLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -114,6 +119,65 @@ export default function App() {
     syncConfig();
   }, []);
 
+  // Escuta alterações de estado de autenticação do Supabase para manter sessão sincronizada automaticamente
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+
+    // Busca a sessão inicial para auto-login se já estiver logado
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const userObj = {
+          id: session.user.id,
+          name: session.user.user_metadata?.name || session.user.email?.split("@")[0] || "Usuário",
+          email: session.user.email || "",
+        };
+        const currentToken = localStorage.getItem("finances_token");
+        if (currentToken !== session.access_token) {
+          localStorage.setItem("finances_token", session.access_token);
+          localStorage.setItem("finances_user", JSON.stringify(userObj));
+          setToken(session.access_token);
+          setUser(userObj);
+        }
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        // Quando registrar ou logar, executa o seed se necessário para garantir tabelas preenchidas
+        try {
+          await seedUserIfNeeded(session.user.id);
+        } catch (e) {
+          console.error("Erro ao rodar seed pós alteração de auth:", e);
+        }
+
+        const userObj = {
+          id: session.user.id,
+          name: session.user.user_metadata?.name || session.user.email?.split("@")[0] || "Usuário",
+          email: session.user.email || "",
+        };
+        
+        const currentToken = localStorage.getItem("finances_token");
+        if (currentToken !== session.access_token) {
+          localStorage.setItem("finances_token", session.access_token);
+          localStorage.setItem("finances_user", JSON.stringify(userObj));
+          setToken(session.access_token);
+          setUser(userObj);
+        }
+      } else if (event === "SIGNED_OUT") {
+        localStorage.removeItem("finances_token");
+        localStorage.removeItem("finances_user");
+        setToken(null);
+        setUser(null);
+        setTransactions([]);
+        setBudgets({});
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
   const isDemoUser = user?.email === "miqueias@demo.com";
   const supabaseActive = isSupabaseConfigured() && !isDemoUser;
 
@@ -154,6 +218,7 @@ export default function App() {
           // --- LOCAL STORAGE PERSISTENCE FOR DEMO USER ---
           const savedTransactions = localStorage.getItem("demo_transactions");
           const savedBudgets = localStorage.getItem("demo_budgets");
+          const savedCategories = localStorage.getItem("demo_categories");
 
           if (savedTransactions) {
             setTransactions(JSON.parse(savedTransactions));
@@ -169,12 +234,22 @@ export default function App() {
             setBudgets(INITIAL_BUDGETS);
             localStorage.setItem("demo_budgets", JSON.stringify(INITIAL_BUDGETS));
           }
+
+          if (savedCategories) {
+            setCategories(JSON.parse(savedCategories));
+          } else {
+            const defaultCats = ["Moradia", "Alimentação", "Transporte", "Lazer", "Tecnologia", "Saúde", "Família", "Outros"];
+            setCategories(defaultCats);
+            localStorage.setItem("demo_categories", JSON.stringify(defaultCats));
+          }
         } else if (supabaseActive) {
           // --- FETCH DIRECT FROM SUPABASE ---
           const tList = await getSupabaseTransactions(user.id);
           const bMap = await getSupabaseBudgets(user.id);
+          const cList = await getSupabaseCategories(user.id);
           setTransactions(tList);
           setBudgets(bMap);
+          setCategories(cList.length > 0 ? cList : ["Moradia", "Alimentação", "Transporte", "Lazer", "Tecnologia", "Saúde", "Família", "Outros"]);
         } else {
           // --- FETCH FROM LOCAL EXPRESS SERVER ---
           const tRes = await fetch("/api/transactions", {
@@ -193,6 +268,7 @@ export default function App() {
 
           setTransactions(tData.transactions || []);
           setBudgets(bData.budgets || {});
+          setCategories(["Moradia", "Alimentação", "Transporte", "Lazer", "Tecnologia", "Saúde", "Família", "Outros"]);
         }
       } catch (err: any) {
         console.error("Erro ao buscar dados:", err);
@@ -318,6 +394,40 @@ export default function App() {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  // Add a new category dynamically
+  const handleAddCategory = async (newCatName: string): Promise<string> => {
+    const trimmed = newCatName.trim();
+    if (!trimmed) return "Outros";
+
+    // Evitar duplicados locais
+    if (categories.includes(trimmed)) {
+      return trimmed;
+    }
+
+    try {
+      if (isDemoUser) {
+        const updated = [...categories, trimmed];
+        setCategories(updated);
+        localStorage.setItem("demo_categories", JSON.stringify(updated));
+        return trimmed;
+      } else if (supabaseActive) {
+        if (!user) return trimmed;
+        const inserted = await addSupabaseCategory(user.id, trimmed);
+        setCategories((prev) => [...prev, inserted]);
+        return inserted;
+      } else {
+        // Fallback local express
+        setCategories((prev) => [...prev, trimmed]);
+        return trimmed;
+      }
+    } catch (err) {
+      console.error("Erro ao adicionar categoria:", err);
+      // Fallback local
+      setCategories((prev) => [...prev, trimmed]);
+      return trimmed;
     }
   };
 
@@ -871,6 +981,7 @@ export default function App() {
           onUpdateTransaction={handleUpdateTransaction}
           onDeleteTransaction={handleDeleteTransaction}
           selectedMonth={selectedMonth}
+          categories={categories}
         />
 
         {/* MODAL DE ADICIONAR TRANSAÇÃO */}
@@ -880,6 +991,8 @@ export default function App() {
           onAdd={handleAddTransaction}
           section={addModalSection}
           selectedMonth={selectedMonth}
+          categories={categories}
+          onAddCategory={handleAddCategory}
         />
 
         {/* CONSULTOR DE IA FINANCEIRO */}
