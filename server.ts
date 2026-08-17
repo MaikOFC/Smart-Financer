@@ -246,16 +246,146 @@ app.get("/api/config", (req, res) => {
   });
 });
 
+// Candidate models in order of priority (respecting @google/genai guidelines)
+const CANDIDATE_MODELS = [
+  "gemini-3.7-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-flash-latest",
+];
+
+// Helper to call Gemini with automatic exponential backoff and model fallback on 503 / 429 / demand spikes
+async function callGeminiWithFallback(aiClient: GoogleGenAI, requestConfig: any): Promise<any> {
+  let lastError: any = null;
+
+  for (const modelName of CANDIDATE_MODELS) {
+    // Try up to 2 attempts per model
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        console.log(`[Gemini] Requesting model ${modelName} (attempt ${attempt + 1})...`);
+        const response = await aiClient.models.generateContent({
+          ...requestConfig,
+          model: modelName,
+        });
+
+        if (response && response.text) {
+          return response;
+        }
+      } catch (err: any) {
+        lastError = err;
+        const errMessage = err?.message || String(err);
+        const errStatus = err?.status || err?.code;
+        console.warn(`[Gemini] Model ${modelName} attempt ${attempt + 1} failed:`, errMessage);
+
+        const isTransient =
+          errStatus === "UNAVAILABLE" ||
+          errStatus === 503 ||
+          errStatus === "RESOURCE_EXHAUSTED" ||
+          errStatus === 429 ||
+          errMessage.includes("503") ||
+          errMessage.includes("429") ||
+          errMessage.includes("high demand") ||
+          errMessage.includes("temporarily unavailable") ||
+          errMessage.includes("UNAVAILABLE");
+
+        if (isTransient && attempt === 0) {
+          // Wait 1.5 seconds before retrying same model
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          continue;
+        }
+
+        // Move to next candidate model
+        break;
+      }
+    }
+  }
+
+  throw lastError || new Error("Não foi possível obter resposta dos modelos de IA disponíveis.");
+}
+
+// Fallback local heuristic parser for tabular text (CSV/XLSX) in case AI models are completely unavailable
+function parseTabularTextFallback(textData: string): any[] {
+  const lines = textData.split("\n").filter((l) => l.trim().length > 0);
+  if (lines.length === 0) return [];
+
+  const transactions: any[] = [];
+  const currentDate = new Date().toISOString().split("T")[0];
+
+  for (const line of lines) {
+    // Remove "Linha X: " prefix if present
+    const cleanLine = line.replace(/^Linha\s+\d+:\s*/i, "").trim();
+    if (!cleanLine) continue;
+
+    const parts = cleanLine.split("|").map((p) => p.trim());
+    if (parts.length === 0) continue;
+
+    // Search for a currency/number in the parts
+    let amount = 0;
+    let description = "";
+    let dateStr = currentDate;
+    let foundAmount = false;
+
+    for (const part of parts) {
+      // Check if it's a date
+      const dateMatch = part.match(/\b(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\b/);
+      if (dateMatch) {
+        const rawDate = dateMatch[0];
+        if (rawDate.includes("/")) {
+          const segs = rawDate.split("/");
+          if (segs.length === 3) {
+            if (segs[0].length === 4) {
+              dateStr = `${segs[0]}-${segs[1].padStart(2, "0")}-${segs[2].padStart(2, "0")}`;
+            } else {
+              const year = segs[2].length === 2 ? `20${segs[2]}` : segs[2];
+              dateStr = `${year}-${segs[1].padStart(2, "0")}-${segs[0].padStart(2, "0")}`;
+            }
+          }
+        } else {
+          dateStr = rawDate.replace(/\//g, "-");
+        }
+        continue;
+      }
+
+      // Check if it's a monetary amount
+      const numMatch = part.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
+      const parsedNum = parseFloat(numMatch);
+      if (!isNaN(parsedNum) && parsedNum > 0 && !foundAmount && !part.includes("/") && !part.includes("-")) {
+        amount = parsedNum;
+        foundAmount = true;
+        continue;
+      }
+
+      // If it looks like text description and not just numbers/dates
+      if (part.length > 1 && !description && !/^[\d\s.,:/-]+$/.test(part)) {
+        description = part;
+      }
+    }
+
+    if (description && amount > 0) {
+      transactions.push({
+        description,
+        amount,
+        date: dateStr,
+        type: "expense",
+        tableSection: "left",
+        category: "Outros",
+        isOrangeHighlight: false,
+        isDiscount: false,
+        note: null,
+      });
+    }
+  }
+
+  return transactions;
+}
+
 // API Endpoint to parse spreadsheets or images of spreadsheets using Gemini
 app.post("/api/parse-spreadsheet", async (req, res) => {
   try {
-    if (!ai) {
-      return res.status(500).json({
-        error: "Gemini API key is not configured on the server. Please check the Secrets panel in AI Studio.",
-      });
-    }
-
     const { imageBase64, mimeType, textData } = req.body;
+
+    if (!imageBase64 && !textData) {
+      return res.status(400).json({ error: "Nenhum dado de imagem ou texto foi fornecido para processamento." });
+    }
 
     let prompt = `Você é um assistente especialista em finanças pessoais e extração de dados. Mapeie todas as transações de gastos e entradas contidas neste arquivo ou imagem. 
 Identifique as seguintes seções típicas da planilha do usuário:
@@ -266,7 +396,7 @@ Identifique as seguintes seções típicas da planilha do usuário:
 Mapeie cada transação encontrada para este esquema JSON exato:
 {
   "description": "Nome do produto ou descrição do item",
-  "amount": 123.45, (valor numérico. Se for desconto ou redução, extraia o valor absoluto e marque 'isDiscount': true. Se o preço for textual, use 0),
+  "amount": 123.45, (valor numérico positivo. Se for desconto ou redução, extraia o valor absoluto e marque 'isDiscount': true. Se o preço for textual, use 0),
   "date": "2026-07-13", (formato YYYY-MM-DD se puder deduzir da data ou mês como 01/12/2026. Se for apenas mês, coloque o primeiro dia desse mês),
   "type": "expense" ou "income", (os itens das tabelas left e right são 'expense' por padrão, exceto descontos que reduzem a soma total, ou se for um recebível de entrada),
   "tableSection": "left" ou "right" ou "bottom_left",
@@ -278,84 +408,100 @@ Mapeie cada transação encontrada para este esquema JSON exato:
 
 Por favor, analise a planilha de entrada e retorne um array JSON válido de transações.`;
 
-    let response;
-
-    if (imageBase64 && mimeType) {
-      // Parse spreadsheet image using Gemini Multimodal
-      const imagePart = {
-        inlineData: {
-          mimeType: mimeType,
-          data: imageBase64,
-        },
-      };
-
-      response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: [imagePart, { text: prompt }],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                description: { type: Type.STRING },
-                amount: { type: Type.NUMBER },
-                date: { type: Type.STRING },
-                type: { type: Type.STRING },
-                tableSection: { type: Type.STRING },
-                category: { type: Type.STRING },
-                isOrangeHighlight: { type: Type.BOOLEAN },
-                isDiscount: { type: Type.BOOLEAN },
-                note: { type: Type.STRING },
-              },
-              required: ["description", "amount", "type", "tableSection"],
-            },
+    const schemaConfig = {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            description: { type: Type.STRING },
+            amount: { type: Type.NUMBER },
+            date: { type: Type.STRING },
+            type: { type: Type.STRING },
+            tableSection: { type: Type.STRING },
+            category: { type: Type.STRING },
+            isOrangeHighlight: { type: Type.BOOLEAN },
+            isDiscount: { type: Type.BOOLEAN },
+            note: { type: Type.STRING },
           },
+          required: ["description", "amount", "type", "tableSection"],
         },
-      });
-    } else if (textData) {
-      // Parse text data (CSV/Excel converted values)
-      response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: `Aqui estão os dados de texto estruturados da planilha do usuário:\n\n${textData}\n\n${prompt}`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                description: { type: Type.STRING },
-                amount: { type: Type.NUMBER },
-                date: { type: Type.STRING },
-                type: { type: Type.STRING },
-                tableSection: { type: Type.STRING },
-                category: { type: Type.STRING },
-                isOrangeHighlight: { type: Type.BOOLEAN },
-                isDiscount: { type: Type.BOOLEAN },
-                note: { type: Type.STRING },
-              },
-              required: ["description", "amount", "type", "tableSection"],
+      },
+    };
+
+    let parsedTransactions: any[] = [];
+
+    if (ai) {
+      try {
+        let response;
+        if (imageBase64 && mimeType) {
+          const imagePart = {
+            inlineData: {
+              mimeType: mimeType,
+              data: imageBase64,
             },
-          },
-        },
-      });
+          };
+          response = await callGeminiWithFallback(ai, {
+            contents: [imagePart, { text: prompt }],
+            config: schemaConfig,
+          });
+        } else if (textData) {
+          response = await callGeminiWithFallback(ai, {
+            contents: `Aqui estão os dados de texto estruturados da planilha do usuário:\n\n${textData}\n\n${prompt}`,
+            config: schemaConfig,
+          });
+        }
+
+        if (response && response.text) {
+          const cleanJson = response.text.trim();
+          parsedTransactions = JSON.parse(cleanJson);
+        }
+      } catch (aiErr: any) {
+        console.error("AI parse attempt failed, evaluating fallbacks:", aiErr);
+        // If it was tabular text data, attempt local fallback parser
+        if (textData) {
+          console.log("Using local tabular heuristic fallback parser...");
+          parsedTransactions = parseTabularTextFallback(textData);
+        }
+
+        // If still empty, throw
+        if (!parsedTransactions || parsedTransactions.length === 0) {
+          throw aiErr;
+        }
+      }
     } else {
-      return res.status(400).json({ error: "No image or text data provided for parsing." });
+      // No AI key configured, try local parser if text data exists
+      if (textData) {
+        parsedTransactions = parseTabularTextFallback(textData);
+      } else {
+        return res.status(500).json({
+          error: "A chave da API Gemini não está configurada no servidor. Configure a chave no painel Secrets.",
+        });
+      }
     }
 
-    const textResult = response.text;
-    if (!textResult) {
-      throw new Error("Empty response from Gemini model.");
+    if (!parsedTransactions || parsedTransactions.length === 0) {
+      return res.status(422).json({
+        error: "Nenhuma transação legível pôde ser extraída do arquivo. Verifique a clareza dos dados e tente novamente.",
+      });
     }
 
-    const parsedTransactions = JSON.parse(textResult.trim());
     res.json({ transactions: parsedTransactions });
   } catch (error: any) {
     console.error("Error parsing spreadsheet:", error);
+    const isOverload =
+      error?.message?.includes("503") ||
+      error?.message?.includes("high demand") ||
+      error?.status === "UNAVAILABLE" ||
+      error?.status === 503;
+
+    const friendlyMessage = isOverload
+      ? "O serviço de IA está com alta demanda momentânea. Realizamos tentativas automáticas. Por favor, tente enviar novamente em alguns instantes."
+      : "Ocorreu um erro ao processar a planilha. Certifique-se de que o arquivo é legível ou tente novamente.";
+
     res.status(500).json({
-      error: "Ocorreu um erro ao processar a planilha. Certifique-se de que o arquivo é legível ou tente novamente.",
+      error: friendlyMessage,
       details: error.message,
     });
   }
@@ -389,18 +535,27 @@ ${transactions
 Analise os dados financeiros fornecidos e responda à pergunta do usuário de forma amigável, clara e objetiva em português brasileiro.
 Dê conselhos práticos de economia com base nas categorias onde ele mais gasta, de preferência de forma numerada ou em tópicos bem diretos.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const response = await callGeminiWithFallback(ai, {
       contents: `Contexto dos dados do usuário:\n${dataContext}\n\nPergunta do usuário: ${prompt}`,
       config: {
         systemInstruction,
-      }
+      },
     });
 
     res.json({ answer: response.text });
   } catch (error: any) {
     console.error("Error with AI Advisor:", error);
-    res.status(500).json({ error: "Erro ao consultar o assessor financeiro.", details: error.message });
+    const isOverload =
+      error?.message?.includes("503") ||
+      error?.message?.includes("high demand") ||
+      error?.status === "UNAVAILABLE" ||
+      error?.status === 503;
+
+    const msg = isOverload
+      ? "O modelo de IA está temporariamente com alta demanda. Por favor, aguarde alguns segundos e pergunte novamente."
+      : "Erro ao consultar o assessor financeiro.";
+
+    res.status(500).json({ error: msg, details: error.message });
   }
 });
 

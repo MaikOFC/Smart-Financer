@@ -16,6 +16,8 @@ import {
   LogOut,
   User as UserIcon,
   Database,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Transaction } from "./types";
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from "./initialData";
@@ -726,16 +728,53 @@ export default function App() {
     }
   };
 
-  // Month labels helper
-  const MONTH_PRESETS = [
-    { value: "2026-07", label: "Julho 2026" },
-    { value: "2026-08", label: "Agosto 2026" },
-    { value: "2026-09", label: "Setembro 2026" },
-    { value: "2026-10", label: "Outubro 2026" },
-    { value: "2026-11", label: "Novembro 2026" },
-    { value: "2026-12", label: "Dezembro 2026" },
-    { value: "2027-01", label: "Janeiro 2027" },
+  // Months list helper for Month/Year selection
+  const MONTHS_LIST = [
+    { value: "01", label: "Janeiro" },
+    { value: "02", label: "Fevereiro" },
+    { value: "03", label: "Março" },
+    { value: "04", label: "Abril" },
+    { value: "05", label: "Maio" },
+    { value: "06", label: "Junho" },
+    { value: "07", label: "Julho" },
+    { value: "08", label: "Agosto" },
+    { value: "09", label: "Setembro" },
+    { value: "10", label: "Outubro" },
+    { value: "11", label: "Novembro" },
+    { value: "12", label: "Dezembro" },
   ];
+
+  const [currentYear = "2026", currentMonthNum = "07"] = (selectedMonth || "2026-07").split("-");
+
+  const availableYears = Array.from(
+    new Set([
+      "2023",
+      "2024",
+      "2025",
+      "2026",
+      "2027",
+      "2028",
+      "2029",
+      "2030",
+      ...transactions.map((t) => t.date?.substring(0, 4)).filter(Boolean),
+    ])
+  ).sort();
+
+  const handlePrevMonth = () => {
+    const [y, m] = (selectedMonth || "2026-07").split("-").map(Number);
+    const prevDate = new Date(y, m - 2, 1);
+    const prevYear = prevDate.getFullYear();
+    const prevMonth = String(prevDate.getMonth() + 1).padStart(2, "0");
+    setSelectedMonth(`${prevYear}-${prevMonth}`);
+  };
+
+  const handleNextMonth = () => {
+    const [y, m] = (selectedMonth || "2026-07").split("-").map(Number);
+    const nextDate = new Date(y, m, 1);
+    const nextYear = nextDate.getFullYear();
+    const nextMonth = String(nextDate.getMonth() + 1).padStart(2, "0");
+    setSelectedMonth(`${nextYear}-${nextMonth}`);
+  };
 
   if (!token || !user) {
     return <AuthScreen onSuccess={handleAuthSuccess} />;
@@ -919,35 +958,62 @@ export default function App() {
           </div>
         ) : (
           <>
-        {/* CONTROLES DE DATA E SELEÇÃO DE MÊS */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-slate-500" />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Período Relatório:</span>
+        {/* CONTROLES DE DATA E SELEÇÃO DE MÊS E ANO */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-slate-900/50 border border-slate-800/80 p-3 rounded-2xl">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Período do Relatório</span>
+              <p className="text-[11px] text-slate-400">Selecione o mês e o ano para filtrar dados e gráficos</p>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-1 bg-slate-900 border border-slate-800 p-1 rounded-2xl items-center">
-            {MONTH_PRESETS.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => setSelectedMonth(p.value)}
-                className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all ${
-                  selectedMonth === p.value
-                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/10 border border-indigo-500/20"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800 p-1.5 rounded-xl">
+            {/* Botão Mês Anterior */}
+            <button
+              onClick={handlePrevMonth}
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+              title="Mês Anterior"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
 
-            {/* Custom Year-Month Input */}
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => e.target.value && setSelectedMonth(e.target.value)}
-              className="bg-slate-950 border border-slate-800 text-xs font-bold font-mono text-slate-300 px-3.5 py-1.5 rounded-xl hover:text-white hover:border-slate-700 focus:outline-none cursor-pointer"
-            />
+            {/* Seleção de Mês */}
+            <select
+              value={currentMonthNum}
+              onChange={(e) => setSelectedMonth(`${currentYear}-${e.target.value}`)}
+              className="bg-slate-900 border border-slate-800 text-xs font-bold text-slate-200 px-3 py-1.5 rounded-lg hover:border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
+            >
+              {MONTHS_LIST.map((m) => (
+                <option key={m.value} value={m.value} className="bg-slate-900 text-slate-200">
+                  {m.label}
+                </option>
+              ))}
+            </select>
+
+            {/* Seleção de Ano */}
+            <select
+              value={currentYear}
+              onChange={(e) => setSelectedMonth(`${e.target.value}-${currentMonthNum}`)}
+              className="bg-slate-900 border border-slate-800 text-xs font-bold font-mono text-slate-200 px-3 py-1.5 rounded-lg hover:border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
+            >
+              {availableYears.map((yr) => (
+                <option key={yr} value={yr} className="bg-slate-900 text-slate-200">
+                  {yr}
+                </option>
+              ))}
+            </select>
+
+            {/* Botão Próximo Mês */}
+            <button
+              onClick={handleNextMonth}
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+              title="Próximo Mês"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
 

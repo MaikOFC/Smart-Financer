@@ -33,9 +33,9 @@ const COLORS = [
 ];
 
 export default function FinanceCharts({ transactions, budgets, selectedMonth }: FinanceChartsProps) {
-  // 1. DATA FOR MONTHLY CATEGORIES (Pie Chart)
+  // 1. DATA FOR MONTHLY CATEGORIES (Pie Chart - Apenas despesas reais do mês, excluindo planejamento)
   const currentMonthTransactions = transactions.filter(
-    (t) => t.tableSection !== "bottom_left" && t.date.startsWith(selectedMonth)
+    (t) => t.tableSection === "left" && t.date.startsWith(selectedMonth)
   );
 
   const categoryTotals: Record<string, number> = {};
@@ -50,11 +50,11 @@ export default function FinanceCharts({ transactions, budgets, selectedMonth }: 
     value: categoryTotals[cat],
   }));
 
-  // 2. DATA FOR ANNUAL REPORT (Bar/Area Chart comparing months)
+  // 2. DATA FOR ANNUAL REPORT (Bar/Area Chart comparing months - Apenas gastos reais)
   const allMonths = Array.from(
     new Set(
       transactions
-        .filter((t) => t.tableSection !== "bottom_left")
+        .filter((t) => t.tableSection === "left")
         .map((t) => t.date.substring(0, 7))
     )
   ).sort();
@@ -66,33 +66,8 @@ export default function FinanceCharts({ transactions, budgets, selectedMonth }: 
       .filter((t) => t.tableSection === "left")
       .reduce((sum, t) => (t.isDiscount ? sum - t.amount : sum + t.amount), 0);
 
-    const rightExpenses = monthTransactions
-      .filter((t) => t.tableSection === "right")
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const totalExpenses = leftExpenses; // Right expenses are future/planned, not active actual expenses!
+    const totalExpenses = leftExpenses; // Apenas gastos reais (exclui planejamento)
     const income = budgets[m] || 843.15;
-
-    // Calculate remaining installment balance at this specific month 'm'
-    const getRemainingInstallmentsForMonth = (targetMonth: string, endDateStr: string) => {
-      try {
-        const [selYear, selMonth] = targetMonth.split("-").map(Number);
-        const [endYear, endMonth] = endDateStr.substring(0, 7).split("-").map(Number);
-        if (!selYear || !selMonth || !endYear || !endMonth) return 0;
-
-        const monthsDifference = (endYear - selYear) * 12 + (endMonth - selMonth);
-        return monthsDifference < 0 ? 0 : monthsDifference + 1;
-      } catch {
-        return 0;
-      }
-    };
-
-    const bottomIncomes = transactions
-      .filter((t) => t.tableSection === "bottom_left")
-      .reduce((sum, t) => {
-        const remainingCount = getRemainingInstallmentsForMonth(m, t.date);
-        return sum + (t.amount * remainingCount);
-      }, 0);
 
     const formattedMonth = (() => {
       const [year, month] = m.split("-");
@@ -107,9 +82,7 @@ export default function FinanceCharts({ transactions, budgets, selectedMonth }: 
       monthKey: m,
       monthLabel: formattedMonth,
       despesas: totalExpenses,
-      planejado: rightExpenses,
       orcamento: income,
-      recebiveis: bottomIncomes,
       sobra: income - leftExpenses,
     };
   });
@@ -152,7 +125,7 @@ export default function FinanceCharts({ transactions, budgets, selectedMonth }: 
             </div>
             <div>
               <h3 className="font-bold text-white text-sm">Distribuição de Gastos</h3>
-              <p className="text-[11px] text-slate-400">Gastos mensais por categoria</p>
+              <p className="text-[11px] text-slate-400">Gastos reais do mês por categoria (exclui planejamento)</p>
             </div>
           </div>
 
@@ -218,7 +191,7 @@ export default function FinanceCharts({ transactions, budgets, selectedMonth }: 
             </div>
             <div>
               <h3 className="font-bold text-white text-sm">Relatório Anual e Histórico</h3>
-              <p className="text-[11px] text-slate-400">Comparação mensal entre Orçamento, Despesas e Sobras</p>
+              <p className="text-[11px] text-slate-400">Comparação mensal entre Orçamento, Despesas Reais e Sobras</p>
             </div>
           </div>
 
@@ -232,7 +205,6 @@ export default function FinanceCharts({ transactions, budgets, selectedMonth }: 
                 <Legend iconSize={8} wrapperStyle={{ fontSize: "11px", pt: 10, color: "#94a3b8" }} />
                 <Bar name="Orçamento" dataKey="orcamento" fill="#10b981" radius={[4, 4, 0, 0]} />
                 <Bar name="Despesas Reais" dataKey="despesas" fill="#f43f5e" radius={[4, 4, 0, 0]} />
-                <Bar name="Planejado (Direita)" dataKey="planejado" fill="#fbbf24" radius={[4, 4, 0, 0]} />
                 <Bar name="Sobra/Economia" dataKey="sobra" fill="#6366f1" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
