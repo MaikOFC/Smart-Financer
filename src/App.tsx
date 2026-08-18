@@ -31,6 +31,7 @@ import SpreadsheetUpload from "./components/SpreadsheetUpload";
 import AuthScreen from "./components/AuthScreen";
 import AddTransactionModal from "./components/AddTransactionModal";
 import AdminSettingsModal from "./components/AdminSettingsModal";
+import WelcomeOnboardingModal from "./components/WelcomeOnboardingModal";
 import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "./lib/admin";
 import {
   isSupabaseConfigured,
@@ -108,11 +109,14 @@ export default function App() {
   // Admin / Settings Modal state
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
 
+  // Welcome / Onboarding Modal state (Triggered right after registration)
+  const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
+
   // Auth Success Handler
   const handleAuthSuccess = (
     newToken: string,
     newUser: { id: string; name: string; email: string; defaultSalary?: number },
-    initialTransactions?: Transaction[]
+    isNewRegistration?: boolean
   ) => {
     localStorage.setItem("finances_token", newToken);
     localStorage.setItem("finances_user", JSON.stringify(newUser));
@@ -121,10 +125,8 @@ export default function App() {
     if (newUser.defaultSalary && typeof newUser.defaultSalary === "number") {
       setDefaultSalary(newUser.defaultSalary);
     }
-    if (initialTransactions && initialTransactions.length > 0) {
-      setTimeout(() => {
-        handleImportTransactions(initialTransactions);
-      }, 200);
+    if (isNewRegistration) {
+      setIsWelcomeModalOpen(true);
     }
   };
 
@@ -1295,6 +1297,17 @@ export default function App() {
           onImportTransactions={handleImportTransactions}
           transactionsCount={transactions.length}
           budgetsCount={Object.keys(budgets).length}
+        />
+
+        {/* MODAL DE BOAS-VINDAS / ONBOARDING APÓS REGISTRO */}
+        <WelcomeOnboardingModal
+          isOpen={isWelcomeModalOpen}
+          onClose={() => setIsWelcomeModalOpen(false)}
+          onImportTransactions={handleImportTransactions}
+          userName={user?.name || ""}
+          selectedMonth={selectedMonth}
+          defaultSalary={defaultSalary}
+          onUpdateDefaultSalary={handleUpdateDefaultSalary}
         />
 
         {/* CONSULTOR DE IA FINANCEIRO */}
