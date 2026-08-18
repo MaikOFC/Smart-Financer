@@ -19,6 +19,7 @@ interface FinanceChartsProps {
   transactions: Transaction[];
   budgets: Record<string, number>;
   selectedMonth: string; // YYYY-MM
+  defaultSalary?: number;
 }
 
 const COLORS = [
@@ -32,7 +33,7 @@ const COLORS = [
   "#64748b", // slate
 ];
 
-export default function FinanceCharts({ transactions, budgets, selectedMonth }: FinanceChartsProps) {
+export default function FinanceCharts({ transactions, budgets, selectedMonth, defaultSalary = 2500 }: FinanceChartsProps) {
   const isLeft = (sec: string) => sec === "left" || sec === "esquerda" || sec === "despesas";
 
   // 1. DATA FOR MONTHLY CATEGORIES (Pie Chart - Apenas despesas reais do mês, excluindo planejamento)
@@ -70,7 +71,7 @@ export default function FinanceCharts({ transactions, budgets, selectedMonth }: 
       .reduce((sum, t) => (t.isDiscount ? sum - t.amount : sum + t.amount), 0);
 
     const totalExpenses = leftExpenses; // Apenas gastos reais (exclui planejamento)
-    const income = budgets[m] || 843.15;
+    const income = budgets[m] !== undefined ? budgets[m] : defaultSalary;
 
     const formattedMonth = (() => {
       const [year, month] = m.split("-");

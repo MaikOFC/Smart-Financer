@@ -15,3 +15,10 @@ export interface MonthlyBudget {
   month: string; // YYYY-MM
   income: number;
 }
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  defaultSalary?: number;
+}

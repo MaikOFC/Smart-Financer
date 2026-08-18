@@ -11,6 +11,7 @@ import {
   Copy,
   Check,
   ShieldCheck,
+  ShieldAlert,
   Info,
   Server,
   User as UserIcon,
@@ -20,18 +21,35 @@ import {
   Cpu,
   Cloud,
   Laptop,
+  Wallet,
+  DollarSign,
+  TrendingUp,
+  CheckCircle2,
+  Calendar,
+  Lock,
+  Crown,
+  KeyRound,
+  Upload,
+  Sparkles,
 } from "lucide-react";
+import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "../lib/admin";
+import { Transaction } from "../types";
+import SpreadsheetUpload from "./SpreadsheetUpload";
 
 interface AdminSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   user: { id: string; name: string; email: string };
+  defaultSalary: number;
+  onUpdateDefaultSalary: (newSalary: number, applyToFutureMonths: boolean, fromMonth: string) => Promise<void>;
+  selectedMonth: string;
   supabaseActive: boolean;
   supabaseUserId: string;
   setSupabaseUserId: (id: string) => void;
   onExportJson: () => void;
   onExportSupabaseCSV: (type: "transactions" | "budgets") => void;
   onResetAll: () => void;
+  onImportTransactions: (imported: Transaction[]) => void;
   transactionsCount: number;
   budgetsCount: number;
 }
@@ -62,21 +80,53 @@ export default function AdminSettingsModal({
   isOpen,
   onClose,
   user,
+  defaultSalary,
+  onUpdateDefaultSalary,
+  selectedMonth,
   supabaseActive,
   supabaseUserId,
   setSupabaseUserId,
   onExportJson,
   onExportSupabaseCSV,
   onResetAll,
+  onImportTransactions,
   transactionsCount,
   budgetsCount,
 }: AdminSettingsModalProps) {
+  const isAdmin = isUserAdmin(user);
   const [copiedId, setCopiedId] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
-  const [activeTab, setActiveTab] = useState<"exports" | "database" | "reset">("exports");
+  const [activeTab, setActiveTab] = useState<"salary" | "import" | "exports" | "database" | "reset">("salary");
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [pingMs, setPingMs] = useState<number | null>(null);
+
+  // Salary state
+  const [salaryInput, setSalaryInput] = useState<string>(String(defaultSalary || 2500));
+  const [applyToFuture, setApplyToFuture] = useState(true);
+  const [isSavingSalary, setIsSavingSalary] = useState(false);
+  const [salarySavedFeedback, setSalarySavedFeedback] = useState(false);
+
+  useEffect(() => {
+    setSalaryInput(String(defaultSalary || 2500));
+  }, [defaultSalary]);
+
+  const handleSaveSalary = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseFloat(salaryInput);
+    if (isNaN(val) || val <= 0) return;
+
+    setIsSavingSalary(true);
+    try {
+      await onUpdateDefaultSalary(val, applyToFuture, selectedMonth);
+      setSalarySavedFeedback(true);
+      setTimeout(() => setSalarySavedFeedback(false), 3500);
+    } catch (err) {
+      console.error("Erro ao salvar novo salário:", err);
+    } finally {
+      setIsSavingSalary(false);
+    }
+  };
 
   const effectiveUserId = supabaseActive ? user.id : supabaseUserId;
 
@@ -122,10 +172,10 @@ export default function AdminSettingsModal({
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && isAdmin) {
       fetchSystemStatus();
     }
-  }, [isOpen]);
+  }, [isOpen, isAdmin]);
 
   const handleCopyUserId = () => {
     navigator.clipboard.writeText(effectiveUserId);
@@ -180,78 +230,322 @@ CREATE TABLE IF NOT EXISTS public.transactions (
           {/* MODAL HEADER */}
           <div className="flex items-center justify-between p-6 border-b border-slate-800/80 bg-slate-950/40">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 shadow-sm">
-                <Settings className="w-5 h-5" />
+              <div className={`p-2.5 rounded-2xl border shadow-sm ${
+                isAdmin 
+                  ? "bg-amber-500/10 text-amber-400 border-amber-500/20" 
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+              }`}>
+                {isAdmin ? <Crown className="w-5 h-5" /> : <Settings className="w-5 h-5" />}
               </div>
               <div>
-                <h2 className="text-lg font-black text-white flex items-center gap-2">
-                  Painel de Configurações <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-medium">SmartFinancer</span>
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-black text-white">
+                    {isAdmin ? "Painel de Administração" : "Configurações da Conta"}
+                  </h2>
+                  {isAdmin ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono font-bold border border-amber-500/30 flex items-center gap-1">
+                      <Crown className="w-3 h-3" /> ADM PRINCIPAL
+                    </span>
+                  ) : (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-medium">
+                      SmartFinancer
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-slate-400 font-medium">
-                  Exportações, status de hospedagem do servidor e banco de dados
+                  {isAdmin 
+                    ? `Acesso total à infraestrutura, exportações e banco de dados (${ADMIN_USERNAME})` 
+                    : "Gerencie seu salário base mensal e preferências da sua conta"}
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all"
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* TAB NAVIGATION */}
-          <div className="flex border-b border-slate-800/80 px-6 bg-slate-950/20 gap-2 pt-2">
+          <div className="flex border-b border-slate-800/80 px-6 bg-slate-950/20 gap-2 pt-2 overflow-x-auto scrollbar-none">
+            <button
+              onClick={() => setActiveTab("salary")}
+              className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === "salary"
+                  ? "border-emerald-500 text-emerald-400"
+                  : "border-transparent text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Wallet className="w-4 h-4" />
+              Salário & Renda
+            </button>
+
+            <button
+              onClick={() => setActiveTab("import")}
+              className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === "import"
+                  ? "border-indigo-500 text-indigo-400"
+                  : "border-transparent text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              Importação Inteligente
+            </button>
+
             <button
               onClick={() => setActiveTab("exports")}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all ${
+              className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
                 activeTab === "exports"
                   ? "border-indigo-500 text-indigo-400"
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              <Download className="w-4 h-4" />
+              {isAdmin ? <Download className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5 text-slate-500" />}
               Exportações & Backups
+              {!isAdmin && <span className="text-[9px] px-1 bg-slate-800 text-slate-400 rounded">ADM</span>}
             </button>
 
             <button
               onClick={() => setActiveTab("database")}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all ${
+              className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
                 activeTab === "database"
                   ? "border-indigo-500 text-indigo-400"
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              <Server className="w-4 h-4" />
+              {isAdmin ? <Server className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5 text-slate-500" />}
               Servidor & Supabase
+              {!isAdmin && <span className="text-[9px] px-1 bg-slate-800 text-slate-400 rounded">ADM</span>}
             </button>
 
             <button
               onClick={() => setActiveTab("reset")}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all ${
+              className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
                 activeTab === "reset"
                   ? "border-rose-500 text-rose-400"
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              <RefreshCw className="w-4 h-4" />
+              {isAdmin ? <RefreshCw className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5 text-slate-500" />}
               Manutenção
+              {!isAdmin && <span className="text-[9px] px-1 bg-slate-800 text-slate-400 rounded">ADM</span>}
             </button>
           </div>
 
           {/* TAB CONTENT */}
           <div className="p-6 overflow-y-auto space-y-5 flex-1">
-            {activeTab === "exports" && (
+            {activeTab === "salary" && (
+              <div className="space-y-5">
+                {/* INFO BANNER */}
+                <div className="bg-emerald-950/20 border border-emerald-500/30 p-5 rounded-2xl">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30 shrink-0">
+                      <DollarSign className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-white">Configuração de Salário & Entrada Base</h4>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Defina o seu salário mensal padrão. Sempre que houver um reajuste, promoção ou mudança de renda, altere este valor para atualizar automaticamente o orçamento dos meses seguintes.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* FORMULÁRIO DE ATUALIZAÇÃO DE SALÁRIO */}
+                <form onSubmit={handleSaveSalary} className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 space-y-4">
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-300 block mb-2">
+                      Salário / Renda Mensal Base (R$)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-emerald-400 font-mono">
+                        R$
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        required
+                        value={salaryInput}
+                        onChange={(e) => setSalaryInput(e.target.value)}
+                        placeholder="2500,00"
+                        className="w-full bg-slate-900 border border-slate-700/80 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 text-lg font-mono font-black text-white px-4 py-3 pl-12 rounded-xl transition-all"
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1.5">
+                      Valor atual salvo no perfil: <strong className="text-emerald-400 font-mono">R$ {defaultSalary?.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong>
+                    </p>
+                  </div>
+
+                  {/* CHECKBOX APLICAR A PARTIR DO MÊS SELECIONADO E FUTUROS */}
+                  <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-xl space-y-2">
+                    <label className="flex items-start gap-3 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={applyToFuture}
+                        onChange={(e) => setApplyToFuture(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900 cursor-pointer accent-emerald-500"
+                      />
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-bold text-slate-200 block">
+                          Aplicar este novo salário a partir de {selectedMonth} e em todos os meses futuros
+                        </span>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          Atualiza automaticamente as planilhas dos próximos 12 meses para que venham preenchidas com o novo valor de salário.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* FEEDBACK DE SUCESSO */}
+                  {salarySavedFeedback && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 rounded-xl text-xs flex items-center gap-2"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Salário base atualizado com sucesso para os meses seguintes!</span>
+                    </motion.div>
+                  )}
+
+                  {/* BOTÃO SALVAR */}
+                  <button
+                    type="submit"
+                    disabled={isSavingSalary}
+                    className="w-full flex items-center justify-center gap-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white py-3 rounded-xl transition-all shadow-lg shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingSalary ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" /> Salvando...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" /> Salvar e Atualizar Salário
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                {/* DICA DE COMO FUNCIONA O ORÇAMENTO */}
+                <div className="bg-slate-950/40 border border-slate-800/80 p-4 rounded-xl flex items-start gap-3">
+                  <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <strong>Dica:</strong> Você também pode editar o orçamento de um mês específico clicando diretamente no card <em>"Orçamento / Entrada"</em> no topo da tela inicial.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* ABA DE IMPORTAÇÃO */}
+            {activeTab === "import" && (
+              <div className="space-y-5">
+                {/* INFO BANNER */}
+                <div className="bg-indigo-950/20 border border-indigo-500/30 p-5 rounded-2xl">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30 shrink-0">
+                      <Sparkles className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-white">Importação Inteligente de Planilhas e Comprovantes</h4>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Envie qualquer planilha (<strong>.xlsx</strong>, <strong>.csv</strong>, <strong>.xls</strong>) ou um <strong>print/imagem</strong> de tabelas, extratos e recibos. Nossa IA Gemini irá analisar os dados, reconhecer os valores e datas, e adicioná-los automaticamente ao seu mês selecionado (<strong className="text-indigo-300 font-mono">{selectedMonth}</strong>).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* UPLOADER */}
+                <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5">
+                  <SpreadsheetUpload
+                    onImportTransactions={(imported) => {
+                      onImportTransactions(imported);
+                    }}
+                    hideHeader={true}
+                    isCompact={true}
+                    className="bg-transparent border-0 p-0 mb-0"
+                  />
+                </div>
+
+                {/* DICAS DE FORMATOS */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="bg-slate-950/40 border border-slate-800/80 p-3.5 rounded-xl space-y-1.5">
+                    <div className="flex items-center gap-1.5 font-bold text-emerald-400">
+                      <FileSpreadsheet className="w-4 h-4" /> Planilhas (Excel e CSV)
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Não precisa estar em nenhum formato rígido. A IA detecta cabeçalhos como Nome/Descrição, Valor R$, Categoria e Data de vencimento.
+                    </p>
+                  </div>
+                  <div className="bg-slate-950/40 border border-slate-800/80 p-3.5 rounded-xl space-y-1.5">
+                    <div className="flex items-center gap-1.5 font-bold text-indigo-400">
+                      <Upload className="w-4 h-4" /> Prints e Fotos de Recibos
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Tirou um print do aplicativo do seu banco ou uma foto de nota fiscal? A IA faz a leitura visual (OCR) e converte automaticamente em lançamentos.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SE NÃO FOR ADMIN E TENTAR ACESSAR EXPORTS, DATABASE OU RESET */}
+            {!isAdmin && (activeTab === "exports" || activeTab === "database" || activeTab === "reset") && (
+              <div className="bg-slate-950/80 border border-amber-500/30 rounded-2xl p-6 text-center space-y-4 my-4">
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20 mx-auto">
+                  <Lock className="w-7 h-7" />
+                </div>
+                <div className="space-y-2 max-w-md mx-auto">
+                  <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+                    Acesso Restrito ao Administrador
+                  </span>
+                  <h3 className="text-base font-black text-white pt-1">
+                    {activeTab === "exports" && "Exportações e Backups do Sistema"}
+                    {activeTab === "database" && "Infraestrutura de Servidores e Banco Supabase"}
+                    {activeTab === "reset" && "Manutenção Geral e Redefinição"}
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    As ferramentas de inspeção de banco de dados, exportação bruta e manutenção de servidores são restritas com segurança ao administrador cadastrado:
+                  </p>
+                  <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-xl text-left space-y-1.5 font-mono text-xs mt-3">
+                    <div className="text-slate-400 flex items-center justify-between">
+                      <span className="text-slate-500">Usuário ADM:</span>
+                      <strong className="text-amber-400">{ADMIN_USERNAME}</strong>
+                    </div>
+                    <div className="text-slate-400 flex items-center justify-between">
+                      <span className="text-slate-500">E-mail:</span>
+                      <strong className="text-indigo-400">{ADMIN_EMAIL}</strong>
+                    </div>
+                    <div className="text-slate-400 flex items-center justify-between">
+                      <span className="text-slate-500">ID Supabase:</span>
+                      <strong className="text-slate-300 text-[11px] truncate max-w-[190px]">1703bc04-af6d-4bfa-9d6f-422...</strong>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveTab("salary")}
+                  className="text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl transition-all cursor-pointer shadow-md shadow-emerald-600/20"
+                >
+                  Voltar para Salário & Renda
+                </button>
+              </div>
+            )}
+
+            {/* CONTEÚDO EXCLUSIVO DO ADMIN */}
+            {isAdmin && activeTab === "exports" && (
               <div className="space-y-4">
                 <div className="bg-slate-950/50 border border-slate-800 p-4 rounded-2xl">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Resumo de Dados Atuais</span>
-                    <span className="text-xs font-mono text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Crown className="w-3.5 h-3.5 text-amber-400" /> Resumo de Dados Atuais
+                    </span>
+                    <span className="text-xs font-mono text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20">
                       {transactionsCount} transações • {budgetsCount} orçamentos
                     </span>
                   </div>
                   <p className="text-xs text-slate-400">
-                    Baixe os seus lançamentos a qualquer momento em formatos abertos e compatíveis com planilhas Excel ou bancos SQL.
+                    Baixe os lançamentos a qualquer momento em formatos abertos e compatíveis com planilhas Excel ou bancos SQL.
                   </p>
                 </div>
 
@@ -292,154 +586,116 @@ CREATE TABLE IF NOT EXISTS public.transactions (
                     </div>
                     <button
                       onClick={() => onExportSupabaseCSV("transactions")}
-                      className="w-full flex items-center justify-center gap-2 text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 py-2.5 rounded-xl border border-emerald-500/20 transition-all cursor-pointer"
+                      className="w-full flex items-center justify-center gap-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-slate-200 py-2.5 rounded-xl border border-slate-700/60 transition-all cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5" /> Baixar CSV Transações
                     </button>
                   </div>
 
                   {/* Export CSV Budgets */}
-                  <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl flex flex-col justify-between space-y-3">
+                  <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl flex flex-col justify-between space-y-3 sm:col-span-2">
                     <div className="flex items-start gap-3">
-                      <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
-                        <Database className="w-4 h-4" />
+                      <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
+                        <FileSpreadsheet className="w-4 h-4" />
                       </div>
                       <div>
                         <h4 className="text-xs font-bold text-white">CSV Orçamentos (Supabase)</h4>
                         <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
-                          Formatado com as colunas da tabela <code className="text-emerald-400">budgets</code> por mês.
+                          Formatado com as colunas da tabela <code className="text-indigo-400">budgets</code> para importação direta no Supabase Table Editor.
                         </p>
                       </div>
                     </div>
                     <button
                       onClick={() => onExportSupabaseCSV("budgets")}
-                      className="w-full flex items-center justify-center gap-2 text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 py-2.5 rounded-xl border border-emerald-500/20 transition-all cursor-pointer"
+                      className="w-full flex items-center justify-center gap-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-slate-200 py-2.5 rounded-xl border border-slate-700/60 transition-all cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5" /> Baixar CSV Orçamentos
-                    </button>
-                  </div>
-
-                  {/* Schema Info */}
-                  <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl flex flex-col justify-between space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 bg-purple-500/10 text-purple-400 rounded-xl border border-purple-500/20">
-                        <Server className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-white">Estrutura SQL</h4>
-                        <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
-                          Copie o DDL completo para criar as tabelas no PostgreSQL/Supabase.
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleCopySqlHint}
-                      className="w-full flex items-center justify-center gap-2 text-xs font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 py-2.5 rounded-xl border border-purple-500/20 transition-all cursor-pointer"
-                    >
-                      {copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      {copiedSql ? "Script SQL Copiado!" : "Copiar Script SQL"}
                     </button>
                   </div>
                 </div>
               </div>
             )}
 
-            {activeTab === "database" && (
+            {isAdmin && activeTab === "database" && (
               <div className="space-y-4">
-                {/* STATUS DE HOSPEDAGEM DO SERVIDOR (ONLINE NA NUVEM OU LOCAL) */}
-                <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4.5 space-y-3.5">
+                {/* STATUS DE HOSPEDAGEM E SERVIDOR */}
+                <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                      <Radio className="w-3.5 h-3.5 text-indigo-400" /> Diagnóstico de Hospedagem & Servidor
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" /> Status de Hospedagem & Servidor
                     </span>
                     <button
                       onClick={fetchSystemStatus}
                       disabled={isLoadingStatus}
-                      className="flex items-center gap-1.5 text-[11px] text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 px-2.5 py-1 rounded-lg transition-all cursor-pointer border border-indigo-500/20"
-                      title="Atualizar diagnóstico do servidor"
+                      className="text-[11px] font-bold text-slate-400 hover:text-white flex items-center gap-1 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800 cursor-pointer"
+                      title="Atualizar diagnóstico"
                     >
-                      <RefreshCw className={`w-3 h-3 ${isLoadingStatus ? "animate-spin" : ""}`} />
-                      {isLoadingStatus ? "Verificando..." : "Testar Conexão"}
+                      <RefreshCw className={`w-3 h-3 ${isLoadingStatus ? "animate-spin text-emerald-400" : ""}`} />
+                      Diagnosticar
                     </button>
                   </div>
 
-                  {/* Card Principal de Ambiente */}
-                  <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
-                        systemStatus?.isOnlineCloud
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25"
-                          : "bg-blue-500/10 text-blue-400 border-blue-500/25"
-                      }`}>
-                        {systemStatus?.isOnlineCloud ? <Cloud className="w-5 h-5" /> : <Laptop className="w-5 h-5" />}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                    {/* Ambiente */}
+                    <div className="bg-slate-900/80 border border-slate-800/80 p-3 rounded-xl">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Hospedagem</span>
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-bold text-white">
-                            {systemStatus?.platformName || "Detectando Servidor..."}
-                          </h4>
-                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                            systemStatus?.isOnlineCloud
-                              ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                              : "bg-blue-500/15 text-blue-300 border-blue-500/30"
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${systemStatus?.isOnlineCloud ? "bg-emerald-400 animate-pulse" : "bg-blue-400"}`} />
-                            {systemStatus?.isOnlineCloud ? "ONLINE NA NUVEM" : "LOCAL (LOCALHOST)"}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          {systemStatus?.locationDetail || "Ambiente de execução Node.js"}
-                        </p>
-                      </div>
+                      <p className="text-xs font-bold text-white truncate">
+                        {systemStatus?.platformName || "Nuvem Web"}
+                      </p>
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {systemStatus?.isOnlineCloud ? "Produção Cloud" : "Ambiente Local"}
+                      </span>
                     </div>
 
-                    {pingMs !== null && (
-                      <div className="flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 border-slate-800 pt-2 sm:pt-0">
-                        <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Latência API</span>
-                        <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                          {pingMs} ms
-                        </span>
+                    {/* Banco Atual */}
+                    <div className="bg-slate-900/80 border border-slate-800/80 p-3 rounded-xl">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Database className="w-3.5 h-3.5 text-indigo-400" />
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Banco em Uso</span>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Informações Técnicas de Rede e Banco */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-                    <div className="p-3 bg-slate-900/50 border border-slate-800/80 rounded-xl space-y-1">
-                      <span className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1.5">
-                        <Globe className="w-3 h-3 text-slate-400" /> Domínio / Endereço Ativo
-                      </span>
-                      <p className="text-xs font-mono text-slate-200 font-bold truncate" title={systemStatus?.host || window.location.host}>
-                        {systemStatus?.protocol || "https"}://{systemStatus?.host || window.location.host}
+                      <p className="text-xs font-bold text-indigo-300 truncate">
+                        {supabaseActive ? "Supabase PostgreSQL" : "Servidor / JSON"}
                       </p>
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {supabaseActive ? "Online / Nuvem" : "Storage Seguro"}
+                      </span>
                     </div>
 
-                    <div className="p-3 bg-slate-900/50 border border-slate-800/80 rounded-xl space-y-1">
-                      <span className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1.5">
-                        <Database className="w-3 h-3 text-indigo-400" /> Armazenamento de Dados
-                      </span>
-                      <p className="text-xs font-bold text-slate-200 truncate">
-                        {supabaseActive
-                          ? "Supabase PostgreSQL (Nuvem)"
-                          : "Base do Servidor (database.json)"}
+                    {/* Latência / Conexão */}
+                    <div className="bg-slate-900/80 border border-slate-800/80 p-3 rounded-xl">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Cpu className="w-3.5 h-3.5 text-purple-400" />
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Latência</span>
+                      </div>
+                      <p className="text-xs font-bold text-emerald-400 font-mono">
+                        {pingMs !== null ? `${pingMs} ms` : "Ativo"}
                       </p>
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        Porta 3000 / Express
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* GUIA DE AUTENTICAÇÃO E VERIFICAÇÃO DE E-MAIL (SUPABASE) */}
-                <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4.5 space-y-3">
+                {/* Dica de Configuração do Supabase */}
+                <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Autenticação e Verificação de E-mail (Supabase)
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Dica de Configuração Supabase (Novos Usuários)
+                    </span>
+                    <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-mono font-bold">
+                      Recomendado
                     </span>
                   </div>
 
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Para permitir que usuários criem contas <strong>sem precisar confirmar ou clicar em link no e-mail</strong>, configure as opções no painel do Supabase da seguinte forma:
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Para permitir que você e novos usuários criem conta sem confirmação de e-mail por link:
                   </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-1">
                       <div className="flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -473,7 +729,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
                 <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                      <UserIcon className="w-3.5 h-3.5 text-indigo-400" /> Detalhes do Usuário
+                      <UserIcon className="w-3.5 h-3.5 text-indigo-400" /> Detalhes do Administrador
                     </span>
                     <span className="text-xs text-slate-300 font-medium">{user.name} ({user.email})</span>
                   </div>
@@ -517,7 +773,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
               </div>
             )}
 
-            {activeTab === "reset" && (
+            {isAdmin && activeTab === "reset" && (
               <div className="space-y-4">
                 <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-2xl flex items-start gap-3 text-rose-300">
                   <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-rose-400" />

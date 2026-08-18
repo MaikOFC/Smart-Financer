@@ -11,6 +11,7 @@ export interface User {
   name: string;
   email: string;
   passwordHash: string;
+  defaultSalary?: number;
   createdAt: string;
 }
 
@@ -72,7 +73,7 @@ export function generateToken(): string {
 
 // --- USER OPERATIONS ---
 
-export function registerUser(name: string, email: string, passwordPlain: string) {
+export function registerUser(name: string, email: string, passwordPlain: string, initialSalary: number = 2500) {
   const db = initDb();
   
   const normalizedEmail = email.toLowerCase().trim();
@@ -87,11 +88,14 @@ export function registerUser(name: string, email: string, passwordPlain: string)
     userId = crypto.randomUUID();
   }
 
+  const cleanSalary = typeof initialSalary === "number" && initialSalary > 0 ? initialSalary : 2500;
+
   const newUser: User = {
     id: userId,
     name: name.trim(),
     email: normalizedEmail,
     passwordHash: hashPassword(passwordPlain),
+    defaultSalary: cleanSalary,
     createdAt: new Date().toISOString(),
   };
 
@@ -105,7 +109,21 @@ export function registerUser(name: string, email: string, passwordPlain: string)
   }));
   db.transactions.push(...userTransactions);
 
-  Object.entries(INITIAL_BUDGETS).forEach(([month, amount]) => {
+  const now = new Date();
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  const budgetEntries: Record<string, number> = {
+    ...INITIAL_BUDGETS,
+    [currentMonthStr]: cleanSalary,
+  };
+
+  for (let i = 0; i <= 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const mStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    budgetEntries[mStr] = cleanSalary;
+  }
+
+  Object.entries(budgetEntries).forEach(([month, amount]) => {
     db.budgets.push({
       userId,
       month,
@@ -249,3 +267,48 @@ export function setUserBudget(userId: string, month: string, amount: number) {
 
   saveDb(db);
 }
+
+export function getUserDefaultSalary(userId: string): number {
+  const db = initDb();
+  const user = db.users.find((u) => u.id === userId);
+  return user?.defaultSalary || 2500;
+}
+
+export function setUserDefaultSalary(userId: string, salary: number, applyFromMonth?: string): Record<string, number> {
+  const db = initDb();
+  const user = db.users.find((u) => u.id === userId);
+  const cleanSalary = typeof salary === "number" && salary > 0 ? salary : 2500;
+
+  if (user) {
+    user.defaultSalary = cleanSalary;
+  }
+
+  const updatedBudgetsMap: Record<string, number> = {};
+
+  if (applyFromMonth) {
+    try {
+      const [yearStr, monthStr] = applyFromMonth.split("-");
+      const baseYear = parseInt(yearStr, 10);
+      const baseMonth = parseInt(monthStr, 10);
+
+      for (let i = 0; i <= 12; i++) {
+        const d = new Date(baseYear, baseMonth - 1 + i, 1);
+        const mKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        updatedBudgetsMap[mKey] = cleanSalary;
+        
+        const bIndex = db.budgets.findIndex((b) => b.userId === userId && b.month === mKey);
+        if (bIndex !== -1) {
+          db.budgets[bIndex].amount = cleanSalary;
+        } else {
+          db.budgets.push({ userId, month: mKey, amount: cleanSalary });
+        }
+      }
+    } catch (e) {
+      console.error("Erro ao aplicar orçamentos futuros no serverDb:", e);
+    }
+  }
+
+  saveDb(db);
+  return updatedBudgetsMap;
+}
+

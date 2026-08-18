@@ -14,7 +14,9 @@ import {
   deleteTransaction,
   deleteTransactionsBatch,
   getUserBudgets,
-  setUserBudget
+  setUserBudget,
+  getUserDefaultSalary,
+  setUserDefaultSalary
 } from "./src/serverDb";
 
 dotenv.config();
@@ -60,15 +62,21 @@ const authMiddleware = (req: any, res: any, next: any) => {
 // Registro de Usuário
 app.post("/api/auth/register", (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, initialSalary } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ error: "Nome, e-mail e senha são obrigatórios." });
     }
-    registerUser(name, email, password);
+    const cleanSalary = typeof initialSalary === "number" && initialSalary > 0 ? initialSalary : 2500;
+    registerUser(name, email, password, cleanSalary);
     const loginResult = loginUser(email, password);
     res.status(201).json({ 
       message: "Usuário registrado com sucesso!",
-      user: { id: loginResult.user.id, name: loginResult.user.name, email: loginResult.user.email },
+      user: { 
+        id: loginResult.user.id, 
+        name: loginResult.user.name, 
+        email: loginResult.user.email,
+        defaultSalary: loginResult.user.defaultSalary || cleanSalary
+      },
       token: loginResult.token
     });
   } catch (error: any) {
@@ -86,7 +94,12 @@ app.post("/api/auth/login", (req, res) => {
     const { user, token } = loginUser(email, password);
     res.json({
       message: "Login realizado com sucesso!",
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { 
+        id: user.id, 
+        name: user.name, 
+        email: user.email,
+        defaultSalary: user.defaultSalary || 2500
+      },
       token
     });
   } catch (error: any) {
@@ -97,8 +110,32 @@ app.post("/api/auth/login", (req, res) => {
 // Obter dados do usuário autenticado
 app.get("/api/auth/me", authMiddleware, (req: any, res) => {
   res.json({
-    user: { id: req.user.id, name: req.user.name, email: req.user.email }
+    user: { 
+      id: req.user.id, 
+      name: req.user.name, 
+      email: req.user.email,
+      defaultSalary: req.user.defaultSalary || 2500
+    }
   });
+});
+
+// Atualizar Salário Base Padrão do Usuário
+app.post("/api/user/salary", authMiddleware, (req: any, res) => {
+  try {
+    const { salary, fromMonth } = req.body;
+    const cleanSalary = parseFloat(salary);
+    if (isNaN(cleanSalary) || cleanSalary <= 0) {
+      return res.status(400).json({ error: "Valor de salário inválido." });
+    }
+    const updatedBudgets = setUserDefaultSalary(req.user.id, cleanSalary, fromMonth);
+    res.json({
+      message: "Salário base atualizado com sucesso!",
+      defaultSalary: cleanSalary,
+      updatedBudgets
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Logout

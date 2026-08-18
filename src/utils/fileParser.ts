@@ -1,4 +1,20 @@
 import * as XLSX from "xlsx";
+import { Transaction } from "../types";
+
+/**
+ * Converts a file to base64 data string.
+ */
+export function convertFileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const base64String = (reader.result as string).split(",")[1];
+      resolve(base64String);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+}
 
 /**
  * Parses an Excel (.xlsx/.xls) or CSV file and returns raw tabular data as a list of lists of strings.
@@ -54,4 +70,70 @@ export function formatTabularDataForAI(rows: any[][]): string {
       return `Linha ${idx + 1}: ${rowStr}`;
     })
     .join("\n");
+}
+
+/**
+ * High-level helper to process any spreadsheet or image/print file using the AI backend.
+ */
+export async function processImportFile(
+  file: File,
+  onStepUpdate?: (step: string) => void
+): Promise<Transaction[]> {
+  const isImage = file.type.startsWith("image/");
+  const isSpreadsheet =
+    file.name.endsWith(".csv") ||
+    file.name.endsWith(".xlsx") ||
+    file.name.endsWith(".xls") ||
+    file.type === "text/csv" ||
+    file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+  if (!isImage && !isSpreadsheet) {
+    throw new Error("Formato não suportado. Por favor, envie uma planilha (.csv, .xlsx) ou uma imagem/print.");
+  }
+
+  if (isImage) {
+    onStepUpdate?.("Lendo arquivo de imagem...");
+    const base64 = await convertFileToBase64(file);
+    const mimeType = file.type;
+
+    onStepUpdate?.("Analisando comprovante/print com IA Gemini...");
+    const response = await fetch("/api/parse-spreadsheet", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageBase64: base64, mimeType }),
+    });
+
+    const data = await response.json();
+    if (!response.ok || data.error) {
+      throw new Error(data.error || "Erro ao processar imagem.");
+    }
+
+    if (data.transactions && data.transactions.length > 0) {
+      return data.transactions;
+    } else {
+      throw new Error("Nenhuma transação identificável encontrada na imagem.");
+    }
+  } else {
+    onStepUpdate?.("Lendo dados da planilha...");
+    const rawRows = await parseSpreadsheetFile(file);
+    const formattedText = formatTabularDataForAI(rawRows);
+
+    onStepUpdate?.("Estruturando transações com IA Gemini...");
+    const response = await fetch("/api/parse-spreadsheet", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ textData: formattedText }),
+    });
+
+    const data = await response.json();
+    if (!response.ok || data.error) {
+      throw new Error(data.error || "Erro ao processar planilha.");
+    }
+
+    if (data.transactions && data.transactions.length > 0) {
+      return data.transactions;
+    } else {
+      throw new Error("Não foi possível mapear transações válidas a partir desta planilha.");
+    }
+  }
 }

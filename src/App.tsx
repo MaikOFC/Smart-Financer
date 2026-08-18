@@ -19,6 +19,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings,
+  Crown,
+  Lock,
 } from "lucide-react";
 import { Transaction } from "./types";
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from "./initialData";
@@ -29,6 +31,7 @@ import SpreadsheetUpload from "./components/SpreadsheetUpload";
 import AuthScreen from "./components/AuthScreen";
 import AddTransactionModal from "./components/AddTransactionModal";
 import AdminSettingsModal from "./components/AdminSettingsModal";
+import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "./lib/admin";
 import {
   isSupabaseConfigured,
   getSupabaseTransactions,
@@ -39,6 +42,8 @@ import {
   deleteSupabaseTransactionsBatch,
   getSupabaseBudgets,
   setSupabaseBudget,
+  getUserDefaultSalary,
+  updateUserDefaultSalary,
   signOutSupabase,
   seedUserIfNeeded,
   getSupabaseCategories,
@@ -50,9 +55,20 @@ import { supabase } from "./lib/supabase";
 export default function App() {
   // Authentication states
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("finances_token"));
-  const [user, setUser] = useState<{ id: string; name: string; email: string } | null>(() => {
+  const [user, setUser] = useState<{ id: string; name: string; email: string; defaultSalary?: number } | null>(() => {
     const saved = localStorage.getItem("finances_user");
     return saved ? JSON.parse(saved) : null;
+  });
+
+  const [defaultSalary, setDefaultSalary] = useState<number>(() => {
+    const saved = localStorage.getItem("finances_user");
+    if (saved) {
+      try {
+        const u = JSON.parse(saved);
+        if (u.defaultSalary && typeof u.defaultSalary === "number") return u.defaultSalary;
+      } catch {}
+    }
+    return 2500;
   });
 
   // Client states loaded from the database
@@ -68,6 +84,14 @@ export default function App() {
     const month = String(now.getMonth() + 1).padStart(2, "0");
     return `${year}-${month}`;
   });
+  const [slideDirection, setSlideDirection] = useState<number>(1);
+
+  const changeMonth = (newMonth: string) => {
+    if (!newMonth || newMonth === selectedMonth) return;
+    const dir = newMonth > selectedMonth ? 1 : -1;
+    setSlideDirection(dir);
+    setSelectedMonth(newMonth);
+  };
   const [supabaseUserId, setSupabaseUserId] = useState<string>(() => {
     return localStorage.getItem("supabase_user_id") || "1703bc04-af6d-4bfa-9d6f-422fa3b077a6";
   });
@@ -85,11 +109,23 @@ export default function App() {
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
 
   // Auth Success Handler
-  const handleAuthSuccess = (newToken: string, newUser: { id: string; name: string; email: string }) => {
+  const handleAuthSuccess = (
+    newToken: string,
+    newUser: { id: string; name: string; email: string; defaultSalary?: number },
+    initialTransactions?: Transaction[]
+  ) => {
     localStorage.setItem("finances_token", newToken);
     localStorage.setItem("finances_user", JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
+    if (newUser.defaultSalary && typeof newUser.defaultSalary === "number") {
+      setDefaultSalary(newUser.defaultSalary);
+    }
+    if (initialTransactions && initialTransactions.length > 0) {
+      setTimeout(() => {
+        handleImportTransactions(initialTransactions);
+      }, 200);
+    }
   };
 
   // Synchronize Supabase configurations from backend server dynamically on mount
@@ -234,6 +270,11 @@ export default function App() {
           const savedTransactions = localStorage.getItem("demo_transactions");
           const savedBudgets = localStorage.getItem("demo_budgets");
           const savedCategories = localStorage.getItem("demo_categories");
+          const savedSalary = localStorage.getItem("demo_default_salary");
+
+          if (savedSalary) {
+            setDefaultSalary(parseFloat(savedSalary));
+          }
 
           if (savedTransactions) {
             loadedTransactions = JSON.parse(savedTransactions);
@@ -263,6 +304,10 @@ export default function App() {
           const tList = await getSupabaseTransactions(user.id);
           const bMap = await getSupabaseBudgets(user.id);
           const cList = await getSupabaseCategories(user.id);
+          const sal = await getUserDefaultSalary(user.id);
+          if (sal) {
+            setDefaultSalary(sal);
+          }
           loadedTransactions = tList;
           setTransactions(tList);
           setBudgets(bMap);
@@ -282,6 +327,10 @@ export default function App() {
             headers: { "Authorization": `Bearer ${token}` },
           });
           const bData = await bRes.json();
+
+          if (user.defaultSalary) {
+            setDefaultSalary(user.defaultSalary);
+          }
 
           loadedTransactions = tData.transactions || [];
           setTransactions(loadedTransactions);
@@ -319,7 +368,64 @@ export default function App() {
   }, [token, user]);
 
   // Handle active budget setting for the current selected month
-  const activeBudget = budgets[selectedMonth] !== undefined ? budgets[selectedMonth] : 843.15;
+  const activeBudget = budgets[selectedMonth] !== undefined ? budgets[selectedMonth] : defaultSalary;
+
+  const handleUpdateDefaultSalary = async (newSalary: number, applyToFutureMonths: boolean, fromMonth: string) => {
+    setDefaultSalary(newSalary);
+
+    if (user) {
+      const updatedUser = { ...user, defaultSalary: newSalary };
+      setUser(updatedUser);
+      localStorage.setItem("finances_user", JSON.stringify(updatedUser));
+    }
+
+    let newBudgetsMap: Record<string, number> = { ...budgets };
+    if (applyToFutureMonths) {
+      const [yearStr, monthStr] = fromMonth.split("-");
+      const baseYear = parseInt(yearStr, 10);
+      const baseMonth = parseInt(monthStr, 10);
+
+      for (let i = 0; i <= 12; i++) {
+        const d = new Date(baseYear, baseMonth - 1 + i, 1);
+        const mKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        newBudgetsMap[mKey] = newSalary;
+      }
+      setBudgets(newBudgetsMap);
+    }
+
+    if (!token || !user) return;
+
+    try {
+      if (isDemoUser) {
+        localStorage.setItem("demo_default_salary", String(newSalary));
+        if (applyToFutureMonths) {
+          localStorage.setItem("demo_budgets", JSON.stringify(newBudgetsMap));
+        }
+      } else if (supabaseActive) {
+        const updatedMap = await updateUserDefaultSalary(user.id, newSalary, applyToFutureMonths ? fromMonth : undefined);
+        if (applyToFutureMonths) {
+          setBudgets((prev) => ({ ...prev, ...updatedMap }));
+        }
+      } else {
+        const res = await fetch("/api/user/salary", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({ salary: newSalary, fromMonth: applyToFutureMonths ? fromMonth : undefined }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.updatedBudgets) {
+            setBudgets((prev) => ({ ...prev, ...data.updatedBudgets }));
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Erro ao atualizar salário:", e);
+    }
+  };
 
   const handleSetBudget = async (val: number) => {
     // Optimistic update
@@ -682,8 +788,14 @@ export default function App() {
     }
   };
 
+  const isAdmin = isUserAdmin(user);
+
   // Export data as JSON file for manual backup
   const handleExportData = () => {
+    if (!isAdmin) {
+      alert("Acesso restrito: A exportação de dados é permitida apenas para o usuário administrador cadastrado (miqueias2300nik).");
+      return;
+    }
     const dataStr = JSON.stringify({ transactions, budgets }, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -695,6 +807,10 @@ export default function App() {
 
   // Export active user's data as Supabase compatible CSVs
   const handleExportSupabaseCSV = (type: "transactions" | "budgets") => {
+    if (!isAdmin) {
+      alert("Acesso restrito: A exportação de tabelas do banco de dados é permitida apenas para o administrador (miqueias2300nik).");
+      return;
+    }
     const trimmedId = supabaseUserId.trim();
     if (!trimmedId) {
       const confirmUseDefault = window.confirm(
@@ -773,6 +889,10 @@ export default function App() {
 
   // Clear all data to restart
   const handleResetAll = async () => {
+    if (!isAdmin) {
+      alert("Acesso restrito: Somente o usuário administrador cadastrado (miqueias2300nik) pode realizar o reset geral da base de dados.");
+      return;
+    }
     if (window.confirm("Deseja realmente redefinir todos os dados para o modelo original do print?")) {
       if (!token || !user) return;
       setDataLoading(true);
@@ -873,6 +993,7 @@ export default function App() {
     const prevDate = new Date(y, m - 2, 1);
     const prevYear = prevDate.getFullYear();
     const prevMonth = String(prevDate.getMonth() + 1).padStart(2, "0");
+    setSlideDirection(-1);
     setSelectedMonth(`${prevYear}-${prevMonth}`);
   };
 
@@ -881,6 +1002,7 @@ export default function App() {
     const nextDate = new Date(y, m, 1);
     const nextYear = nextDate.getFullYear();
     const nextMonth = String(nextDate.getMonth() + 1).padStart(2, "0");
+    setSlideDirection(1);
     setSelectedMonth(`${nextYear}-${nextMonth}`);
   };
 
@@ -925,7 +1047,7 @@ export default function App() {
 
             <select
               value={currentMonthNum}
-              onChange={(e) => setSelectedMonth(`${currentYear}-${e.target.value}`)}
+              onChange={(e) => changeMonth(`${currentYear}-${e.target.value}`)}
               className="bg-slate-900 border border-slate-800/80 text-xs font-bold text-slate-200 px-3 py-1.5 rounded-xl hover:border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
             >
               {MONTHS_LIST.map((m) => (
@@ -937,7 +1059,7 @@ export default function App() {
 
             <select
               value={currentYear}
-              onChange={(e) => setSelectedMonth(`${e.target.value}-${currentMonthNum}`)}
+              onChange={(e) => changeMonth(`${e.target.value}-${currentMonthNum}`)}
               className="bg-slate-900 border border-slate-800/80 text-xs font-bold font-mono text-slate-200 px-2.5 py-1.5 rounded-xl hover:border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
             >
               {availableYears.map((yr) => (
@@ -958,25 +1080,41 @@ export default function App() {
 
           {/* USUÁRIO & AÇÕES */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 bg-slate-950/60 border border-slate-800/80 px-3 py-1.5 rounded-2xl">
-              <div className="w-6 h-6 bg-indigo-500/10 text-indigo-400 rounded-full flex items-center justify-center border border-indigo-500/20">
-                <UserIcon className="w-3.5 h-3.5" />
+            <div className={`flex items-center gap-2 border px-3 py-1.5 rounded-2xl ${
+              isAdmin 
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                : "bg-slate-950/60 border-slate-800/80 text-slate-200"
+            }`}>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${
+                isAdmin 
+                  ? "bg-amber-500/20 text-amber-400 border-amber-500/30" 
+                  : "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
+              }`}>
+                {isAdmin ? <Crown className="w-3.5 h-3.5" /> : <UserIcon className="w-3.5 h-3.5" />}
               </div>
               <div className="flex flex-col text-left">
-                <span className="text-[9px] text-slate-500 leading-none font-bold uppercase tracking-wider">Usuário</span>
-                <span className="text-xs text-slate-200 font-bold leading-tight max-w-[110px] truncate" title={user.name}>{user.name}</span>
+                <span className="text-[9px] leading-none font-bold uppercase tracking-wider opacity-70">
+                  {isAdmin ? "Admin Master" : "Usuário"}
+                </span>
+                <span className="text-xs font-bold leading-tight max-w-[110px] truncate" title={user.name}>{user.name}</span>
               </div>
             </div>
 
             {/* BOTÃO ADMIN / CONFIGURAÇÕES */}
             <button
               onClick={() => setIsAdminModalOpen(true)}
-              className="flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white px-3.5 py-2 rounded-xl transition-all border border-slate-800 hover:border-indigo-500/40 cursor-pointer"
-              title="Painel de Administração, Exportações e Supabase"
+              className={`flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl transition-all border cursor-pointer ${
+                isAdmin
+                  ? "bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border-amber-500/30 hover:border-amber-400/50"
+                  : "bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border-slate-800 hover:border-indigo-500/40"
+              }`}
+              title={isAdmin ? "Painel de Administração, Exportações e Servidor" : "Configurações da Conta e Salário"}
             >
-              <Settings className="w-4 h-4 text-indigo-400" />
-              <span className="hidden sm:inline">Configurações</span>
-              <span className="text-[9px] px-1.5 py-0.2 bg-indigo-500/20 text-indigo-300 font-mono rounded">ADM</span>
+              <Settings className={`w-4 h-4 ${isAdmin ? "text-amber-400" : "text-indigo-400"}`} />
+              <span className="hidden sm:inline">{isAdmin ? "Painel ADM" : "Configurações"}</span>
+              {isAdmin && (
+                <span className="text-[9px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 font-mono rounded font-bold">ADM</span>
+              )}
             </button>
 
             {/* BOTÃO SAIR */}
@@ -1063,40 +1201,70 @@ export default function App() {
           </div>
         ) : (
           <>
-        {/* RESUMOS / METRICS */}
-        <MetricCards
-          budget={activeBudget}
-          setBudget={handleSetBudget}
-          leftExpensesTotal={leftExpensesTotal}
-          rightExpensesTotal={rightExpensesTotal}
-          bottomIncomesTotal={bottomIncomesTotal}
-          sobra={sobra}
-        />
+            {/* CONTEÚDO MENSAL COM ANIMAÇÃO FLUIDA DE DESLIZE */}
+            <div className="overflow-hidden">
+              <AnimatePresence mode="wait" custom={slideDirection} initial={false}>
+                <motion.div
+                  key={selectedMonth}
+                  custom={slideDirection}
+                  variants={{
+                    enter: (dir: number) => ({
+                      x: dir > 0 ? 40 : -40,
+                      opacity: 0,
+                    }),
+                    center: {
+                      x: 0,
+                      opacity: 1,
+                    },
+                    exit: (dir: number) => ({
+                      x: dir > 0 ? -40 : 40,
+                      opacity: 0,
+                    }),
+                  }}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{
+                    duration: 0.22,
+                    ease: [0.25, 1, 0.5, 1], // easeOutCubic (leve e 100% acelerado por GPU)
+                  }}
+                  className="space-y-8"
+                >
+                  {/* RESUMOS / METRICS */}
+                  <MetricCards
+                    budget={activeBudget}
+                    setBudget={handleSetBudget}
+                    leftExpensesTotal={leftExpensesTotal}
+                    rightExpensesTotal={rightExpensesTotal}
+                    bottomIncomesTotal={bottomIncomesTotal}
+                    sobra={sobra}
+                  />
 
-        {/* UPLOAD PANEL */}
-        <SpreadsheetUpload onImportTransactions={handleImportTransactions} />
+                  {/* VISUALIZAÇÃO GRÁFICA / CHARTS */}
+                  <FinanceCharts
+                    transactions={transactions}
+                    budgets={budgets}
+                    selectedMonth={selectedMonth}
+                    defaultSalary={defaultSalary}
+                  />
 
-        {/* VISUALIZAÇÃO GRÁFICA / CHARTS */}
-        <FinanceCharts
-          transactions={transactions}
-          budgets={budgets}
-          selectedMonth={selectedMonth}
-        />
-
-        {/* TABELAS DE TRANSAÇÕES */}
-        <TransactionTable
-          transactions={transactions}
-          onAddTransaction={(section) => {
-            setAddModalSection(section);
-            setIsAddModalOpen(true);
-          }}
-          onUpdateTransaction={handleUpdateTransaction}
-          onDeleteTransaction={handleDeleteTransaction}
-          onDeduplicateSection={handleDeduplicateSection}
-          selectedMonth={selectedMonth}
-          categories={categories}
-          onSelectMonth={(m) => setSelectedMonth(m)}
-        />
+                  {/* TABELAS DE TRANSAÇÕES */}
+                  <TransactionTable
+                    transactions={transactions}
+                    onAddTransaction={(section) => {
+                      setAddModalSection(section);
+                      setIsAddModalOpen(true);
+                    }}
+                    onUpdateTransaction={handleUpdateTransaction}
+                    onDeleteTransaction={handleDeleteTransaction}
+                    onDeduplicateSection={handleDeduplicateSection}
+                    selectedMonth={selectedMonth}
+                    categories={categories}
+                    onSelectMonth={(m) => changeMonth(m)}
+                  />
+                </motion.div>
+              </AnimatePresence>
+            </div>
 
         {/* MODAL DE ADICIONAR TRANSAÇÃO */}
         <AddTransactionModal
@@ -1114,13 +1282,17 @@ export default function App() {
         <AdminSettingsModal
           isOpen={isAdminModalOpen}
           onClose={() => setIsAdminModalOpen(false)}
-          user={user}
+          user={user || { id: "", name: "Usuário", email: "" }}
+          defaultSalary={defaultSalary}
+          onUpdateDefaultSalary={handleUpdateDefaultSalary}
+          selectedMonth={selectedMonth}
           supabaseActive={supabaseActive}
           supabaseUserId={supabaseUserId}
           setSupabaseUserId={setSupabaseUserId}
           onExportJson={handleExportData}
           onExportSupabaseCSV={handleExportSupabaseCSV}
           onResetAll={handleResetAll}
+          onImportTransactions={handleImportTransactions}
           transactionsCount={transactions.length}
           budgetsCount={Object.keys(budgets).length}
         />

@@ -122,9 +122,15 @@ export function mapToSupabase(t: Omit<Transaction, "id"> & { id?: string }, user
 
 // --- AUTHENTICATION ---
 
-export async function signUpSupabase(name: string, email: string, passwordPlain: string) {
+export async function signUpSupabase(
+  name: string,
+  email: string,
+  passwordPlain: string,
+  initialSalary: number = 2500
+) {
   const cleanEmail = email.trim().toLowerCase();
   const cleanName = name.trim();
+  const cleanSalary = typeof initialSalary === "number" && !isNaN(initialSalary) && initialSalary > 0 ? initialSalary : 2500;
 
   const { data, error } = await supabase.auth.signUp({
     email: cleanEmail,
@@ -132,6 +138,7 @@ export async function signUpSupabase(name: string, email: string, passwordPlain:
     options: {
       data: {
         name: cleanName,
+        default_salary: cleanSalary,
       },
     },
   });
@@ -159,9 +166,12 @@ export async function signUpSupabase(name: string, email: string, passwordPlain:
     console.warn("Aviso ao salvar perfil na tabela 'users' pública:", err);
   }
 
-  // Se o usuário foi criado, rodamos o seed para criar os dados iniciais na conta dele
+  // Salva no localStorage como fallback rápido
+  localStorage.setItem(`user_default_salary_${data.user.id}`, String(cleanSalary));
+
+  // Se o usuário foi criado, rodamos o seed para criar os dados iniciais na conta dele com o salário escolhido
   try {
-    await seedUserIfNeeded(data.user.id);
+    await seedUserIfNeeded(data.user.id, cleanSalary);
   } catch (err) {
     console.error("Erro ao rodar seed inicial do usuário:", err);
   }
@@ -188,6 +198,7 @@ export async function signUpSupabase(name: string, email: string, passwordPlain:
       id: data.user.id,
       name: data.user.user_metadata?.name || cleanName,
       email: data.user.email || cleanEmail,
+      defaultSalary: cleanSalary,
     },
   };
 }
@@ -224,9 +235,13 @@ export async function signInSupabase(email: string, passwordPlain: string) {
     console.warn("Aviso ao salvar perfil no login na tabela 'users' pública:", err);
   }
 
+  const userSalaryMeta = data.user.user_metadata?.default_salary;
+  const savedLocalSalary = localStorage.getItem(`user_default_salary_${data.user.id}`);
+  const userSalary = userSalaryMeta ? Number(userSalaryMeta) : savedLocalSalary ? Number(savedLocalSalary) : 2500;
+
   // Se o usuário fez login com sucesso, tentamos rodar o seed inicial caso seja a primeira vez dele
   try {
-    await seedUserIfNeeded(data.user.id);
+    await seedUserIfNeeded(data.user.id, userSalary);
   } catch (err) {
     console.error("Erro ao verificar/rodar seed do usuário:", err);
   }
@@ -237,6 +252,7 @@ export async function signInSupabase(email: string, passwordPlain: string) {
       id: data.user.id,
       name: data.user.user_metadata?.name || data.user.email?.split("@")[0] || email.split("@")[0],
       email: data.user.email || email,
+      defaultSalary: userSalary,
     },
   };
 }
@@ -248,7 +264,7 @@ export async function signOutSupabase() {
 
 // --- DATA SEEDING (Idempotent initial data for new user accounts) ---
 
-export async function seedUserIfNeeded(userId: string) {
+export async function seedUserIfNeeded(userId: string, initialSalary?: number) {
   // 1. Check if the user is already seeded in 'user_seeded' table
   const { data: seedCheck, error: checkError } = await supabase
     .from("user_seeded")
@@ -295,8 +311,24 @@ export async function seedUserIfNeeded(userId: string) {
     console.error("Falha ao semear categorias:", err);
   }
 
-  // 2. Insert INITIAL_BUDGETS for this user
-  const budgetRows = Object.entries(INITIAL_BUDGETS).map(([month, amount]) => ({
+  // 2. Insert INITIAL_BUDGETS for this user (customized with chosen initial salary if given)
+  const salaryToUse = typeof initialSalary === "number" && initialSalary > 0 ? initialSalary : 2500;
+  const now = new Date();
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  const budgetEntries: Record<string, number> = {
+    ...INITIAL_BUDGETS,
+    [currentMonthStr]: salaryToUse,
+  };
+
+  // Pre-seed also next 6 months with the base salary
+  for (let i = 0; i <= 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const mStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    budgetEntries[mStr] = salaryToUse;
+  }
+
+  const budgetRows = Object.entries(budgetEntries).map(([month, amount]) => ({
     user_id: userId,
     month,
     amount,
@@ -511,3 +543,67 @@ export async function setSupabaseBudget(userId: string, month: string, amount: n
     if (insertErr) throw insertErr;
   }
 }
+
+// --- SALARY / DEFAULT BUDGET SETTINGS ---
+
+export async function getUserDefaultSalary(userId: string): Promise<number> {
+  try {
+    const { data } = await supabase.auth.getUser();
+    if (data?.user?.user_metadata?.default_salary) {
+      return Number(data.user.user_metadata.default_salary);
+    }
+  } catch (err) {
+    console.warn("Could not fetch user metadata for salary:", err);
+  }
+
+  const saved = localStorage.getItem(`user_default_salary_${userId}`);
+  if (saved) {
+    return Number(saved) || 2500;
+  }
+  return 2500;
+}
+
+export async function updateUserDefaultSalary(
+  userId: string,
+  newSalary: number,
+  applyFromMonth?: string
+): Promise<Record<string, number>> {
+  const cleanSalary = typeof newSalary === "number" && !isNaN(newSalary) && newSalary > 0 ? newSalary : 2500;
+  
+  // 1. Save in user_metadata
+  try {
+    await supabase.auth.updateUser({
+      data: {
+        default_salary: cleanSalary,
+      },
+    });
+  } catch (err) {
+    console.warn("Aviso ao atualizar user_metadata:", err);
+  }
+
+  // 2. Save in localStorage
+  localStorage.setItem(`user_default_salary_${userId}`, String(cleanSalary));
+
+  // 3. If applyFromMonth is passed, update/insert budgets for this month and next 12 months
+  const updatedBudgetsMap: Record<string, number> = {};
+  if (applyFromMonth) {
+    try {
+      const [yearStr, monthStr] = applyFromMonth.split("-");
+      const baseYear = parseInt(yearStr, 10);
+      const baseMonth = parseInt(monthStr, 10);
+
+      for (let i = 0; i <= 12; i++) {
+        const d = new Date(baseYear, baseMonth - 1 + i, 1);
+        const mKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        updatedBudgetsMap[mKey] = cleanSalary;
+        // Update in supabase
+        await setSupabaseBudget(userId, mKey, cleanSalary);
+      }
+    } catch (err) {
+      console.error("Erro ao propagar orçamento para meses futuros no Supabase:", err);
+    }
+  }
+
+  return updatedBudgetsMap;
+}
+
