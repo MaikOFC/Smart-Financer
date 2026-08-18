@@ -62,7 +62,12 @@ export default function App() {
   
   const [dataLoading, setDataLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState<string>("2026-07");
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    return `${year}-${month}`;
+  });
   const [supabaseUserId, setSupabaseUserId] = useState<string>(() => {
     return localStorage.getItem("supabase_user_id") || "1703bc04-af6d-4bfa-9d6f-422fa3b077a6";
   });
@@ -222,6 +227,8 @@ export default function App() {
       setDataLoading(true);
       setFetchError(null);
       try {
+        let loadedTransactions: Transaction[] = [];
+
         if (isDemoUser) {
           // --- LOCAL STORAGE PERSISTENCE FOR DEMO USER ---
           const savedTransactions = localStorage.getItem("demo_transactions");
@@ -229,12 +236,13 @@ export default function App() {
           const savedCategories = localStorage.getItem("demo_categories");
 
           if (savedTransactions) {
-            setTransactions(JSON.parse(savedTransactions));
+            loadedTransactions = JSON.parse(savedTransactions);
           } else {
             // First time demo user: initialize with default data
-            setTransactions(INITIAL_TRANSACTIONS);
+            loadedTransactions = INITIAL_TRANSACTIONS;
             localStorage.setItem("demo_transactions", JSON.stringify(INITIAL_TRANSACTIONS));
           }
+          setTransactions(loadedTransactions);
 
           if (savedBudgets) {
             setBudgets(JSON.parse(savedBudgets));
@@ -255,6 +263,7 @@ export default function App() {
           const tList = await getSupabaseTransactions(user.id);
           const bMap = await getSupabaseBudgets(user.id);
           const cList = await getSupabaseCategories(user.id);
+          loadedTransactions = tList;
           setTransactions(tList);
           setBudgets(bMap);
           setCategories(cList.length > 0 ? cList : ["Moradia", "Alimentação", "Transporte", "Lazer", "Tecnologia", "Saúde", "Família", "Outros"]);
@@ -274,9 +283,29 @@ export default function App() {
           });
           const bData = await bRes.json();
 
-          setTransactions(tData.transactions || []);
+          loadedTransactions = tData.transactions || [];
+          setTransactions(loadedTransactions);
           setBudgets(bData.budgets || {});
           setCategories(["Moradia", "Alimentação", "Transporte", "Lazer", "Tecnologia", "Saúde", "Família", "Outros"]);
+        }
+
+        // Auto-select latest month with data if current selected month is empty
+        if (loadedTransactions.length > 0) {
+          setSelectedMonth((current) => {
+            const hasInCurrent = loadedTransactions.some(
+              (t) => t.date && t.date.startsWith(current)
+            );
+            if (!hasInCurrent) {
+              const allDates = loadedTransactions
+                .map((t) => t.date?.slice(0, 7))
+                .filter((m): m is string => Boolean(m && m.length === 7))
+                .sort();
+              if (allDates.length > 0) {
+                return allDates[allDates.length - 1];
+              }
+            }
+            return current;
+          });
         }
       } catch (err: any) {
         console.error("Erro ao buscar dados:", err);
@@ -327,14 +356,18 @@ export default function App() {
     }
   };
 
+  const isLeftSec = (sec: string) => sec === "left" || sec === "esquerda" || sec === "despesas";
+  const isRightSec = (sec: string) => sec === "right" || sec === "direito" || sec === "direita" || sec === "planejamento";
+  const isBottomSec = (sec: string) => sec === "bottom_left" || sec === "bottom" || sec === "parcelas" || sec === "devedores" || sec === "recebiveis";
+
   // Calculations for active filtered month
   const currentMonthTransactions = transactions.filter(
-    (t) => t.date.startsWith(selectedMonth) && t.tableSection !== "bottom_left"
+    (t) => !!t.date && t.date.startsWith(selectedMonth) && !isBottomSec(t.tableSection)
   );
 
   // Left total = Left expenses sum - left discount sum
   const leftExpensesTotal = currentMonthTransactions
-    .filter((t) => t.tableSection === "left")
+    .filter((t) => isLeftSec(t.tableSection))
     .reduce((acc, t) => {
       if (t.isDiscount) return acc - t.amount;
       return acc + t.amount;
@@ -342,7 +375,7 @@ export default function App() {
 
   // Right total
   const rightExpensesTotal = currentMonthTransactions
-    .filter((t) => t.tableSection === "right")
+    .filter((t) => isRightSec(t.tableSection))
     .reduce((acc, t) => acc + t.amount, 0);
 
   // Helper to calculate remaining installments from selected month to end date
@@ -1062,6 +1095,7 @@ export default function App() {
           onDeduplicateSection={handleDeduplicateSection}
           selectedMonth={selectedMonth}
           categories={categories}
+          onSelectMonth={(m) => setSelectedMonth(m)}
         />
 
         {/* MODAL DE ADICIONAR TRANSAÇÃO */}

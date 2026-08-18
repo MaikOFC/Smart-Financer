@@ -9,19 +9,94 @@ export function isSupabaseConfigured(): boolean {
   return !!url && !!key;
 }
 
-// Convert a Supabase row to React camelCase Transaction
+// Convert a Supabase row to React camelCase Transaction with support for both EN and PT column names
 export function mapFromSupabase(row: any): Transaction {
+  // Description fallback
+  const description =
+    row.description ??
+    row["descrição"] ??
+    row.descricao ??
+    row.name ??
+    row.nome ??
+    row.produto ??
+    "";
+
+  // Amount parsing (handles commas, numbers, strings)
+  const rawAmount =
+    row.amount ??
+    row.quantidade ??
+    row.valor ??
+    row.preco ??
+    row["preço"] ??
+    0;
+  const parsedAmount =
+    typeof rawAmount === "string"
+      ? parseFloat(rawAmount.replace(",", "."))
+      : parseFloat(rawAmount) || 0;
+
+  // Date parsing (YYYY-MM-DD or DD/MM/YYYY)
+  let date = String(row.date ?? row.data ?? "").trim();
+  if (date.includes("/")) {
+    const parts = date.split("/");
+    if (parts.length === 3) {
+      if (parts[2].length === 4) {
+        // DD/MM/YYYY
+        date = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+      }
+    }
+  }
+
+  // Type
+  const rawType = String(row.type ?? row.tipo ?? "expense").toLowerCase();
+  const type: "income" | "expense" =
+    rawType === "income" || rawType === "receita" ? "income" : "expense";
+
+  // Section normalizer (maps 'esquerda' -> 'left', 'direito' -> 'right', 'bottom_left' -> 'bottom_left')
+  const rawSec = String(
+    row.table_section ??
+      row["tabela_seção"] ??
+      row.tabela_secao ??
+      row.section ??
+      row.secao ??
+      row["seção"] ??
+      ""
+  )
+    .toLowerCase()
+    .trim();
+
+  let tableSection: "left" | "right" | "bottom_left" = "left";
+  if (
+    rawSec === "right" ||
+    rawSec === "direito" ||
+    rawSec === "direita" ||
+    rawSec === "planejamento"
+  ) {
+    tableSection = "right";
+  } else if (
+    rawSec === "bottom_left" ||
+    rawSec === "bottom" ||
+    rawSec === "baixo" ||
+    rawSec === "parcelas" ||
+    rawSec === "devedores" ||
+    rawSec === "recebiveis" ||
+    rawSec === "reembolsos"
+  ) {
+    tableSection = "bottom_left";
+  } else {
+    tableSection = "left";
+  }
+
   return {
-    id: row.id,
-    description: row.description,
-    amount: parseFloat(row.amount) || 0,
-    date: row.date,
-    type: row.type,
-    tableSection: row.table_section,
-    category: row.category || "Outros",
-    isOrangeHighlight: row.is_orange_highlight,
-    isDiscount: row.is_discount,
-    note: row.note || "",
+    id: String(row.id),
+    description,
+    amount: parsedAmount,
+    date,
+    type,
+    tableSection,
+    category: row.category ?? row.categoria ?? "Outros",
+    isOrangeHighlight: !!(row.is_orange_highlight ?? row.destaque ?? row.highlight),
+    isDiscount: !!(row.is_discount ?? row.desconto),
+    note: row.note ?? row["observação"] ?? row.observacao ?? row.nota ?? "",
   };
 }
 
@@ -315,11 +390,11 @@ export async function getSupabaseTransactions(userId: string): Promise<Transacti
   const { data, error } = await supabase
     .from("transactions")
     .select("*")
-    .eq("user_id", userId)
-    .order("date", { ascending: true });
+    .eq("user_id", userId);
 
   if (error) throw error;
-  return (data || []).map(mapFromSupabase);
+  const mapped = (data || []).map(mapFromSupabase);
+  return mapped.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
 }
 
 export async function addSupabaseTransaction(userId: string, t: Omit<Transaction, "id"> & { id?: string }): Promise<Transaction> {

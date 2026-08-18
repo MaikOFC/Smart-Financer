@@ -33,9 +33,11 @@ const COLORS = [
 ];
 
 export default function FinanceCharts({ transactions, budgets, selectedMonth }: FinanceChartsProps) {
+  const isLeft = (sec: string) => sec === "left" || sec === "esquerda" || sec === "despesas";
+
   // 1. DATA FOR MONTHLY CATEGORIES (Pie Chart - Apenas despesas reais do mês, excluindo planejamento)
   const currentMonthTransactions = transactions.filter(
-    (t) => t.tableSection === "left" && t.date.startsWith(selectedMonth)
+    (t) => isLeft(t.tableSection) && !!t.date && t.date.startsWith(selectedMonth)
   );
 
   const categoryTotals: Record<string, number> = {};
@@ -54,16 +56,17 @@ export default function FinanceCharts({ transactions, budgets, selectedMonth }: 
   const allMonths = Array.from(
     new Set(
       transactions
-        .filter((t) => t.tableSection === "left")
-        .map((t) => t.date.substring(0, 7))
+        .filter((t) => isLeft(t.tableSection))
+        .map((t) => t.date?.substring(0, 7))
+        .filter(Boolean)
     )
   ).sort();
 
   const annualData = allMonths.map((m) => {
-    const monthTransactions = transactions.filter((t) => t.date.startsWith(m));
+    const monthTransactions = transactions.filter((t) => t.date && t.date.startsWith(m));
 
     const leftExpenses = monthTransactions
-      .filter((t) => t.tableSection === "left")
+      .filter((t) => isLeft(t.tableSection))
       .reduce((sum, t) => (t.isDiscount ? sum - t.amount : sum + t.amount), 0);
 
     const totalExpenses = leftExpenses; // Apenas gastos reais (exclui planejamento)

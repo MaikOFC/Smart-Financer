@@ -22,6 +22,7 @@ interface TransactionTableProps {
   onDeduplicateSection?: (section: "left" | "right" | "bottom_left") => void;
   selectedMonth: string; // YYYY-MM
   categories?: string[];
+  onSelectMonth?: (month: string) => void;
 }
 
 export default function TransactionTable({
@@ -32,6 +33,7 @@ export default function TransactionTable({
   onDeduplicateSection,
   selectedMonth,
   categories,
+  onSelectMonth,
 }: TransactionTableProps) {
   // Local state for editing rows
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -95,9 +97,14 @@ export default function TransactionTable({
 
   // Filter transactions for the selected month
   const filterByMonth = (t: Transaction) => {
-    if (t.tableSection === "bottom_left") return true; // Keep all receivables visible
-    return t.date.startsWith(selectedMonth);
+    const isBottom = t.tableSection === "bottom_left" || (t.tableSection as any) === "bottom";
+    if (isBottom) return true; // Keep all receivables visible
+    return !!t.date && t.date.startsWith(selectedMonth);
   };
+
+  const isLeftSec = (sec: string) => sec === "left" || sec === "esquerda" || sec === "despesas";
+  const isRightSec = (sec: string) => sec === "right" || sec === "direito" || sec === "direita" || sec === "planejamento";
+  const isBottomSec = (sec: string) => sec === "bottom_left" || sec === "bottom" || sec === "parcelas" || sec === "devedores" || sec === "recebiveis";
 
   // Sort states
   const [leftSortBy, setLeftSortBy] = useState<"default" | "alpha-asc" | "alpha-desc" | "price-desc" | "price-asc">("default");
@@ -128,9 +135,30 @@ export default function TransactionTable({
     else setRightSortBy("price-desc");
   };
 
-  const rawLeftTransactions = transactions.filter((t) => t.tableSection === "left" && filterByMonth(t));
-  const rawRightTransactions = transactions.filter((t) => t.tableSection === "right" && filterByMonth(t));
-  const bottomTransactions = transactions.filter((t) => t.tableSection === "bottom_left" && filterByMonth(t));
+  const rawLeftTransactions = transactions.filter((t) => isLeftSec(t.tableSection) && filterByMonth(t));
+  const rawRightTransactions = transactions.filter((t) => isRightSec(t.tableSection) && filterByMonth(t));
+  const bottomTransactions = transactions.filter((t) => isBottomSec(t.tableSection) && filterByMonth(t));
+
+  // Check if there are transactions in other months
+  const allLeftOtherMonths = transactions.filter((t) => isLeftSec(t.tableSection) && !t.date?.startsWith(selectedMonth));
+  const otherMonthsWithLeftData = Array.from(
+    new Set(allLeftOtherMonths.map((t) => t.date?.substring(0, 7)).filter(Boolean))
+  ).sort();
+
+  const allRightOtherMonths = transactions.filter((t) => isRightSec(t.tableSection) && !t.date?.startsWith(selectedMonth));
+  const otherMonthsWithRightData = Array.from(
+    new Set(allRightOtherMonths.map((t) => t.date?.substring(0, 7)).filter(Boolean))
+  ).sort();
+
+  const formatMonthLabel = (m: string) => {
+    const [year, month] = m.split("-");
+    const monthNames = [
+      "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+      "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+    ];
+    const idx = parseInt(month, 10) - 1;
+    return `${monthNames[idx] || month}/${year}`;
+  };
 
   // Processed (sorted) Left Transactions
   const leftTransactions = useMemo(() => {
@@ -305,8 +333,32 @@ export default function TransactionTable({
               <tbody className="divide-y divide-slate-800/60">
                 {leftTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-500 text-xs font-mono">
-                      Nenhuma despesa mensal registrada para este mês.
+                    <td colSpan={5} className="py-8 px-4 text-center text-slate-400 text-xs">
+                      <div className="flex flex-col items-center justify-center gap-2 max-w-md mx-auto">
+                        <p className="font-medium text-slate-400">Nenhuma despesa mensal registrada para este mês.</p>
+                        {otherMonthsWithLeftData.length > 0 && onSelectMonth && (
+                          <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
+                            <span className="text-[11px] text-slate-500">Registros em outros meses:</span>
+                            {otherMonthsWithLeftData.map((m) => {
+                              const count = allLeftOtherMonths.filter((t) => t.date.startsWith(m)).length;
+                              return (
+                                <button
+                                  key={m}
+                                  type="button"
+                                  onClick={() => onSelectMonth(m)}
+                                  className="px-2.5 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                                  title={`Mudar visualização para ${formatMonthLabel(m)}`}
+                                >
+                                  <span>{formatMonthLabel(m)}</span>
+                                  <span className="text-[10px] bg-indigo-500/25 px-1.5 py-0.2 rounded-full font-mono font-bold text-indigo-300">
+                                    {count} {count === 1 ? "item" : "itens"}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -580,10 +632,36 @@ export default function TransactionTable({
               <tbody className="divide-y divide-slate-800/60">
                 {rightTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-500 text-xs font-mono">
-                      {onlyDuplicates
-                        ? "Nenhum item duplicado encontrado com os filtros atuais."
-                        : "Nenhum planejamento ou compra futura registrada."}
+                    <td colSpan={5} className="py-8 px-4 text-center text-slate-400 text-xs">
+                      <div className="flex flex-col items-center justify-center gap-2 max-w-md mx-auto">
+                        <p className="font-medium text-slate-400">
+                          {onlyDuplicates
+                            ? "Nenhum item duplicado encontrado com os filtros atuais."
+                            : "Nenhum planejamento ou compra futura registrada."}
+                        </p>
+                        {!onlyDuplicates && otherMonthsWithRightData.length > 0 && onSelectMonth && (
+                          <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
+                            <span className="text-[11px] text-slate-500">Registros em outros meses:</span>
+                            {otherMonthsWithRightData.map((m) => {
+                              const count = allRightOtherMonths.filter((t) => t.date.startsWith(m)).length;
+                              return (
+                                <button
+                                  key={m}
+                                  type="button"
+                                  onClick={() => onSelectMonth(m)}
+                                  className="px-2.5 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                                  title={`Mudar visualização para ${formatMonthLabel(m)}`}
+                                >
+                                  <span>{formatMonthLabel(m)}</span>
+                                  <span className="text-[10px] bg-indigo-500/25 px-1.5 py-0.2 rounded-full font-mono font-bold text-indigo-300">
+                                    {count} {count === 1 ? "item" : "itens"}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ) : (
