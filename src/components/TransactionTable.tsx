@@ -1,12 +1,25 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Transaction } from "../types";
-import { Plus, Trash2, Edit2, Check, X, Star } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Edit2,
+  Check,
+  X,
+  Star,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  AlertCircle,
+  Copy,
+} from "lucide-react";
 
 interface TransactionTableProps {
   transactions: Transaction[];
   onAddTransaction: (section: "left" | "right" | "bottom_left") => void;
   onUpdateTransaction: (id: string, updatedFields: Partial<Transaction>) => void;
   onDeleteTransaction: (id: string) => void;
+  onDeduplicateSection?: (section: "left" | "right" | "bottom_left") => void;
   selectedMonth: string; // YYYY-MM
   categories?: string[];
 }
@@ -16,6 +29,7 @@ export default function TransactionTable({
   onAddTransaction,
   onUpdateTransaction,
   onDeleteTransaction,
+  onDeduplicateSection,
   selectedMonth,
   categories,
 }: TransactionTableProps) {
@@ -26,6 +40,7 @@ export default function TransactionTable({
   const [editNote, setEditNote] = useState("");
   const [editCategory, setEditCategory] = useState("");
   const [editDate, setEditDate] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
 
   const startEditing = (t: Transaction) => {
     setEditingId(t.id);
@@ -34,21 +49,48 @@ export default function TransactionTable({
     setEditNote(t.note || "");
     setEditCategory(t.category || "Outros");
     setEditDate(t.date);
+    setEditError(null);
   };
 
   const saveEditing = (id: string) => {
+    const currentItem = transactions.find((t) => t.id === id);
+    if (!currentItem) return;
+
+    const trimmedDesc = editDesc.trim();
+    if (!trimmedDesc) {
+      setEditError("O nome não pode estar vazio.");
+      return;
+    }
+
+    // Check if another item in the same section has this exact name
+    const normalizedNew = trimmedDesc.toLowerCase();
+    const isDuplicate = transactions.some((t) => {
+      if (t.id === id) return false;
+      if (t.tableSection !== currentItem.tableSection) return false;
+      const matchesMonth = !t.date || t.date.startsWith(selectedMonth);
+      if (!matchesMonth && currentItem.tableSection !== "bottom_left") return false;
+      return t.description.trim().toLowerCase() === normalizedNew;
+    });
+
+    if (isDuplicate) {
+      setEditError(`Já existe outro item chamado "${trimmedDesc}". Duplicatas não são permitidas.`);
+      return;
+    }
+
     onUpdateTransaction(id, {
-      description: editDesc,
+      description: trimmedDesc,
       amount: editAmount,
       note: editNote,
       category: editCategory,
       date: editDate,
     });
     setEditingId(null);
+    setEditError(null);
   };
 
   const cancelEditing = () => {
     setEditingId(null);
+    setEditError(null);
   };
 
   // Filter transactions for the selected month
@@ -57,9 +99,115 @@ export default function TransactionTable({
     return t.date.startsWith(selectedMonth);
   };
 
-  const leftTransactions = transactions.filter((t) => t.tableSection === "left" && filterByMonth(t));
-  const rightTransactions = transactions.filter((t) => t.tableSection === "right" && filterByMonth(t));
+  // Sort states
+  const [leftSortBy, setLeftSortBy] = useState<"default" | "alpha-asc" | "alpha-desc" | "price-desc" | "price-asc">("default");
+  const [rightSortBy, setRightSortBy] = useState<"default" | "alpha-asc" | "alpha-desc" | "price-desc" | "price-asc">("default");
+  const [onlyDuplicates, setOnlyDuplicates] = useState(false);
+
+  const handleToggleLeftProductSort = () => {
+    if (leftSortBy === "alpha-asc") setLeftSortBy("alpha-desc");
+    else if (leftSortBy === "alpha-desc") setLeftSortBy("default");
+    else setLeftSortBy("alpha-asc");
+  };
+
+  const handleToggleLeftPriceSort = () => {
+    if (leftSortBy === "price-desc") setLeftSortBy("price-asc");
+    else if (leftSortBy === "price-asc") setLeftSortBy("default");
+    else setLeftSortBy("price-desc");
+  };
+
+  const handleToggleRightProductSort = () => {
+    if (rightSortBy === "alpha-asc") setRightSortBy("alpha-desc");
+    else if (rightSortBy === "alpha-desc") setRightSortBy("default");
+    else setRightSortBy("alpha-asc");
+  };
+
+  const handleToggleRightPriceSort = () => {
+    if (rightSortBy === "price-desc") setRightSortBy("price-asc");
+    else if (rightSortBy === "price-asc") setRightSortBy("default");
+    else setRightSortBy("price-desc");
+  };
+
+  const rawLeftTransactions = transactions.filter((t) => t.tableSection === "left" && filterByMonth(t));
+  const rawRightTransactions = transactions.filter((t) => t.tableSection === "right" && filterByMonth(t));
   const bottomTransactions = transactions.filter((t) => t.tableSection === "bottom_left" && filterByMonth(t));
+
+  // Processed (sorted) Left Transactions
+  const leftTransactions = useMemo(() => {
+    let list = [...rawLeftTransactions];
+    switch (leftSortBy) {
+      case "alpha-asc":
+        list.sort((a, b) => a.description.localeCompare(b.description, "pt-BR", { sensitivity: "base" }));
+        break;
+      case "alpha-desc":
+        list.sort((a, b) => b.description.localeCompare(a.description, "pt-BR", { sensitivity: "base" }));
+        break;
+      case "price-desc":
+        list.sort((a, b) => b.amount - a.amount);
+        break;
+      case "price-asc":
+        list.sort((a, b) => a.amount - b.amount);
+        break;
+      default:
+        break;
+    }
+    return list;
+  }, [rawLeftTransactions, leftSortBy]);
+
+  // Duplicate item detection for Planning table (normalized description)
+  const rightDuplicatesInfo = useMemo(() => {
+    const counts: Record<string, number> = {};
+    rawRightTransactions.forEach((t) => {
+      const normalized = t.description.trim().toLowerCase();
+      if (normalized) {
+        counts[normalized] = (counts[normalized] || 0) + 1;
+      }
+    });
+
+    const duplicateNames = new Set(
+      Object.keys(counts).filter((k) => counts[k] > 1)
+    );
+
+    const duplicateCount = rawRightTransactions.filter((t) =>
+      duplicateNames.has(t.description.trim().toLowerCase())
+    ).length;
+
+    return { counts, duplicateNames, duplicateCount };
+  }, [rawRightTransactions]);
+
+  // Processed (filtered and sorted) Right Transactions
+  const rightTransactions = useMemo(() => {
+    let list = [...rawRightTransactions];
+
+    // Filter only duplicates if toggle is active
+    if (onlyDuplicates) {
+      list = list.filter((t) =>
+        rightDuplicatesInfo.duplicateNames.has(t.description.trim().toLowerCase())
+      );
+    }
+
+    // Apply Sorting
+    switch (rightSortBy) {
+      case "alpha-asc":
+        list.sort((a, b) => a.description.localeCompare(b.description, "pt-BR", { sensitivity: "base" }));
+        break;
+      case "alpha-desc":
+        list.sort((a, b) => b.description.localeCompare(a.description, "pt-BR", { sensitivity: "base" }));
+        break;
+      case "price-desc":
+        list.sort((a, b) => b.amount - a.amount);
+        break;
+      case "price-asc":
+        list.sort((a, b) => a.amount - b.amount);
+        break;
+      case "default":
+      default:
+        // Keep initial insertion order
+        break;
+    }
+
+    return list;
+  }, [rawRightTransactions, onlyDuplicates, rightSortBy, rightDuplicatesInfo]);
 
   // Compute Left Table Total
   const leftTotal = leftTransactions.reduce((acc, t) => {
@@ -70,7 +218,7 @@ export default function TransactionTable({
   }, 0);
 
   // Compute Right Table Total
-  const rightTotal = rightTransactions.reduce((acc, t) => acc + t.amount, 0);
+  const rightTotal = rawRightTransactions.reduce((acc, t) => acc + t.amount, 0);
 
   // Categories list
   const defaultCategories = ["Moradia", "Alimentação", "Transporte", "Lazer", "Tecnologia", "Saúde", "Família", "Outros"];
@@ -99,11 +247,59 @@ export default function TransactionTable({
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                  <th className="py-3 px-2">Produto</th>
-                  <th className="py-3 px-2">Categoria</th>
-                  <th className="py-3 px-2">Preço</th>
-                  <th className="py-3 px-2 text-center">Destaque</th>
-                  <th className="py-3 px-2 text-right">Ações</th>
+                  <th className="py-2.5 px-2">
+                    <button
+                      type="button"
+                      onClick={handleToggleLeftProductSort}
+                      className={`inline-flex items-center gap-1.5 font-bold uppercase tracking-wider text-[10px] transition-all rounded-lg px-2 py-1 -ml-2 select-none group cursor-pointer ${
+                        leftSortBy === "alpha-asc" || leftSortBy === "alpha-desc"
+                          ? "text-indigo-400 bg-indigo-500/10 border border-indigo-500/20"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                      }`}
+                      title="Clique para ordenar por nome (A-Z / Z-A / Padrão)"
+                    >
+                      <span>Produto</span>
+                      {leftSortBy === "alpha-asc" ? (
+                        <span className="flex items-center text-[9px] font-mono text-indigo-300">
+                          <ArrowUp className="w-3 h-3 text-indigo-400" /> A→Z
+                        </span>
+                      ) : leftSortBy === "alpha-desc" ? (
+                        <span className="flex items-center text-[9px] font-mono text-indigo-300">
+                          <ArrowDown className="w-3 h-3 text-indigo-400" /> Z→A
+                        </span>
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 opacity-30 group-hover:opacity-80 transition-opacity" />
+                      )}
+                    </button>
+                  </th>
+                  <th className="py-2.5 px-2">Categoria</th>
+                  <th className="py-2.5 px-2">
+                    <button
+                      type="button"
+                      onClick={handleToggleLeftPriceSort}
+                      className={`inline-flex items-center gap-1.5 font-bold uppercase tracking-wider text-[10px] transition-all rounded-lg px-2 py-1 -ml-2 select-none group cursor-pointer ${
+                        leftSortBy === "price-desc" || leftSortBy === "price-asc"
+                          ? "text-indigo-400 bg-indigo-500/10 border border-indigo-500/20"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                      }`}
+                      title="Clique para ordenar por preço (Maior / Menor / Padrão)"
+                    >
+                      <span>Preço</span>
+                      {leftSortBy === "price-desc" ? (
+                        <span className="flex items-center text-[9px] font-mono text-indigo-300">
+                          <ArrowDown className="w-3 h-3 text-indigo-400" /> Maior
+                        </span>
+                      ) : leftSortBy === "price-asc" ? (
+                        <span className="flex items-center text-[9px] font-mono text-indigo-300">
+                          <ArrowUp className="w-3 h-3 text-indigo-400" /> Menor
+                        </span>
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 opacity-30 group-hover:opacity-80 transition-opacity" />
+                      )}
+                    </button>
+                  </th>
+                  <th className="py-2.5 px-2 text-center">Destaque</th>
+                  <th className="py-2.5 px-2 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
@@ -127,12 +323,24 @@ export default function TransactionTable({
                         {/* Descrição */}
                         <td className="py-3 px-2 font-medium">
                           {isEditing ? (
-                            <input
-                              type="text"
-                              value={editDesc}
-                              onChange={(e) => setEditDesc(e.target.value)}
-                              className="bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg w-full text-xs text-white focus:outline-none focus:border-indigo-500"
-                            />
+                            <div className="space-y-1">
+                              <input
+                                type="text"
+                                value={editDesc}
+                                onChange={(e) => {
+                                  setEditDesc(e.target.value);
+                                  setEditError(null);
+                                }}
+                                className={`bg-slate-950 border px-2 py-1 rounded-lg w-full text-xs text-white focus:outline-none ${
+                                  editError ? "border-rose-500 ring-1 ring-rose-500/30" : "border-slate-800 focus:border-indigo-500"
+                                }`}
+                              />
+                              {editError && (
+                                <p className="text-[10px] text-rose-400 font-medium leading-tight flex items-center gap-1">
+                                  <AlertCircle className="w-2.5 h-2.5 flex-shrink-0" /> {editError}
+                                </p>
+                              )}
+                            </div>
                           ) : (
                             <div className="flex items-center gap-1.5">
                               <span>{t.description}</span>
@@ -266,15 +474,41 @@ export default function TransactionTable({
       {/* TABELA DIREITA - COMPRAS ESPECIAIS / GASTOS DE TECNOLOGIA */}
       <div id="table-right-container" className="bg-slate-900 rounded-3xl border border-slate-800 p-6 flex flex-col justify-between hover:border-slate-700/50 transition-all">
         <div>
-          <div className="flex items-center justify-between mb-4">
+          {/* Header da Tabela Direita */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
-              <h3 className="text-base font-bold text-white">Planejamento & Compras Futuras (Direita)</h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-bold text-white">Planejamento & Compras Futuras (Direita)</h3>
+                {rightDuplicatesInfo.duplicateNames.size > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-sans cursor-pointer hover:bg-amber-500/25 transition-all"
+                      onClick={() => setOnlyDuplicates(!onlyDuplicates)}
+                      title="Clique para filtrar e ver apenas itens duplicados"
+                    >
+                      <AlertCircle className="w-3 h-3 text-amber-400" />
+                      {rightDuplicatesInfo.duplicateNames.size} duplicata{rightDuplicatesInfo.duplicateNames.size > 1 ? "s" : ""}
+                    </span>
+                    {onDeduplicateSection && (
+                      <button
+                        type="button"
+                        onClick={() => onDeduplicateSection("right")}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition-all cursor-pointer shadow-sm"
+                        title="Remove automaticamente as cópias extras repetidas e mantém 1 de cada item"
+                      >
+                        <Trash2 className="w-2.5 h-2.5" /> Limpar Duplicatas
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
               <p className="text-xs text-slate-400">Eletrônicos, desejos e itens futuros para planejamento visual</p>
             </div>
+
             <button
               id="btn-add-right"
               onClick={() => onAddTransaction("right")}
-              className="flex items-center gap-1.5 text-xs font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-3 py-1.5 rounded-xl border border-indigo-500/15 transition-all"
+              className="flex items-center gap-1.5 text-xs font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-3.5 py-2 rounded-xl border border-indigo-500/15 transition-all self-start sm:self-auto cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Adicionar
             </button>
@@ -284,38 +518,123 @@ export default function TransactionTable({
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                  <th className="py-3 px-2">Produto</th>
-                  <th className="py-3 px-2">Preço Estimado (R$)</th>
-                  <th className="py-3 px-2">Label / Nota</th>
-                  <th className="py-3 px-2">Categoria</th>
-                  <th className="py-3 px-2 text-right">Ações</th>
+                  {/* Coluna PRODUTO com ordenação sutil */}
+                  <th className="py-2.5 px-2">
+                    <button
+                      type="button"
+                      onClick={handleToggleRightProductSort}
+                      className={`inline-flex items-center gap-1.5 font-bold uppercase tracking-wider text-[10px] transition-all rounded-lg px-2 py-1 -ml-2 select-none group cursor-pointer ${
+                        rightSortBy === "alpha-asc" || rightSortBy === "alpha-desc"
+                          ? "text-indigo-400 bg-indigo-500/10 border border-indigo-500/20"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                      }`}
+                      title="Clique para ordenar por nome (A-Z / Z-A / Padrão)"
+                    >
+                      <span>Produto</span>
+                      {rightSortBy === "alpha-asc" ? (
+                        <span className="flex items-center text-[9px] font-mono text-indigo-300">
+                          <ArrowUp className="w-3 h-3 text-indigo-400" /> A→Z
+                        </span>
+                      ) : rightSortBy === "alpha-desc" ? (
+                        <span className="flex items-center text-[9px] font-mono text-indigo-300">
+                          <ArrowDown className="w-3 h-3 text-indigo-400" /> Z→A
+                        </span>
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 opacity-30 group-hover:opacity-80 transition-opacity" />
+                      )}
+                    </button>
+                  </th>
+
+                  {/* Coluna PREÇO ESTIMADO com ordenação sutil */}
+                  <th className="py-2.5 px-2">
+                    <button
+                      type="button"
+                      onClick={handleToggleRightPriceSort}
+                      className={`inline-flex items-center gap-1.5 font-bold uppercase tracking-wider text-[10px] transition-all rounded-lg px-2 py-1 -ml-2 select-none group cursor-pointer ${
+                        rightSortBy === "price-desc" || rightSortBy === "price-asc"
+                          ? "text-indigo-400 bg-indigo-500/10 border border-indigo-500/20"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                      }`}
+                      title="Clique para ordenar por preço estimado (Maior / Menor / Padrão)"
+                    >
+                      <span>Preço Estimado (R$)</span>
+                      {rightSortBy === "price-desc" ? (
+                        <span className="flex items-center text-[9px] font-mono text-indigo-300">
+                          <ArrowDown className="w-3 h-3 text-indigo-400" /> Maior
+                        </span>
+                      ) : rightSortBy === "price-asc" ? (
+                        <span className="flex items-center text-[9px] font-mono text-indigo-300">
+                          <ArrowUp className="w-3 h-3 text-indigo-400" /> Menor
+                        </span>
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 opacity-30 group-hover:opacity-80 transition-opacity" />
+                      )}
+                    </button>
+                  </th>
+
+                  <th className="py-2.5 px-2">Label / Nota</th>
+                  <th className="py-2.5 px-2">Categoria</th>
+                  <th className="py-2.5 px-2 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
                 {rightTransactions.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-8 text-center text-slate-500 text-xs font-mono">
-                      Nenhum planejamento ou compra futura registrada.
+                      {onlyDuplicates
+                        ? "Nenhum item duplicado encontrado com os filtros atuais."
+                        : "Nenhum planejamento ou compra futura registrada."}
                     </td>
                   </tr>
                 ) : (
                   rightTransactions.map((t) => {
                     const isEditing = editingId === t.id;
                     const hasSpecialLabel = t.amount === 0 && t.note;
+                    const isDuplicate = rightDuplicatesInfo.duplicateNames.has(t.description.trim().toLowerCase());
+                    const dupCount = rightDuplicatesInfo.counts[t.description.trim().toLowerCase()] || 0;
 
                     return (
-                      <tr key={t.id} className="hover:bg-slate-800/20 transition-all text-slate-300">
-                        {/* Descrição */}
+                      <tr
+                        key={t.id}
+                        className={`transition-all ${
+                          isDuplicate
+                            ? "bg-amber-500/[0.04] hover:bg-amber-500/[0.08] text-slate-200 border-l-2 border-amber-500/70"
+                            : "hover:bg-slate-800/20 text-slate-300 border-l-2 border-transparent"
+                        }`}
+                      >
+                        {/* Descrição & Indicador de Duplicata */}
                         <td className="py-3 px-2 font-medium">
                           {isEditing ? (
-                            <input
-                              type="text"
-                              value={editDesc}
-                              onChange={(e) => setEditDesc(e.target.value)}
-                              className="bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg w-full text-xs text-white focus:outline-none focus:border-indigo-500"
-                            />
+                            <div className="space-y-1">
+                              <input
+                                type="text"
+                                value={editDesc}
+                                onChange={(e) => {
+                                  setEditDesc(e.target.value);
+                                  setEditError(null);
+                                }}
+                                className={`bg-slate-950 border px-2 py-1 rounded-lg w-full text-xs text-white focus:outline-none ${
+                                  editError ? "border-rose-500 ring-1 ring-rose-500/30" : "border-slate-800 focus:border-indigo-500"
+                                }`}
+                              />
+                              {editError && (
+                                <p className="text-[10px] text-rose-400 font-medium leading-tight flex items-center gap-1">
+                                  <AlertCircle className="w-2.5 h-2.5 flex-shrink-0" /> {editError}
+                                </p>
+                              )}
+                            </div>
                           ) : (
-                            t.description
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-white">{t.description}</span>
+                              {isDuplicate && (
+                                <span
+                                  className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase tracking-tight"
+                                  title={`Este item aparece ${dupCount} vezes na lista de planejamento`}
+                                >
+                                  <Copy className="w-2.5 h-2.5" /> {dupCount}x Duplicado
+                                </span>
+                              )}
+                            </div>
                           )}
                         </td>
 
@@ -385,11 +704,11 @@ export default function TransactionTable({
                               <>
                                 <button
                                   onClick={() => saveEditing(t.id)}
-                                  className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-lg"
+                                  className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-lg cursor-pointer"
                                 >
                                   <Check className="w-4 h-4" />
                                 </button>
-                                <button onClick={cancelEditing} className="p-1 text-rose-400 hover:bg-rose-500/10 rounded-lg">
+                                <button onClick={cancelEditing} className="p-1 text-rose-400 hover:bg-rose-500/10 rounded-lg cursor-pointer">
                                   <X className="w-4 h-4" />
                                 </button>
                               </>
@@ -397,13 +716,15 @@ export default function TransactionTable({
                               <>
                                 <button
                                   onClick={() => startEditing(t)}
-                                  className="p-1 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                                  className="p-1 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
+                                  title="Editar item"
                                 >
                                   <Edit2 className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   onClick={() => onDeleteTransaction(t.id)}
-                                  className="p-1 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-all"
+                                  className="p-1 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
+                                  title="Excluir item"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>

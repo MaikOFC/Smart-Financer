@@ -216,6 +216,14 @@ export function deleteTransaction(userId: string, id: string) {
   saveDb(db);
 }
 
+export function deleteTransactionsBatch(userId: string, ids: string[]) {
+  if (!ids || ids.length === 0) return;
+  const db = initDb();
+  const idSet = new Set(ids);
+  db.transactions = db.transactions.filter((t) => !(idSet.has(t.id) && t.userId === userId));
+  saveDb(db);
+}
+
 // --- BUDGET OPERATIONS ---
 
 export function getUserBudgets(userId: string): Record<string, number> {

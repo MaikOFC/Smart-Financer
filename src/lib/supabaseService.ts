@@ -49,17 +49,31 @@ export function mapToSupabase(t: Omit<Transaction, "id"> & { id?: string }, user
 
 export async function signUpSupabase(name: string, email: string, passwordPlain: string) {
   const { data, error } = await supabase.auth.signUp({
-    email,
+    email: email.trim().toLowerCase(),
     password: passwordPlain,
     options: {
       data: {
-        name: name,
+        name: name.trim(),
       },
     },
   });
 
-  if (error) throw error;
-  if (!data.user) throw new Error("Não foi possível criar o usuário no Supabase.");
+  if (error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes("email signups are disabled") || msg.includes("signup is disabled")) {
+      throw new Error(
+        "EMAIL_SIGNUPS_DISABLED: O provedor de e-mail está desativado no Supabase. Para corrigir: Acesse Supabase > Authentication > Providers > Email. Ative 'Enable Email provider' (ON) e desative 'Confirm email' (OFF) para criar contas sem verificar e-mail."
+      );
+    }
+    if (msg.includes("already registered") || msg.includes("already exists")) {
+      throw new Error("Este endereço de e-mail já está cadastrado. Tente entrar na sua conta.");
+    }
+    throw error;
+  }
+
+  if (!data.user) {
+    throw new Error("Não foi possível criar o usuário no Supabase.");
+  }
 
   // Tenta salvar o perfil público do usuário na tabela 'users'
   try {
@@ -79,24 +93,43 @@ export async function signUpSupabase(name: string, email: string, passwordPlain:
     console.error("Erro ao rodar seed inicial do usuário:", err);
   }
 
+  // Se a confirmação de e-mail estiver ativa no Supabase, data.session pode vir null
+  const hasSession = !!data.session?.access_token;
+  const isEmailConfirmationPending = !hasSession && data.user && (!data.user.identities || data.user.identities.length > 0);
+
   return {
-    token: data.session?.access_token || "supabase-session-active",
+    token: data.session?.access_token || `supabase-session-${data.user.id}`,
     user: {
       id: data.user.id,
       name: data.user.user_metadata?.name || name,
       email: data.user.email || email,
     },
+    isEmailConfirmationPending: isEmailConfirmationPending && !hasSession,
   };
 }
 
 export async function signInSupabase(email: string, passwordPlain: string) {
   const { data, error } = await supabase.auth.signInWithPassword({
-    email,
+    email: email.trim().toLowerCase(),
     password: passwordPlain,
   });
 
-  if (error) throw error;
-  if (!data.user) throw new Error("E-mail ou senha incorretos no Supabase.");
+  if (error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes("email not confirmed")) {
+      throw new Error(
+        "EMAIL_NOT_CONFIRMED: E-mail não confirmado. Para criar e entrar sem confirmação de e-mail: Acesse Supabase > Authentication > Providers > Email e DESATIVE a opção 'Confirm email'."
+      );
+    }
+    if (msg.includes("invalid login credentials")) {
+      throw new Error("E-mail ou senha incorretos.");
+    }
+    throw error;
+  }
+
+  if (!data.user) {
+    throw new Error("E-mail ou senha incorretos no Supabase.");
+  }
 
   // Garante o perfil público do usuário na tabela 'users'
   try {
@@ -117,10 +150,10 @@ export async function signInSupabase(email: string, passwordPlain: string) {
   }
 
   return {
-    token: data.session?.access_token || "supabase-session-active",
+    token: data.session?.access_token || `supabase-session-${data.user.id}`,
     user: {
       id: data.user.id,
-      name: data.user.user_metadata?.name || data.user.email?.split("@")[0] || "Usuário",
+      name: data.user.user_metadata?.name || data.user.email?.split("@")[0] || email.split("@")[0],
       email: data.user.email || email,
     },
   };
@@ -335,6 +368,17 @@ export async function deleteSupabaseTransaction(userId: string, id: string): Pro
     .from("transactions")
     .delete()
     .eq("id", id)
+    .eq("user_id", userId);
+
+  if (error) throw error;
+}
+
+export async function deleteSupabaseTransactionsBatch(userId: string, ids: string[]): Promise<void> {
+  if (!ids || ids.length === 0) return;
+  const { error } = await supabase
+    .from("transactions")
+    .delete()
+    .in("id", ids)
     .eq("user_id", userId);
 
   if (error) throw error;

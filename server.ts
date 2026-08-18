@@ -12,6 +12,7 @@ import {
   createTransaction,
   updateTransaction,
   deleteTransaction,
+  deleteTransactionsBatch,
   getUserBudgets,
   setUserBudget
 } from "./src/serverDb";
@@ -162,6 +163,19 @@ app.delete("/api/transactions/:id", authMiddleware, (req: any, res) => {
   }
 });
 
+// Deletar múltiplas transações (em lote)
+app.post("/api/transactions/delete-batch", authMiddleware, (req: any, res) => {
+  try {
+    const { ids } = req.body;
+    if (Array.isArray(ids)) {
+      deleteTransactionsBatch(req.user.id, ids);
+    }
+    res.json({ success: true, message: "Transações excluídas com sucesso." });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // --- ORÇAMENTOS (PROTEGIDOS) ---
 
 // Obter todos os orçamentos do usuário logado
@@ -235,6 +249,94 @@ app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
     hasApiKey: !!process.env.GEMINI_API_KEY,
+  });
+});
+
+// API Endpoint to return detailed system, hosting platform, and database environment status
+app.get("/api/system-status", (req, res) => {
+  const host = (req.headers.host || req.hostname || "").toLowerCase();
+  const isCloudRun = !!(
+    process.env.K_SERVICE ||
+    process.env.K_REVISION ||
+    process.env.K_CONFIGURATION ||
+    host.includes("run.app") ||
+    host.includes("google")
+  );
+  const isVercel = !!process.env.VERCEL || host.includes("vercel.app");
+  const isRender = !!process.env.RENDER || host.includes("onrender.com");
+  const isRailway = !!process.env.RAILWAY_ENVIRONMENT || host.includes("railway.app");
+  const isFly = !!process.env.FLY_APP_NAME || host.includes("fly.dev");
+  const isAWS = !!(process.env.AWS_REGION || process.env.AWS_EXECUTION_ENV);
+  const isLocal =
+    !isCloudRun &&
+    !isVercel &&
+    !isRender &&
+    !isRailway &&
+    !isFly &&
+    !isAWS &&
+    (host.includes("localhost") || host.includes("127.0.0.1") || host.includes("0.0.0.0"));
+
+  let platformName = "Servidor Local (Node.js / Localhost)";
+  let hostingType: "local" | "cloud" = "local";
+  let locationDetail = "Máquina Local";
+
+  if (isCloudRun) {
+    platformName = "Google Cloud Run (Nuvem Google)";
+    hostingType = "cloud";
+    // Extract region from hostname if available (e.g., ais-dev-...us-west2.run.app)
+    const regionMatch = host.match(/([a-z0-9-]+)\.run\.app/);
+    locationDetail = regionMatch ? `Região Cloud Run (${regionMatch[1]})` : "Google Cloud Platform";
+  } else if (isVercel) {
+    platformName = "Vercel Cloud Edge / Serverless";
+    hostingType = "cloud";
+    locationDetail = "Vercel Global Edge Network";
+  } else if (isRender) {
+    platformName = "Render Cloud Services";
+    hostingType = "cloud";
+    locationDetail = "Render Cloud";
+  } else if (isRailway) {
+    platformName = "Railway Cloud Infrastructure";
+    hostingType = "cloud";
+    locationDetail = "Railway Platform";
+  } else if (isFly) {
+    platformName = "Fly.io Edge Compute";
+    hostingType = "cloud";
+    locationDetail = "Fly.io Cloud";
+  } else if (isAWS) {
+    platformName = `Amazon Web Services (${process.env.AWS_REGION || "AWS Cloud"})`;
+    hostingType = "cloud";
+    locationDetail = "AWS Cloud Platform";
+  } else if (!isLocal && host) {
+    platformName = `Nuvem / Servidor Remoto (${host})`;
+    hostingType = "cloud";
+    locationDetail = "Infraestrutura Web";
+  }
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
+  const isSupabase = !!(supabaseUrl && (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY));
+
+  res.json({
+    status: "online",
+    hostingType,
+    platformName,
+    locationDetail,
+    host: req.headers.host || req.hostname,
+    protocol: req.headers["x-forwarded-proto"] || req.protocol || "http",
+    isOnlineCloud: hostingType === "cloud",
+    database: {
+      type: isSupabase ? "supabase_cloud" : "server_json",
+      name: isSupabase ? "Supabase PostgreSQL (Nuvem)" : "Armazenamento no Servidor (database.json)",
+      detail: isSupabase
+        ? `Conectado ao Supabase (${supabaseUrl.replace(/https?:\/\//, "").split(".")[0]}...)`
+        : "Persistência em arquivo JSON local no container do servidor",
+    },
+    system: {
+      nodeVersion: process.version,
+      uptimeSeconds: Math.floor(process.uptime()),
+      environment: process.env.NODE_ENV || "development",
+      aiModelIntegration: !!process.env.GEMINI_API_KEY ? "Gemini API Ativa" : "Não Configurado",
+    },
+    timestamp: new Date().toISOString(),
   });
 });
 

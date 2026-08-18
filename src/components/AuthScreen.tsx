@@ -1,6 +1,22 @@
 import React, { useState } from "react";
-import { motion } from "motion/react";
-import { Wallet, Mail, Lock, User, KeyRound, ArrowRight, Loader2, Sparkles, Database } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  Wallet,
+  Mail,
+  Lock,
+  User,
+  KeyRound,
+  ArrowRight,
+  Loader2,
+  Sparkles,
+  Database,
+  AlertCircle,
+  HelpCircle,
+  CheckCircle2,
+  Server,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { isSupabaseConfigured, signInSupabase, signUpSupabase } from "../lib/supabaseService";
 
 interface AuthScreenProps {
@@ -14,8 +30,10 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showEmailGuide, setShowEmailGuide] = useState(false);
+  const [forceLocalMode, setForceLocalMode] = useState(false);
 
-  const supabaseActive = isSupabaseConfigured();
+  const supabaseActive = isSupabaseConfigured() && !forceLocalMode;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,12 +48,20 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
           onSuccess(result.token, result.user);
         } else {
           const result = await signUpSupabase(name, email, password);
+          if (result.isEmailConfirmationPending) {
+            setError(
+              "EMAIL_NOT_CONFIRMED: Conta criada! No entanto, o seu Supabase está configurado para exigir confirmação de e-mail. Para desativar a verificação e entrar direto sem confirmar e-mail: Acesse Supabase > Authentication > Providers > Email e DESATIVE 'Confirm email'."
+            );
+            return;
+          }
           onSuccess(result.token, result.user);
         }
       } else {
         // --- LOCAL NODE EXPRESS SERVER AUTH ---
         const endpoint = isLogin ? "/api/auth/login" : "/api/auth/register";
-        const body = isLogin ? { email, password } : { name, email, password };
+        const body = isLogin
+          ? { email: email.trim().toLowerCase(), password }
+          : { name: name.trim(), email: email.trim().toLowerCase(), password };
 
         const response = await fetch(endpoint, {
           method: "POST",
@@ -57,6 +83,34 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
     }
   };
 
+  const handleLocalFallbackSignup = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const endpoint = isLogin ? "/api/auth/login" : "/api/auth/register";
+      const body = isLogin
+        ? { email: email.trim().toLowerCase(), password }
+        : { name: (name || "Usuário").trim(), email: email.trim().toLowerCase(), password };
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+      if (!response.ok || data.error) {
+        throw new Error(data.error || "Erro ao autenticar no servidor local.");
+      }
+
+      onSuccess(data.token, data.user);
+    } catch (err: any) {
+      setError(err.message || "Erro ao efetuar autenticação local.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDemoLogin = async () => {
     setError(null);
     setLoading(true);
@@ -65,7 +119,6 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
     const demoName = "Miqueias";
 
     try {
-      // Direct offline local session for guaranteed access (bypassing Supabase errors/secrets)
       onSuccess("demo-session-token", {
         id: "demo-user-id-miqueias",
         name: demoName,
@@ -78,6 +131,9 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
     }
   };
 
+  const isEmailDisabledError = error?.includes("EMAIL_SIGNUPS_DISABLED") || error?.toLowerCase().includes("email signups are disabled");
+  const isEmailNotConfirmedError = error?.includes("EMAIL_NOT_CONFIRMED") || error?.toLowerCase().includes("email not confirmed");
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden">
       {/* Background radial highlight */}
@@ -88,38 +144,49 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="w-full max-w-md z-10"
+        className="w-full max-w-lg z-10"
       >
         {/* LOGO */}
-        <div className="flex flex-col items-center mb-8 text-center">
-          <div className="p-4 bg-indigo-500/10 text-indigo-400 rounded-3xl border border-indigo-500/25 mb-4 shadow-lg shadow-indigo-500/5">
-            <Wallet className="w-10 h-10" />
+        <div className="flex flex-col items-center mb-6 text-center">
+          <div className="relative mb-3 group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-green-500 rounded-3xl blur-md opacity-30 group-hover:opacity-60 transition duration-500" />
+            <div className="relative p-2.5 bg-slate-900/90 rounded-3xl border border-emerald-500/30 shadow-2xl shadow-emerald-500/10 flex items-center justify-center">
+              <img
+                src="/logosmartfincancer.png"
+                alt="SmartFinancer Logo"
+                className="w-16 h-16 object-contain rounded-2xl drop-shadow-md"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = "none";
+                }}
+              />
+            </div>
           </div>
-          <h1 className="text-2xl font-black text-white tracking-tight font-sans">
-            Finanças Pessoais
+          <h1 className="text-2xl font-black text-white tracking-tight font-sans flex items-center gap-1.5 justify-center">
+            Smart<span className="text-emerald-400">Financer</span>
           </h1>
-          <p className="text-xs text-slate-500 mt-1 font-medium max-w-xs">
-            Acesse seu gerenciador financeiro com tabelas e relatórios completos.
+          <p className="text-xs text-slate-400 mt-1 font-medium max-w-xs">
+            Gerencie suas finanças, planilhas e relatórios inteligentes em tempo real.
           </p>
-          
+
           {/* BADGE DE CONEXÃO DO BANCO */}
-          <div className="mt-4 flex items-center justify-center">
+          <div className="mt-3 flex items-center justify-center gap-2">
             {supabaseActive ? (
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold uppercase tracking-wider font-mono">
                 <Database className="w-3 h-3" />
-                Supabase Conectado (Seguro & Individual)
+                Supabase Nuvem Conectado
               </div>
             ) : (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-400 text-[10px] font-bold uppercase tracking-wider font-mono">
-                <Database className="w-3 h-3" />
-                Servidor Local (Modo Desenvolvedor)
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/25 text-indigo-400 text-[10px] font-bold uppercase tracking-wider font-mono">
+                <Server className="w-3 h-3" />
+                Modo Servidor Local (Sem E-mail)
               </div>
             )}
           </div>
         </div>
 
         {/* CARD PRINCIPAL */}
-        <div className="bg-slate-900 border border-slate-800/80 rounded-3xl p-8 shadow-2xl backdrop-blur-xl relative">
+        <div className="bg-slate-900 border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl relative">
           
           {/* TABS LOGIN / REGISTRO */}
           <div className="grid grid-cols-2 p-1 bg-slate-950 rounded-2xl border border-slate-800/60 mb-6">
@@ -128,7 +195,7 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
                 setIsLogin(true);
                 setError(null);
               }}
-              className={`py-2 px-3 text-xs font-bold rounded-xl transition-all ${
+              className={`py-2 px-3 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                 isLogin
                   ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/10"
                   : "text-slate-400 hover:text-white"
@@ -141,7 +208,7 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
                 setIsLogin(false);
                 setError(null);
               }}
-              className={`py-2 px-3 text-xs font-bold rounded-xl transition-all ${
+              className={`py-2 px-3 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                 !isLogin
                   ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/10"
                   : "text-slate-400 hover:text-white"
@@ -151,14 +218,62 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
             </button>
           </div>
 
-          {/* MENSAGEM DE ERRO */}
+          {/* MENSAGEM DE ERRO DETALHADA E INTELIGENTE */}
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-4 p-3 bg-red-500/10 border border-red-500/25 text-red-400 rounded-xl text-xs font-medium"
+              className="mb-5 p-4 bg-red-500/10 border border-red-500/30 text-red-300 rounded-2xl text-xs space-y-3"
             >
-              {error}
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold text-red-200">
+                    {isEmailDisabledError
+                      ? "Provedor de E-mail Desativado no Supabase"
+                      : isEmailNotConfirmedError
+                      ? "Confirmação de E-mail Pendente no Supabase"
+                      : "Erro de Autenticação"}
+                  </p>
+                  <p className="text-slate-300 leading-relaxed text-[11px]">
+                    {error.replace(/^(EMAIL_SIGNUPS_DISABLED:|EMAIL_NOT_CONFIRMED:)\s*/, "")}
+                  </p>
+                </div>
+              </div>
+
+              {/* GUIA VISUAL SE FOR ERRO DE CONFIGURAÇÃO DO SUPABASE */}
+              {(isEmailDisabledError || isEmailNotConfirmedError) && (
+                <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800 space-y-2 text-[11px] text-slate-300">
+                  <p className="font-bold text-amber-400 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Como ajustar no painel do Supabase:
+                  </p>
+                  <ol className="list-decimal pl-4 space-y-1 text-slate-300">
+                    <li>
+                      Acesse <strong>Authentication</strong> ➔ <strong>Providers</strong> ➔ <strong>Email</strong> no Supabase.
+                    </li>
+                    <li className="text-emerald-400">
+                      <strong>Enable Email provider</strong>: deixe <strong>ATIVADO (ON)</strong>.
+                    </li>
+                    <li className="text-sky-400">
+                      <strong>Confirm email</strong>: deixe <strong>DESATIVADO (OFF)</strong> para permitir criar conta direto sem checar e-mail.
+                    </li>
+                    <li>Clique em <strong>Save</strong>.</li>
+                  </ol>
+                </div>
+              )}
+
+              {/* OPÇÃO DE FALLBACK IMEDIATO NO SERVIDOR LOCAL */}
+              <div className="pt-1 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={handleLocalFallbackSignup}
+                  className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 px-3 rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 border border-slate-700 cursor-pointer shadow-sm"
+                >
+                  <Server className="w-3.5 h-3.5 text-indigo-400" />
+                  {isLogin ? "Entrar via Servidor Local" : "Criar Conta Localmente (Sem Bloqueio)"}
+                </button>
+              </div>
             </motion.div>
           )}
 
@@ -236,6 +351,45 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
               )}
             </button>
           </form>
+
+          {/* DICA EXPANSÍVEL: COMO CRIAR CONTA SEM VERIFICAR E-MAIL */}
+          <div className="mt-5 border border-slate-800/80 rounded-2xl bg-slate-950/60 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowEmailGuide(!showEmailGuide)}
+              className="w-full p-3 flex items-center justify-between text-left text-xs text-slate-400 hover:text-slate-200 transition-all cursor-pointer font-medium"
+            >
+              <span className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-400">
+                <HelpCircle className="w-3.5 h-3.5" />
+                Criar conta sem verificar e-mail no Supabase?
+              </span>
+              {showEmailGuide ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+
+            {showEmailGuide && (
+              <div className="p-3.5 pt-0 text-[11px] text-slate-300 border-t border-slate-800/60 space-y-2">
+                <p className="text-slate-400">
+                  No painel do Supabase, existem <strong>dois interruptores separados</strong> em <em>Authentication ➔ Providers ➔ Email</em>:
+                </p>
+                <div className="space-y-1.5 pl-1">
+                  <div className="flex items-start gap-2 bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/20">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-emerald-300">Enable Email provider: ATIVADO (ON)</strong>
+                      <p className="text-[10px] text-slate-300">Permite que as pessoas façam cadastro com e-mail e senha.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 bg-sky-500/10 p-2 rounded-xl border border-sky-500/20">
+                    <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-sky-300">Confirm email: DESATIVADO (OFF)</strong>
+                      <p className="text-[10px] text-slate-300">Permite criar contas instantaneamente sem precisar clicar no link do e-mail!</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* DIVIDER */}
           <div className="relative my-6">

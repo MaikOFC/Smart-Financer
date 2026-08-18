@@ -18,6 +18,7 @@ import {
   Database,
   ChevronLeft,
   ChevronRight,
+  Settings,
 } from "lucide-react";
 import { Transaction } from "./types";
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from "./initialData";
@@ -27,6 +28,7 @@ import FinanceCharts from "./components/FinanceCharts";
 import SpreadsheetUpload from "./components/SpreadsheetUpload";
 import AuthScreen from "./components/AuthScreen";
 import AddTransactionModal from "./components/AddTransactionModal";
+import AdminSettingsModal from "./components/AdminSettingsModal";
 import {
   isSupabaseConfigured,
   getSupabaseTransactions,
@@ -34,6 +36,7 @@ import {
   addSupabaseTransactionsBatch,
   updateSupabaseTransaction,
   deleteSupabaseTransaction,
+  deleteSupabaseTransactionsBatch,
   getSupabaseBudgets,
   setSupabaseBudget,
   signOutSupabase,
@@ -72,6 +75,9 @@ export default function App() {
   // Add Transaction Modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addModalSection, setAddModalSection] = useState<"left" | "right" | "bottom_left">("left");
+
+  // Admin / Settings Modal state
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
 
   // Auth Success Handler
   const handleAuthSuccess = (newToken: string, newUser: { id: string; name: string; email: string }) => {
@@ -367,6 +373,20 @@ export default function App() {
   // Add a new transaction (called from the AddTransactionModal)
   const handleAddTransaction = async (newTransaction: Omit<Transaction, "id">) => {
     if (!token || !user) return;
+
+    // Strict duplicate check to ensure no duplicates can be inserted
+    const isDup = transactions.some((t) => {
+      if (t.tableSection !== newTransaction.tableSection) return false;
+      const matchesMonth = !t.date || t.date.startsWith(selectedMonth);
+      if (!matchesMonth && newTransaction.tableSection !== "bottom_left") return false;
+      return t.description.trim().toLowerCase() === newTransaction.description.trim().toLowerCase();
+    });
+
+    if (isDup) {
+      console.warn("Tentativa de adicionar item duplicado bloqueada:", newTransaction.description);
+      return;
+    }
+
     try {
       if (isDemoUser) {
         const created: Transaction = {
@@ -467,14 +487,17 @@ export default function App() {
 
   // Delete transaction row
   const handleDeleteTransaction = async (id: string) => {
-    // Optimistic update
-    setTransactions((prev) => prev.filter((t) => t.id !== id));
+    // Functional state update ensuring latest reference is saved to storage
+    let remaining: Transaction[] = [];
+    setTransactions((prev) => {
+      remaining = prev.filter((t) => t.id !== id);
+      return remaining;
+    });
 
     if (!token || !user) return;
     try {
       if (isDemoUser) {
-        const updated = transactions.filter((t) => t.id !== id);
-        localStorage.setItem("demo_transactions", JSON.stringify(updated));
+        localStorage.setItem("demo_transactions", JSON.stringify(remaining));
       } else if (supabaseActive) {
         await deleteSupabaseTransaction(user.id, id);
       } else {
@@ -490,6 +513,58 @@ export default function App() {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  // One-click permanent deduplication for a table section
+  const handleDeduplicateSection = async (section: "left" | "right" | "bottom_left") => {
+    const filterByMonth = (t: Transaction) => {
+      if (t.tableSection === "bottom_left") return true;
+      return !t.date || t.date.startsWith(selectedMonth);
+    };
+
+    const sectionTxs = transactions.filter((t) => t.tableSection === section && filterByMonth(t));
+    const seen = new Set<string>();
+    const idsToDelete: string[] = [];
+
+    sectionTxs.forEach((t) => {
+      const key = t.description.trim().toLowerCase();
+      if (seen.has(key)) {
+        idsToDelete.push(t.id);
+      } else {
+        seen.add(key);
+      }
+    });
+
+    if (idsToDelete.length === 0) return;
+
+    const idsToDeleteSet = new Set(idsToDelete);
+    const remainingTransactions = transactions.filter((t) => !idsToDeleteSet.has(t.id));
+
+    // 1. Immediately update React state with non-duplicate transactions
+    setTransactions(remainingTransactions);
+
+    // 2. Persist definitively to storage/database so reloads stay clean
+    if (!token || !user) return;
+
+    try {
+      if (isDemoUser) {
+        localStorage.setItem("demo_transactions", JSON.stringify(remainingTransactions));
+      } else if (supabaseActive) {
+        await deleteSupabaseTransactionsBatch(user.id, idsToDelete);
+      } else {
+        // Express backend batch deletion
+        await fetch("/api/transactions/delete-batch", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({ ids: idsToDelete }),
+        });
+      }
+    } catch (err) {
+      console.error("Erro ao apagar duplicatas definitivamente:", err);
     }
   };
 
@@ -783,106 +858,111 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-12 selection:bg-indigo-500/35 selection:text-white">
       {/* HEADER PRINCIPAL */}
-      <header className="bg-slate-900/60 border-b border-slate-800/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-5 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
+      <header className="bg-slate-900/80 border-b border-slate-800/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-3.5 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-3.5">
+          {/* LOGO & TITULO */}
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-2xl border border-indigo-500/20">
-              <Wallet className="w-8 h-8" />
+            <div className="relative group">
+              <div className="absolute -inset-0.5 bg-emerald-500 rounded-2xl blur-sm opacity-40 group-hover:opacity-75 transition duration-300" />
+              <div className="relative p-1.5 bg-slate-950 rounded-2xl border border-emerald-500/30 flex items-center justify-center">
+                <img
+                  src="/logosmartfincancer.png"
+                  alt="SmartFinancer Logo"
+                  className="w-8 h-8 object-contain rounded-xl drop-shadow-sm"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
             </div>
             <div>
-              <h1 className="text-xl font-black tracking-tight flex items-center gap-2 text-white">
-                Controle Financeiro <span className="text-indigo-400">Inteligente</span>
+              <h1 className="text-lg font-black tracking-tight flex items-center gap-1.5 text-white">
+                Smart<span className="text-emerald-400">Financer</span>
               </h1>
-              <p className="text-[11px] text-slate-400 font-medium">
-                Mapeamento de despesas, recebíveis e relatórios automáticos guiados por IA
+              <p className="text-[10px] text-slate-400 font-medium hidden sm:block">
+                Controle financeiro inteligente, gráficos e relatórios automatizados
               </p>
             </div>
           </div>
 
-          <div className="flex flex-col lg:flex-row items-center gap-3">
-            {/* Campo ID do Usuário Supabase ou indicador ativo */}
-            {supabaseActive ? (
-              <div className="flex items-center gap-2 bg-slate-950/60 border border-emerald-500/20 px-3 py-1.5 rounded-2xl">
-                <div className="w-6 h-6 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center border border-emerald-500/20">
-                  <Database className="w-3.5 h-3.5" />
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-[9px] text-emerald-400 leading-none font-bold uppercase tracking-wider">Supabase Ativo</span>
-                  <span className="text-[11px] text-slate-300 font-bold font-mono mt-0.5 max-w-[150px] truncate leading-tight" title={user.id}>
-                    {user.id}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 bg-slate-950/60 border border-slate-800/80 px-3 py-1.5 rounded-2xl transition-all hover:border-slate-700/50 focus-within:border-indigo-500/50">
-                <div className="w-6 h-6 bg-slate-500/10 text-slate-400 rounded-full flex items-center justify-center border border-slate-700/20">
-                  <Database className="w-3.5 h-3.5" />
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-[9px] text-slate-400 leading-none font-bold uppercase tracking-wider">ID Supabase (CSV)</span>
-                  <input
-                    type="text"
-                    placeholder="Cole seu auth.uid() do Supabase"
-                    value={supabaseUserId}
-                    onChange={(e) => {
-                      const val = e.target.value.trim();
-                      setSupabaseUserId(val);
-                      localStorage.setItem("supabase_user_id", val);
-                    }}
-                    className="bg-transparent text-[11px] text-slate-200 font-bold font-mono focus:outline-none placeholder-slate-600 w-40 sm:w-48 mt-0.5"
-                    title="Cole seu UUID do Supabase aqui para que os CSVs sejam exportados com o ID correto e não deem erro de Chave Estrangeira."
-                  />
-                </div>
-              </div>
-            )}
+          {/* SELETOR DE PERÍODO NO TOPO */}
+          <div className="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800/90 p-1.5 rounded-2xl shadow-inner">
+            <div className="hidden lg:flex items-center gap-1.5 px-2 text-slate-400">
+              <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">Período:</span>
+            </div>
 
+            <button
+              onClick={handlePrevMonth}
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl transition-all cursor-pointer"
+              title="Mês Anterior"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <select
+              value={currentMonthNum}
+              onChange={(e) => setSelectedMonth(`${currentYear}-${e.target.value}`)}
+              className="bg-slate-900 border border-slate-800/80 text-xs font-bold text-slate-200 px-3 py-1.5 rounded-xl hover:border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
+            >
+              {MONTHS_LIST.map((m) => (
+                <option key={m.value} value={m.value} className="bg-slate-900 text-slate-200">
+                  {m.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={currentYear}
+              onChange={(e) => setSelectedMonth(`${e.target.value}-${currentMonthNum}`)}
+              className="bg-slate-900 border border-slate-800/80 text-xs font-bold font-mono text-slate-200 px-2.5 py-1.5 rounded-xl hover:border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
+            >
+              {availableYears.map((yr) => (
+                <option key={yr} value={yr} className="bg-slate-900 text-slate-200">
+                  {yr}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={handleNextMonth}
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl transition-all cursor-pointer"
+              title="Próximo Mês"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* USUÁRIO & AÇÕES */}
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 bg-slate-950/60 border border-slate-800/80 px-3 py-1.5 rounded-2xl">
               <div className="w-6 h-6 bg-indigo-500/10 text-indigo-400 rounded-full flex items-center justify-center border border-indigo-500/20">
                 <UserIcon className="w-3.5 h-3.5" />
               </div>
               <div className="flex flex-col text-left">
                 <span className="text-[9px] text-slate-500 leading-none font-bold uppercase tracking-wider">Usuário</span>
-                <span className="text-xs text-slate-200 font-bold leading-tight">{user.name}</span>
+                <span className="text-xs text-slate-200 font-bold leading-tight max-w-[110px] truncate" title={user.name}>{user.name}</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={handleExportData}
-                className="flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 px-3 py-2 rounded-xl transition-all border border-slate-800 text-slate-300"
-                title="Exportar backup completo de transações em JSON"
-              >
-                <Download className="w-4 h-4" /> Exportar JSON
-              </button>
-              <button
-                onClick={() => handleExportSupabaseCSV("transactions")}
-                className="flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 px-3 py-2 rounded-xl transition-all border border-slate-800 text-emerald-400 hover:text-emerald-300"
-                title="Exportar transações formatadas para o Supabase CSV"
-              >
-                <Database className="w-4 h-4" /> CSV Transações
-              </button>
-              <button
-                onClick={() => handleExportSupabaseCSV("budgets")}
-                className="flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 px-3 py-2 rounded-xl transition-all border border-slate-800 text-emerald-400 hover:text-emerald-300"
-                title="Exportar orçamentos formatados para o Supabase CSV"
-              >
-                <Database className="w-4 h-4" /> CSV Orçamentos
-              </button>
-              <button
-                onClick={handleResetAll}
-                className="flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 px-3 py-2 rounded-xl transition-all border border-slate-800"
-                title="Redefinir planilhas para o padrão"
-              >
-                <RefreshCw className="w-4 h-4" /> Resetar
-              </button>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1.5 text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-3.5 py-2 rounded-xl transition-all border border-rose-500/20"
-                title="Sair da Conta"
-              >
-                <LogOut className="w-4 h-4" /> Sair
-              </button>
-            </div>
+            {/* BOTÃO ADMIN / CONFIGURAÇÕES */}
+            <button
+              onClick={() => setIsAdminModalOpen(true)}
+              className="flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white px-3.5 py-2 rounded-xl transition-all border border-slate-800 hover:border-indigo-500/40 cursor-pointer"
+              title="Painel de Administração, Exportações e Supabase"
+            >
+              <Settings className="w-4 h-4 text-indigo-400" />
+              <span className="hidden sm:inline">Configurações</span>
+              <span className="text-[9px] px-1.5 py-0.2 bg-indigo-500/20 text-indigo-300 font-mono rounded">ADM</span>
+            </button>
+
+            {/* BOTÃO SAIR */}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-3 py-2 rounded-xl transition-all border border-rose-500/20 cursor-pointer"
+              title="Sair da Conta"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Sair</span>
+            </button>
           </div>
         </div>
       </header>
@@ -958,65 +1038,6 @@ export default function App() {
           </div>
         ) : (
           <>
-        {/* CONTROLES DE DATA E SELEÇÃO DE MÊS E ANO */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-slate-900/50 border border-slate-800/80 p-3 rounded-2xl">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
-              <Calendar className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Período do Relatório</span>
-              <p className="text-[11px] text-slate-400">Selecione o mês e o ano para filtrar dados e gráficos</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800 p-1.5 rounded-xl">
-            {/* Botão Mês Anterior */}
-            <button
-              onClick={handlePrevMonth}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
-              title="Mês Anterior"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-
-            {/* Seleção de Mês */}
-            <select
-              value={currentMonthNum}
-              onChange={(e) => setSelectedMonth(`${currentYear}-${e.target.value}`)}
-              className="bg-slate-900 border border-slate-800 text-xs font-bold text-slate-200 px-3 py-1.5 rounded-lg hover:border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
-            >
-              {MONTHS_LIST.map((m) => (
-                <option key={m.value} value={m.value} className="bg-slate-900 text-slate-200">
-                  {m.label}
-                </option>
-              ))}
-            </select>
-
-            {/* Seleção de Ano */}
-            <select
-              value={currentYear}
-              onChange={(e) => setSelectedMonth(`${e.target.value}-${currentMonthNum}`)}
-              className="bg-slate-900 border border-slate-800 text-xs font-bold font-mono text-slate-200 px-3 py-1.5 rounded-lg hover:border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
-            >
-              {availableYears.map((yr) => (
-                <option key={yr} value={yr} className="bg-slate-900 text-slate-200">
-                  {yr}
-                </option>
-              ))}
-            </select>
-
-            {/* Botão Próximo Mês */}
-            <button
-              onClick={handleNextMonth}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
-              title="Próximo Mês"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
         {/* RESUMOS / METRICS */}
         <MetricCards
           budget={activeBudget}
@@ -1046,6 +1067,7 @@ export default function App() {
           }}
           onUpdateTransaction={handleUpdateTransaction}
           onDeleteTransaction={handleDeleteTransaction}
+          onDeduplicateSection={handleDeduplicateSection}
           selectedMonth={selectedMonth}
           categories={categories}
         />
@@ -1059,6 +1081,22 @@ export default function App() {
           selectedMonth={selectedMonth}
           categories={categories}
           onAddCategory={handleAddCategory}
+          existingTransactions={transactions}
+        />
+
+        {/* MODAL DE ADMINISTRAÇÃO E CONFIGURAÇÕES */}
+        <AdminSettingsModal
+          isOpen={isAdminModalOpen}
+          onClose={() => setIsAdminModalOpen(false)}
+          user={user}
+          supabaseActive={supabaseActive}
+          supabaseUserId={supabaseUserId}
+          setSupabaseUserId={setSupabaseUserId}
+          onExportJson={handleExportData}
+          onExportSupabaseCSV={handleExportSupabaseCSV}
+          onResetAll={handleResetAll}
+          transactionsCount={transactions.length}
+          budgetsCount={Object.keys(budgets).length}
         />
 
         {/* CONSULTOR DE IA FINANCEIRO */}
