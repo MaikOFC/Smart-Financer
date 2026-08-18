@@ -862,16 +862,8 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 py-3.5 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-3.5">
           {/* LOGO & TITULO */}
           <div className="flex items-center gap-3">
-            <div className="relative group">
-              <div className="absolute -inset-0.5 bg-emerald-500 rounded-2xl blur-sm opacity-40 group-hover:opacity-75 transition duration-300" />
-              <div className="relative p-1.5 bg-slate-950 rounded-2xl border border-emerald-500/30 flex items-center justify-center">
-                <img
-                  src="/logosmartfincancer.png"
-                  alt="SmartFinancer Logo"
-                  className="w-8 h-8 object-contain rounded-xl drop-shadow-sm"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
+            <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 shadow-sm">
+              <Wallet className="w-6 h-6" />
             </div>
             <div>
               <h1 className="text-lg font-black tracking-tight flex items-center gap-1.5 text-white">

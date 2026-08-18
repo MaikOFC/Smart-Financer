@@ -180,13 +180,8 @@ CREATE TABLE IF NOT EXISTS public.transactions (
           {/* MODAL HEADER */}
           <div className="flex items-center justify-between p-6 border-b border-slate-800/80 bg-slate-950/40">
             <div className="flex items-center gap-3">
-              <div className="relative p-1.5 bg-slate-950 rounded-2xl border border-emerald-500/30 flex items-center justify-center shadow-md">
-                <img
-                  src="/logosmartfincancer.png"
-                  alt="SmartFinancer Logo"
-                  className="w-7 h-7 object-contain rounded-lg"
-                  referrerPolicy="no-referrer"
-                />
+              <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 shadow-sm">
+                <Settings className="w-5 h-5" />
               </div>
               <div>
                 <h2 className="text-lg font-black text-white flex items-center gap-2">

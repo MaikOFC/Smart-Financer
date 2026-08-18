@@ -48,23 +48,21 @@ export function mapToSupabase(t: Omit<Transaction, "id"> & { id?: string }, user
 // --- AUTHENTICATION ---
 
 export async function signUpSupabase(name: string, email: string, passwordPlain: string) {
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanName = name.trim();
+
   const { data, error } = await supabase.auth.signUp({
-    email: email.trim().toLowerCase(),
+    email: cleanEmail,
     password: passwordPlain,
     options: {
       data: {
-        name: name.trim(),
+        name: cleanName,
       },
     },
   });
 
   if (error) {
     const msg = error.message.toLowerCase();
-    if (msg.includes("email signups are disabled") || msg.includes("signup is disabled")) {
-      throw new Error(
-        "EMAIL_SIGNUPS_DISABLED: O provedor de e-mail está desativado no Supabase. Para corrigir: Acesse Supabase > Authentication > Providers > Email. Ative 'Enable Email provider' (ON) e desative 'Confirm email' (OFF) para criar contas sem verificar e-mail."
-      );
-    }
     if (msg.includes("already registered") || msg.includes("already exists")) {
       throw new Error("Este endereço de e-mail já está cadastrado. Tente entrar na sua conta.");
     }
@@ -79,8 +77,8 @@ export async function signUpSupabase(name: string, email: string, passwordPlain:
   try {
     await supabase.from("users").upsert({
       id: data.user.id,
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
+      name: cleanName,
+      email: cleanEmail,
     });
   } catch (err) {
     console.warn("Aviso ao salvar perfil na tabela 'users' pública:", err);
@@ -93,18 +91,29 @@ export async function signUpSupabase(name: string, email: string, passwordPlain:
     console.error("Erro ao rodar seed inicial do usuário:", err);
   }
 
-  // Se a confirmação de e-mail estiver ativa no Supabase, data.session pode vir null
-  const hasSession = !!data.session?.access_token;
-  const isEmailConfirmationPending = !hasSession && data.user && (!data.user.identities || data.user.identities.length > 0);
+  // Se a sessão não estiver ativa imediatamente no retorno do signUp, tenta autenticar automaticamente
+  let token = data.session?.access_token;
+  if (!token) {
+    try {
+      const signInRes = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: passwordPlain,
+      });
+      if (signInRes.data?.session?.access_token) {
+        token = signInRes.data.session.access_token;
+      }
+    } catch {
+      // Usar identificador de sessão ativo
+    }
+  }
 
   return {
-    token: data.session?.access_token || `supabase-session-${data.user.id}`,
+    token: token || `supabase-session-${data.user.id}`,
     user: {
       id: data.user.id,
-      name: data.user.user_metadata?.name || name,
-      email: data.user.email || email,
+      name: data.user.user_metadata?.name || cleanName,
+      email: data.user.email || cleanEmail,
     },
-    isEmailConfirmationPending: isEmailConfirmationPending && !hasSession,
   };
 }
 
@@ -116,13 +125,11 @@ export async function signInSupabase(email: string, passwordPlain: string) {
 
   if (error) {
     const msg = error.message.toLowerCase();
-    if (msg.includes("email not confirmed")) {
-      throw new Error(
-        "EMAIL_NOT_CONFIRMED: E-mail não confirmado. Para criar e entrar sem confirmação de e-mail: Acesse Supabase > Authentication > Providers > Email e DESATIVE a opção 'Confirm email'."
-      );
-    }
-    if (msg.includes("invalid login credentials")) {
+    if (msg.includes("invalid login credentials") || msg.includes("invalid credentials")) {
       throw new Error("E-mail ou senha incorretos.");
+    }
+    if (msg.includes("email not confirmed")) {
+      throw new Error("E-mail ainda não confirmado no Supabase. Verifique seu e-mail ou desative a exigência de confirmação no painel.");
     }
     throw error;
   }
