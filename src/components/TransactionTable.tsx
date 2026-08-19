@@ -259,12 +259,12 @@ export default function TransactionTable({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-      {/* TABELA ESQUERDA - GASTOS MENSAL */}
+      {/* TABELA DE DESPESAS MENSAIS */}
       <div id="table-left-container" className="bg-slate-900 rounded-3xl border border-slate-800 p-6 flex flex-col justify-between hover:border-slate-700/50 transition-all">
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-base font-bold text-white">Despesas Mensais (Esquerda)</h3>
+              <h3 className="text-base font-bold text-white">Despesas Mensais</h3>
               <p className="text-xs text-slate-400">Contas regulares e de consumo do mês</p>
             </div>
             <button
@@ -453,7 +453,7 @@ export default function TransactionTable({
                               />
                             </div>
                           ) : (
-                            <span className={`text-xs sm:text-xs font-bold ${t.isDiscount ? "text-slate-400 font-normal" : t.isOrangeHighlight ? "text-amber-300" : "text-slate-100 group-hover:text-emerald-400 transition-colors"}`}>
+                            <span className={`text-xs sm:text-xs font-black font-mono ${t.isDiscount ? "text-slate-400 font-normal" : "text-rose-400"}`}>
                               {t.isDiscount ? "- " : ""}
                               R$ {t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
@@ -532,23 +532,23 @@ export default function TransactionTable({
           </div>
         </div>
 
-        {/* Total da Tabela Esquerda */}
+        {/* Total da Tabela de Despesas */}
         <div className="mt-6 border-t border-slate-800 pt-4 flex items-center justify-between">
-          <span className="font-bold text-slate-400 text-xs uppercase tracking-wider">Total Despesas Esquerda:</span>
+          <span className="font-bold text-slate-400 text-xs uppercase tracking-wider">Total Despesas:</span>
           <div className="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-4 py-2 rounded-2xl text-base font-black font-mono">
             R$ {leftTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
         </div>
       </div>
 
-      {/* TABELA DIREITA - COMPRAS ESPECIAIS / GASTOS DE TECNOLOGIA */}
+      {/* TABELA DE PLANEJAMENTO & COMPRAS FUTURAS */}
       <div id="table-right-container" className="bg-slate-900 rounded-3xl border border-slate-800 p-6 flex flex-col justify-between hover:border-slate-700/50 transition-all">
         <div>
-          {/* Header da Tabela Direita */}
+          {/* Header da Tabela */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-base font-bold text-white">Planejamento & Compras Futuras (Direita)</h3>
+                <h3 className="text-base font-bold text-white">Planejamento & Compras Futuras</h3>
                 {rightDuplicatesInfo.duplicateNames.size > 0 && (
                   <div className="flex items-center gap-1.5">
                     <span
@@ -753,7 +753,7 @@ export default function TransactionTable({
                               />
                             </div>
                           ) : (
-                            <span className={hasSpecialLabel ? "text-slate-500 italic font-normal" : "text-slate-100 group-hover:text-amber-400 transition-colors"}>
+                            <span className={hasSpecialLabel ? "text-slate-500 italic font-normal" : "text-amber-400 font-mono font-black"}>
                               {hasSpecialLabel
                                 ? "—"
                                 : `R$ ${t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
@@ -845,10 +845,10 @@ export default function TransactionTable({
           </div>
         </div>
 
-        {/* Total da Tabela Direita */}
+        {/* Total da Tabela de Planejamento */}
         <div className="mt-6 border-t border-slate-800 pt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <div className="flex flex-col">
-            <span className="font-bold text-slate-400 text-xs uppercase tracking-wider">Total Planejado (Direita):</span>
+            <span className="font-bold text-slate-400 text-xs uppercase tracking-wider">Total Planejado:</span>
             <span className="text-[10px] text-slate-500 font-medium font-sans">Valor meramente informativo (não diminui o saldo do mês)</span>
           </div>
           <div className="bg-slate-950/55 text-amber-400 border border-slate-800 px-4 py-2 rounded-2xl text-base font-black font-mono">
@@ -857,11 +857,11 @@ export default function TransactionTable({
         </div>
       </div>
 
-      {/* SEÇÃO INFERIOR - PARCELAS / RECEBÍVEIS (BOTTOM LEFT) */}
+      {/* SEÇÃO INFERIOR - PARCELAS / RECEBÍVEIS */}
       <div id="table-bottom-container" className="lg:col-span-2 bg-slate-900 rounded-3xl border border-slate-800 p-6 hover:border-slate-700/50 transition-all">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-base font-bold text-white">Parcelas, Reembolsos e Devedores (Bottom)</h3>
+            <h3 className="text-base font-bold text-white">Parcelas, Reembolsos e Devedores</h3>
             <p className="text-xs text-slate-400">Controle de dinheiro emprestado ou a receber de parentes e amigos</p>
           </div>
           <button
@@ -963,7 +963,7 @@ export default function TransactionTable({
                       </td>
 
                       {/* Valor Parcela */}
-                      <td className="py-3 px-3 font-black font-mono text-emerald-400 text-right sm:text-left whitespace-nowrap">
+                      <td className="py-3 px-3 font-black font-mono text-rose-400 text-right sm:text-left whitespace-nowrap">
                         {isEditing ? (
                           <div onClick={(e) => e.stopPropagation()}>
                             <input

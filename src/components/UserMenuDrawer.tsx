@@ -28,6 +28,8 @@ interface UserMenuDrawerProps {
   onOpenAddModal: () => void;
   onLogout: () => void;
   onScrollToAi?: () => void;
+  viewMode?: "compact" | "full";
+  onSetViewMode?: (mode: "compact" | "full") => void;
 }
 
 export default function UserMenuDrawer({
@@ -41,12 +43,14 @@ export default function UserMenuDrawer({
   onOpenAddModal,
   onLogout,
   onScrollToAi,
+  viewMode = "compact",
+  onSetViewMode,
 }: UserMenuDrawerProps) {
   if (!isOpen) return null;
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 overflow-hidden">
+      <div className="fixed inset-0 z-[60] overflow-hidden">
         {/* BACKDROP BLUR */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -232,6 +236,37 @@ export default function UserMenuDrawer({
                       </div>
                       <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-300" />
                     </button>
+                  )}
+
+                  {/* SELETOR DE MODO DE VISUALIZAÇÃO NO MENU */}
+                  {onSetViewMode && (
+                    <div className="pt-3 border-t border-slate-800/80">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-2">
+                        Modo de Visualização
+                      </p>
+                      <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-950/80 rounded-xl border border-slate-800/80">
+                        <button
+                          onClick={() => onSetViewMode("compact")}
+                          className={`py-2 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer text-center ${
+                            viewMode === "compact"
+                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
+                              : "text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          Modo Focado (Cards)
+                        </button>
+                        <button
+                          onClick={() => onSetViewMode("full")}
+                          className={`py-2 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer text-center ${
+                            viewMode === "full"
+                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
+                              : "text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          Modo Padrão (Planilha)
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>

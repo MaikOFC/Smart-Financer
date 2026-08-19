@@ -22,6 +22,12 @@ import {
   Crown,
   Lock,
   MoreVertical,
+  SlidersHorizontal,
+  Layers,
+  Table2,
+  TrendingDown,
+  TrendingUp,
+  PlusCircle,
 } from "lucide-react";
 import { Transaction } from "./types";
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from "./initialData";
@@ -34,6 +40,7 @@ import AddTransactionModal from "./components/AddTransactionModal";
 import AdminSettingsModal from "./components/AdminSettingsModal";
 import WelcomeOnboardingModal from "./components/WelcomeOnboardingModal";
 import UserMenuDrawer from "./components/UserMenuDrawer";
+import FocusedSectionModal from "./components/FocusedSectionModal";
 import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "./lib/admin";
 import {
   isSupabaseConfigured,
@@ -116,6 +123,31 @@ export default function App() {
 
   // Mobile & Global User Menu Drawer (3 pontinhos)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  // Modo de Visualização: "compact" (Modo 1: Focado/Cards Interativos) vs "full" (Modo 2: Padrão/Planilha Aberta)
+  const [viewMode, setViewMode] = useState<"compact" | "full">(() => {
+    const saved = localStorage.getItem("smartfinancer_view_mode");
+    return saved === "compact" || saved === "full" ? saved : "compact";
+  });
+
+  const handleSetViewMode = (mode: "compact" | "full") => {
+    setViewMode(mode);
+    localStorage.setItem("smartfinancer_view_mode", mode);
+  };
+
+  // Modal de Seção Focada (Gastos do Mês / Planejado & Parcelas)
+  const [isFocusedSectionOpen, setIsFocusedSectionOpen] = useState(false);
+  const [focusedSectionType, setFocusedSectionType] = useState<"expenses" | "planning" | "installments">("expenses");
+
+  const handleOpenExpensesModal = () => {
+    setFocusedSectionType("expenses");
+    setIsFocusedSectionOpen(true);
+  };
+
+  const handleOpenPlanningModal = (tab: "planning" | "installments" = "planning") => {
+    setFocusedSectionType(tab);
+    setIsFocusedSectionOpen(true);
+  };
 
   // Auth Success Handler
   const handleAuthSuccess = (
@@ -1022,49 +1054,23 @@ export default function App() {
       {/* HEADER PRINCIPAL */}
       <header className="bg-slate-900/80 border-b border-slate-800/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-3 py-2 sm:px-6 sm:py-3.5 lg:px-8">
-          {/* LAYOUT MOBILE (md:hidden) */}
-          <div className="flex flex-col gap-2 md:hidden">
-            {/* Linha Superior: 3 Pontinhos no Canto Esquerdo | Logo Central | Avatar Usuário */}
-            <div className="flex items-center justify-between">
-              {/* CANTO SUPERIOR ESQUERDO: Botão 3 Pontinhos para abrir o Menu Lateral */}
-              <button
-                id="btn-mobile-menu"
-                onClick={() => setIsUserMenuOpen(true)}
-                className="p-2 bg-slate-950/70 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-800/90 rounded-xl transition-all cursor-pointer shadow-sm flex items-center justify-center active:scale-95"
-                title="Menu & Opções da Conta"
-              >
-                <MoreVertical className="w-5 h-5 text-emerald-400" />
-              </button>
+          {/* LAYOUT MOBILE (md:hidden) - LINHA ÚNICA COMPACTA MINIMALISTA */}
+          <div className="flex items-center justify-between gap-2 md:hidden">
+            {/* CANTO ESQUERDO: Botão 3 Pontinhos Minimalista */}
+            <button
+              id="btn-mobile-menu"
+              onClick={() => setIsUserMenuOpen(true)}
+              className="p-2 bg-transparent hover:bg-slate-900/50 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 rounded-xl transition-all cursor-pointer flex items-center justify-center active:scale-95 shrink-0"
+              title="Menu & Opções da Conta"
+            >
+              <MoreVertical className="w-5 h-5 text-slate-300" />
+            </button>
 
-              {/* LOGO SMART FINANCER (Centralizado) */}
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20 shadow-sm">
-                  <Wallet className="w-5 h-5" />
-                </div>
-                <h1 className="text-base font-black tracking-tight text-white">
-                  Smart<span className="text-emerald-400">Financer</span>
-                </h1>
-              </div>
-
-              {/* AVATAR / STATUS DO USUÁRIO NO CANTO DIREITO */}
-              <button
-                onClick={() => setIsUserMenuOpen(true)}
-                className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-all cursor-pointer ${
-                  isAdmin
-                    ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
-                    : "bg-slate-950/70 text-indigo-300 border-slate-800/90"
-                }`}
-                title={user.name}
-              >
-                {isAdmin ? <Crown className="w-4 h-4" /> : <span className="text-xs font-bold font-mono">{user.name ? user.name[0].toUpperCase() : "U"}</span>}
-              </button>
-            </div>
-
-            {/* BARRA TRANSPARENTE DE PERÍODO (SUBIDA E COMPACTA NO MOBILE) */}
-            <div className="flex items-center justify-center gap-1.5 bg-slate-950/70 border border-slate-800/90 py-1 px-2 rounded-xl shadow-inner mx-auto w-full max-w-xs">
+            {/* SELETOR DE PERÍODO (MÊS E ANO) MINIMALISTA SEM BORDA DUPLA EXTERNA */}
+            <div className="flex items-center gap-1">
               <button
                 onClick={handlePrevMonth}
-                className="p-1 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition-all cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-900 rounded-lg transition-all cursor-pointer"
                 title="Mês Anterior"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -1073,7 +1079,7 @@ export default function App() {
               <select
                 value={currentMonthNum}
                 onChange={(e) => changeMonth(`${currentYear}-${e.target.value}`)}
-                className="bg-slate-900 border border-slate-800/80 text-xs font-bold text-slate-200 px-2.5 py-1 rounded-lg hover:border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                className="bg-transparent border border-slate-800 text-xs font-semibold text-slate-200 px-2 py-1.5 rounded-lg hover:border-slate-700 focus:outline-none focus:border-slate-600 cursor-pointer"
               >
                 {MONTHS_LIST.map((m) => (
                   <option key={m.value} value={m.value} className="bg-slate-900 text-slate-200">
@@ -1085,7 +1091,7 @@ export default function App() {
               <select
                 value={currentYear}
                 onChange={(e) => changeMonth(`${e.target.value}-${currentMonthNum}`)}
-                className="bg-slate-900 border border-slate-800/80 text-xs font-bold font-mono text-slate-200 px-2 py-1 rounded-lg hover:border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                className="bg-transparent border border-slate-800 text-xs font-semibold font-mono text-slate-200 px-2 py-1.5 rounded-lg hover:border-slate-700 focus:outline-none focus:border-slate-600 cursor-pointer"
               >
                 {availableYears.map((yr) => (
                   <option key={yr} value={yr} className="bg-slate-900 text-slate-200">
@@ -1096,7 +1102,7 @@ export default function App() {
 
               <button
                 onClick={handleNextMonth}
-                className="p-1 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition-all cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-900 rounded-lg transition-all cursor-pointer"
                 title="Próximo Mês"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -1122,7 +1128,7 @@ export default function App() {
             </div>
 
             {/* SELETOR DE PERÍODO NO TOPO */}
-            <div className="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800/90 p-1.5 rounded-2xl shadow-inner">
+            <div className="flex items-center gap-1.5">
               <div className="hidden lg:flex items-center gap-1.5 px-2 text-slate-400">
                 <Calendar className="w-3.5 h-3.5 text-indigo-400" />
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">Período:</span>
@@ -1169,13 +1175,18 @@ export default function App() {
               </button>
             </div>
 
-            {/* USUÁRIO & AÇÕES (DESKTOP) */}
+            {/* BOTÃO DO USUÁRIO NO DESKTOP (ABRE O MENU LATERAL / DISPENSA OS 3 PONTINHOS NO PC) */}
             <div className="flex items-center gap-2">
-              <div className={`flex items-center gap-2 border px-3 py-1.5 rounded-2xl ${
-                isAdmin 
-                  ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
-                  : "bg-slate-950/60 border-slate-800/80 text-slate-200"
-              }`}>
+              <button
+                id="btn-desktop-user-menu"
+                onClick={() => setIsUserMenuOpen(true)}
+                className={`flex items-center gap-2.5 border px-3.5 py-1.5 rounded-2xl transition-all cursor-pointer shadow-sm group ${
+                  isAdmin 
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20 hover:border-amber-400/50"
+                    : "bg-slate-950/70 border-slate-800/90 text-slate-200 hover:bg-slate-900 hover:border-indigo-500/50"
+                }`}
+                title="Clique para abrir o menu de opções da conta"
+              >
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${
                   isAdmin 
                     ? "bg-amber-500/20 text-amber-400 border-amber-500/30" 
@@ -1187,44 +1198,8 @@ export default function App() {
                   <span className="text-[9px] leading-none font-bold uppercase tracking-wider opacity-70">
                     {isAdmin ? "Admin Master" : "Usuário"}
                   </span>
-                  <span className="text-xs font-bold leading-tight max-w-[110px] truncate" title={user.name}>{user.name}</span>
+                  <span className="text-xs font-bold leading-tight max-w-[120px] truncate" title={user.name}>{user.name}</span>
                 </div>
-              </div>
-
-              {/* BOTÃO ADMIN / CONFIGURAÇÕES */}
-              <button
-                onClick={() => setIsAdminModalOpen(true)}
-                className={`flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl transition-all border cursor-pointer ${
-                  isAdmin
-                    ? "bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border-amber-500/30 hover:border-amber-400/50"
-                    : "bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border-slate-800 hover:border-indigo-500/40"
-                }`}
-                title={isAdmin ? "Painel de Administração, Exportações e Servidor" : "Configurações da Conta e Salário"}
-              >
-                <Settings className={`w-4 h-4 ${isAdmin ? "text-amber-400" : "text-indigo-400"}`} />
-                <span>{isAdmin ? "Painel ADM" : "Configurações"}</span>
-                {isAdmin && (
-                  <span className="text-[9px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 font-mono rounded font-bold">ADM</span>
-                )}
-              </button>
-
-              {/* BOTÃO SAIR */}
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1.5 text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-3 py-2 rounded-xl transition-all border border-rose-500/20 cursor-pointer"
-                title="Sair da Conta"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Sair</span>
-              </button>
-
-              {/* BOTÃO DE 3 PONTINHOS (MENU LATERAL) */}
-              <button
-                onClick={() => setIsUserMenuOpen(true)}
-                className="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 rounded-xl transition-all cursor-pointer shadow-sm flex items-center justify-center"
-                title="Menu & Opções da Conta"
-              >
-                <MoreVertical className="w-5 h-5 text-emerald-400" />
               </button>
             </div>
           </div>
@@ -1331,7 +1306,7 @@ export default function App() {
                   }}
                   className="space-y-8"
                 >
-                  {/* RESUMOS / METRICS */}
+                  {/* RESUMOS / METRICS (INTERATIVOS) */}
                   <MetricCards
                     budget={activeBudget}
                     setBudget={handleSetBudget}
@@ -1339,6 +1314,9 @@ export default function App() {
                     rightExpensesTotal={rightExpensesTotal}
                     bottomIncomesTotal={bottomIncomesTotal}
                     sobra={sobra}
+                    viewMode={viewMode}
+                    onOpenExpensesModal={handleOpenExpensesModal}
+                    onOpenPlanningModal={handleOpenPlanningModal}
                   />
 
                   {/* VISUALIZAÇÃO GRÁFICA / CHARTS */}
@@ -1349,20 +1327,23 @@ export default function App() {
                     defaultSalary={defaultSalary}
                   />
 
-                  {/* TABELAS DE TRANSAÇÕES */}
-                  <TransactionTable
-                    transactions={transactions}
-                    onAddTransaction={(section) => {
-                      setAddModalSection(section);
-                      setIsAddModalOpen(true);
-                    }}
-                    onUpdateTransaction={handleUpdateTransaction}
-                    onDeleteTransaction={handleDeleteTransaction}
-                    onDeduplicateSection={handleDeduplicateSection}
-                    selectedMonth={selectedMonth}
-                    categories={categories}
-                    onSelectMonth={(m) => changeMonth(m)}
-                  />
+                  {/* RENDERIZAÇÃO DAS TABELAS CONFORME O MODO ESCOLHIDO */}
+                  {viewMode === "full" && (
+                    /* MODO PADRÃO - TODAS AS TABELAS EMBUTIDAS NA PÁGINA */
+                    <TransactionTable
+                      transactions={transactions}
+                      onAddTransaction={(section) => {
+                        setAddModalSection(section);
+                        setIsAddModalOpen(true);
+                      }}
+                      onUpdateTransaction={handleUpdateTransaction}
+                      onDeleteTransaction={handleDeleteTransaction}
+                      onDeduplicateSection={handleDeduplicateSection}
+                      selectedMonth={selectedMonth}
+                      categories={categories}
+                      onSelectMonth={(m) => changeMonth(m)}
+                    />
+                  )}
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -1396,6 +1377,8 @@ export default function App() {
           onImportTransactions={handleImportTransactions}
           transactionsCount={transactions.length}
           budgetsCount={Object.keys(budgets).length}
+          viewMode={viewMode}
+          onSetViewMode={handleSetViewMode}
         />
 
         {/* MODAL DE BOAS-VINDAS / ONBOARDING APÓS REGISTRO */}
@@ -1427,6 +1410,26 @@ export default function App() {
             const el = document.getElementById("ai-consultant-section");
             el?.scrollIntoView({ behavior: "smooth" });
           }}
+          viewMode={viewMode}
+          onSetViewMode={handleSetViewMode}
+        />
+
+        {/* MODAL DE SEÇÃO FOCADA (GASTOS DO MÊS / PLANEJAMENTO / PARCELAS) */}
+        <FocusedSectionModal
+          isOpen={isFocusedSectionOpen}
+          onClose={() => setIsFocusedSectionOpen(false)}
+          sectionType={focusedSectionType}
+          transactions={transactions}
+          selectedMonth={selectedMonth}
+          categories={categories}
+          onAddTransaction={(section) => {
+            setAddModalSection(section);
+            setIsAddModalOpen(true);
+          }}
+          onUpdateTransaction={handleUpdateTransaction}
+          onDeleteTransaction={handleDeleteTransaction}
+          onDeduplicateSection={handleDeduplicateSection}
+          defaultSalary={defaultSalary}
         />
 
         {/* CONSULTOR DE IA FINANCEIRO */}

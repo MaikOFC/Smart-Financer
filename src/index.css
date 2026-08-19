@@ -1,1 +1,23 @@
 @import "tailwindcss";
+
+/* Ocultar barra de rolagem nativa branca/cinza em todos os navegadores mantendo o scroll por toque/mouse */
+* {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
+}
+
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+html, body {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  background-color: #020617;
+  color: #f8fafc;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-overflow-scrolling: touch;
+}

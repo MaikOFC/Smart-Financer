@@ -31,6 +31,9 @@ import {
   KeyRound,
   Upload,
   Sparkles,
+  SlidersHorizontal,
+  Layers,
+  Table2,
 } from "lucide-react";
 import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "../lib/admin";
 import { Transaction } from "../types";
@@ -52,6 +55,8 @@ interface AdminSettingsModalProps {
   onImportTransactions: (imported: Transaction[]) => void;
   transactionsCount: number;
   budgetsCount: number;
+  viewMode?: "compact" | "full";
+  onSetViewMode?: (mode: "compact" | "full") => void;
 }
 
 interface SystemStatus {
@@ -92,6 +97,8 @@ export default function AdminSettingsModal({
   onImportTransactions,
   transactionsCount,
   budgetsCount,
+  viewMode = "compact",
+  onSetViewMode,
 }: AdminSettingsModalProps) {
   const isAdmin = isUserAdmin(user);
   const [copiedId, setCopiedId] = useState(false);
@@ -219,7 +226,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -427,6 +434,73 @@ CREATE TABLE IF NOT EXISTS public.transactions (
                     )}
                   </button>
                 </form>
+
+                {/* PREFERÊNCIAS DE VISUALIZAÇÃO */}
+                {onSetViewMode && (
+                  <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <SlidersHorizontal className="w-4 h-4 text-emerald-400" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                        Modo de Visualização da Tela Principal
+                      </h4>
+                    </div>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Escolha como você prefere visualizar os lançamentos e tabelas ao navegar pelos meses:
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => onSetViewMode("compact")}
+                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          viewMode === "compact"
+                            ? "bg-emerald-500/15 border-emerald-500/40 text-white shadow-sm ring-1 ring-emerald-500/30"
+                            : "bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <Layers className="w-4 h-4 text-emerald-400" />
+                            <span className="text-xs font-bold text-white">Modo Focado (Cards)</span>
+                          </div>
+                          {viewMode === "compact" && (
+                            <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                              Ativo
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-400 leading-normal">
+                          Layout limpo com cards interativos no topo. Ao tocar em Despesas, Planejado ou Parcelas, abre a central deslizante focada.
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onSetViewMode("full")}
+                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          viewMode === "full"
+                            ? "bg-emerald-500/15 border-emerald-500/40 text-white shadow-sm ring-1 ring-emerald-500/30"
+                            : "bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <Table2 className="w-4 h-4 text-indigo-400" />
+                            <span className="text-xs font-bold text-white">Modo Padrão (Planilha)</span>
+                          </div>
+                          {viewMode === "full" && (
+                            <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                              Ativo
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-400 leading-normal">
+                          Exibe todas as tabelas e listas diretamente rolando a página inicial para baixo como em uma planilha tradicional.
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* DICA DE COMO FUNCIONA O ORÇAMENTO */}
                 <div className="bg-slate-950/40 border border-slate-800/80 p-4 rounded-xl flex items-start gap-3">

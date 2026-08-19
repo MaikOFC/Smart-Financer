@@ -1,5 +1,5 @@
 import React from "react";
-import { TrendingUp, TrendingDown, DollarSign, Wallet } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Wallet, ExternalLink } from "lucide-react";
 
 interface MetricCardsProps {
   budget: number;
@@ -8,6 +8,9 @@ interface MetricCardsProps {
   rightExpensesTotal: number;
   bottomIncomesTotal: number;
   sobra: number;
+  viewMode?: "compact" | "full";
+  onOpenExpensesModal?: () => void;
+  onOpenPlanningModal?: (tab?: "planning" | "installments") => void;
 }
 
 export default function MetricCards({
@@ -17,6 +20,9 @@ export default function MetricCards({
   rightExpensesTotal,
   bottomIncomesTotal,
   sobra,
+  viewMode = "compact",
+  onOpenExpensesModal,
+  onOpenPlanningModal,
 }: MetricCardsProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -43,21 +49,44 @@ export default function MetricCards({
         <p className="text-xs text-slate-500">Defina o orçamento para o mês ativo</p>
       </div>
 
-      {/* Gastos Mensais (Tabela Esquerda) */}
-      <div id="card-left-expenses" className="bg-slate-900 border border-slate-800/80 p-6 rounded-3xl transition-all hover:border-slate-700 hover:shadow-lg hover:shadow-rose-500/5">
+      {/* Gastos Mensais - INTERATIVO */}
+      <div
+        id="card-left-expenses"
+        onClick={() => {
+          if (onOpenExpensesModal) onOpenExpensesModal();
+        }}
+        className={`bg-slate-900 border border-slate-800/80 p-6 rounded-3xl transition-all hover:border-rose-500/40 hover:shadow-xl hover:shadow-rose-500/10 ${
+          onOpenExpensesModal ? "cursor-pointer group relative overflow-hidden" : ""
+        }`}
+        title="Clique para abrir e gerenciar os Gastos do Mês"
+      >
         <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Gastos do Mês</span>
-          <div className="p-2.5 bg-rose-500/10 text-rose-400 rounded-2xl border border-rose-500/20">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest group-hover:text-rose-300 transition-colors">
+              Gastos do Mês
+            </span>
+            {onOpenExpensesModal && (
+              <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-rose-400 transition-colors" />
+            )}
+          </div>
+          <div className="p-2.5 bg-rose-500/10 text-rose-400 rounded-2xl border border-rose-500/20 group-hover:scale-105 transition-transform">
             <TrendingDown className="w-5 h-5" />
           </div>
         </div>
         <div className="flex items-baseline gap-1.5 mb-2">
           <span className="text-sm font-bold text-rose-400 font-mono">R$</span>
-          <span className="text-2xl font-black font-mono text-white tracking-tight">
+          <span className="text-2xl font-black font-mono text-white tracking-tight group-hover:text-rose-200 transition-colors">
             {leftExpensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
-        <p className="text-xs text-slate-500">Total da planilha esquerda (com descontos)</p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-slate-500">Total das despesas mensais</p>
+          {viewMode === "compact" && (
+            <span className="text-[10px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full">
+              Ver lista ↗
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Sobra (Orçamento - Gastos Mensais) */}
@@ -77,28 +106,51 @@ export default function MetricCards({
         <p className="text-xs text-slate-500">Orçamento menos as despesas do mês</p>
       </div>
 
-      {/* Planejamento & Recebíveis (Direita + Parcelas) */}
-      <div id="card-others-summary" className="bg-slate-900 border border-slate-800/80 p-6 rounded-3xl transition-all hover:border-slate-700 hover:shadow-lg hover:shadow-indigo-500/5">
+      {/* Planejamento & Recebíveis - INTERATIVO */}
+      <div
+        id="card-others-summary"
+        onClick={() => {
+          if (onOpenPlanningModal) onOpenPlanningModal("planning");
+        }}
+        className={`bg-slate-900 border border-slate-800/80 p-6 rounded-3xl transition-all hover:border-indigo-500/40 hover:shadow-xl hover:shadow-indigo-500/10 ${
+          onOpenPlanningModal ? "cursor-pointer group relative overflow-hidden" : ""
+        }`}
+        title="Clique para abrir e gerenciar Planejamento & Parcelas"
+      >
         <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Planejado & Parcelas</span>
-          <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-2xl border border-indigo-500/20">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest group-hover:text-indigo-300 transition-colors">
+              Planejado & Parcelas
+            </span>
+            {onOpenPlanningModal && (
+              <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-indigo-400 transition-colors" />
+            )}
+          </div>
+          <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-2xl border border-indigo-500/20 group-hover:scale-105 transition-transform">
             <TrendingUp className="w-5 h-5" />
           </div>
         </div>
         <div className="text-slate-300 text-sm space-y-2 pt-1 font-mono">
           <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-500" title="Compras futuras e planejamentos (não deduzidos do saldo)">Planejado (Direita):</span>
-            <span className="font-bold text-amber-400">
+            <span className="text-slate-500" title="Compras futuras e planejamentos">Planejado:</span>
+            <span className="font-bold text-amber-400 group-hover:text-amber-300">
               R$ {rightExpensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
           <div className="flex justify-between items-center text-xs">
             <span className="text-slate-500" title="Soma dos saldos devedores restantes de todas as parcelas ativas">Saldo Parcelas:</span>
-            <span className="font-bold text-amber-400">
+            <span className="font-bold text-amber-400 group-hover:text-amber-300">
               R$ {bottomIncomesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>
+        {viewMode === "compact" && (
+          <div className="mt-2 pt-2 border-t border-slate-800/80 flex justify-end">
+            <span className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full">
+              Ver metas ↗
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
