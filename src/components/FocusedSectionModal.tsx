@@ -341,7 +341,7 @@ export default function FocusedSectionModal({
           className="relative w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-4xl bg-slate-950 sm:bg-slate-900 border-0 sm:border border-slate-800 rounded-none sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col z-10"
         >
           {/* Header Superior - Mobile & Desktop */}
-          <div className="p-3.5 sm:p-6 border-b border-slate-800 bg-slate-900/90 sm:bg-slate-950/60 flex items-center justify-between gap-3 sticky top-0 z-20 backdrop-blur-md">
+          <div className="p-3.5 sm:p-6 pt-[max(0.875rem,env(safe-area-inset-top,0px))] border-b border-slate-800 bg-slate-900/90 sm:bg-slate-950/60 flex items-center justify-between gap-3 sticky top-0 z-20 backdrop-blur-md">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
               {/* Botão de Voltar para Mobile */}
               <button
@@ -568,14 +568,14 @@ export default function FocusedSectionModal({
                   : "bottom_left"
               );
             }}
-            className="sm:hidden fixed bottom-20 right-4 z-30 w-13 h-13 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-90 text-slate-950 font-black shadow-lg shadow-emerald-500/30 flex items-center justify-center transition-transform cursor-pointer"
+            className="sm:hidden fixed bottom-[max(5rem,calc(env(safe-area-inset-bottom,0px)+4.5rem))] right-4 z-30 w-13 h-13 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-90 text-slate-950 font-black shadow-lg shadow-emerald-500/30 flex items-center justify-center transition-transform cursor-pointer"
             title="Adicionar novo item"
           >
             <Plus className="w-6 h-6 stroke-[3]" />
           </button>
 
           {/* BARRA DE NAVEGAÇÃO INFERIOR ESTILO WHATSAPP (FIXA NO FUNDO NO MOBILE, AO ALCANCE DO DEDO) */}
-          <div className="sm:hidden fixed bottom-0 left-0 right-0 z-20 bg-slate-950/95 border-t border-slate-800/90 backdrop-blur-xl px-2 py-1.5 pb-3 flex items-center justify-around shadow-2xl">
+          <div className="sm:hidden fixed bottom-0 left-0 right-0 z-20 bg-slate-950/95 border-t border-slate-800/90 backdrop-blur-xl px-2 py-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] flex items-center justify-around shadow-2xl">
             {/* ABA 1: DESPESAS */}
             <button
               id="nav-tab-expenses"

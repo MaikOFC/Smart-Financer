@@ -15,7 +15,11 @@ import {
   Database,
   ChevronRight,
   ShieldCheck,
+  Sun,
+  Moon,
+  Smartphone,
 } from "lucide-react";
+import { ThemeMode } from "../lib/theme";
 
 interface UserMenuDrawerProps {
   isOpen: boolean;
@@ -30,6 +34,8 @@ interface UserMenuDrawerProps {
   onScrollToAi?: () => void;
   viewMode?: "compact" | "full";
   onSetViewMode?: (mode: "compact" | "full") => void;
+  themeMode?: ThemeMode;
+  onSetThemeMode?: (mode: ThemeMode) => void;
 }
 
 export default function UserMenuDrawer({
@@ -45,6 +51,8 @@ export default function UserMenuDrawer({
   onScrollToAi,
   viewMode = "compact",
   onSetViewMode,
+  themeMode = "system",
+  onSetThemeMode,
 }: UserMenuDrawerProps) {
   if (!isOpen) return null;
 
@@ -73,7 +81,7 @@ export default function UserMenuDrawer({
             {/* TOPO DO MENU */}
             <div>
               {/* CABEÇALHO */}
-              <div className="p-5 border-b border-slate-800/80 flex items-center justify-between bg-slate-950/50">
+              <div className="p-5 pt-[max(1.25rem,env(safe-area-inset-top,0px))] border-b border-slate-800/80 flex items-center justify-between bg-slate-950/50">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
                     <Wallet className="w-5 h-5" />
@@ -238,6 +246,61 @@ export default function UserMenuDrawer({
                     </button>
                   )}
 
+                  {/* SELETOR DE TEMA / APARÊNCIA */}
+                  {onSetThemeMode && (
+                    <div className="pt-3 border-t border-slate-800/80">
+                      <div className="flex items-center justify-between px-2 mb-2">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Tema / Aparência
+                        </p>
+                        <span className="text-[10px] font-mono text-emerald-400">
+                          {themeMode === "system" ? "Padrão Celular" : themeMode === "dark" ? "Escuro" : "Claro"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-950/80 rounded-xl border border-slate-800/80">
+                        <button
+                          type="button"
+                          onClick={() => onSetThemeMode("system")}
+                          className={`py-2 px-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer flex flex-col items-center justify-center gap-1 text-center ${
+                            themeMode === "system"
+                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
+                              : "text-slate-400 hover:text-slate-200"
+                          }`}
+                          title="Segue automaticamente o tema claro ou escuro configurado no seu celular"
+                        >
+                          <Smartphone className="w-3.5 h-3.5" />
+                          <span>Padrão Celular</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSetThemeMode("dark")}
+                          className={`py-2 px-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer flex flex-col items-center justify-center gap-1 text-center ${
+                            themeMode === "dark"
+                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
+                              : "text-slate-400 hover:text-slate-200"
+                          }`}
+                          title="Tema Escuro"
+                        >
+                          <Moon className="w-3.5 h-3.5" />
+                          <span>Escuro</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSetThemeMode("light")}
+                          className={`py-2 px-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer flex flex-col items-center justify-center gap-1 text-center ${
+                            themeMode === "light"
+                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
+                              : "text-slate-400 hover:text-slate-200"
+                          }`}
+                          title="Tema Claro"
+                        >
+                          <Sun className="w-3.5 h-3.5" />
+                          <span>Claro</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* SELETOR DE MODO DE VISUALIZAÇÃO NO MENU */}
                   {onSetViewMode && (
                     <div className="pt-3 border-t border-slate-800/80">
@@ -273,7 +336,7 @@ export default function UserMenuDrawer({
             </div>
 
             {/* RODAPÉ DO DRAWER COM BOTÃO DE LOGOUT */}
-            <div className="p-4 sm:p-5 border-t border-slate-800/80 bg-slate-950/50 space-y-3">
+            <div className="p-4 sm:p-5 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] border-t border-slate-800/80 bg-slate-950/50 space-y-3">
               <button
                 onClick={() => {
                   onClose();

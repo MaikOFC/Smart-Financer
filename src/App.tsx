@@ -42,6 +42,7 @@ import WelcomeOnboardingModal from "./components/WelcomeOnboardingModal";
 import UserMenuDrawer from "./components/UserMenuDrawer";
 import FocusedSectionModal from "./components/FocusedSectionModal";
 import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "./lib/admin";
+import { ThemeMode, getStoredThemeMode, saveThemeMode, applyTheme } from "./lib/theme";
 import {
   isSupabaseConfigured,
   getSupabaseTransactions,
@@ -135,9 +136,75 @@ export default function App() {
     localStorage.setItem("smartfinancer_view_mode", mode);
   };
 
+  // Modo de Aparência e Tema: "system" (Padrão do Celular), "dark" (Escuro) ou "light" (Claro)
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredThemeMode());
+
+  useEffect(() => {
+    applyTheme(themeMode);
+
+    if (themeMode === "system" && typeof window !== "undefined" && window.matchMedia) {
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const handleMediaChange = () => {
+        applyTheme("system");
+      };
+
+      if (mediaQuery.addEventListener) {
+        mediaQuery.addEventListener("change", handleMediaChange);
+        return () => mediaQuery.removeEventListener("change", handleMediaChange);
+      } else if ((mediaQuery as any).addListener) {
+        (mediaQuery as any).addListener(handleMediaChange);
+        return () => (mediaQuery as any).removeListener(handleMediaChange);
+      }
+    }
+  }, [themeMode]);
+
+  const handleSetThemeMode = (mode: ThemeMode) => {
+    setThemeMode(mode);
+    saveThemeMode(mode);
+  };
+
   // Modal de Seção Focada (Gastos do Mês / Planejado & Parcelas)
   const [isFocusedSectionOpen, setIsFocusedSectionOpen] = useState(false);
   const [focusedSectionType, setFocusedSectionType] = useState<"expenses" | "planning" | "installments">("expenses");
+
+  // Gesto de Arrastar / Deslizar (Swipe) para trocar de mês na Tela Inicial
+  const touchStartXRef = React.useRef<number | null>(null);
+  const touchStartYRef = React.useRef<number | null>(null);
+  const touchStartTimeRef = React.useRef<number>(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // Não intercepta se houver modais abertos
+    if (isAddModalOpen || isAdminModalOpen || isWelcomeModalOpen || isUserMenuOpen || isFocusedSectionOpen) return;
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+    touchStartTimeRef.current = Date.now();
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
+    const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
+    const diffX = endX - touchStartXRef.current;
+    const diffY = endY - touchStartYRef.current;
+    const timeElapsed = Date.now() - touchStartTimeRef.current;
+
+    // Garante que o movimento horizontal seja preponderante sobre a rolagem vertical
+    const isHorizontalDominant = Math.abs(diffX) > Math.abs(diffY) * 1.25;
+    const isSignificantDistance = Math.abs(diffX) > 40;
+
+    if (isHorizontalDominant && isSignificantDistance && timeElapsed < 800) {
+      if (diffX > 0) {
+        // Arrasta da esquerda para a direita (dedo vai para a direita) -> Mês anterior
+        handlePrevMonth();
+      } else {
+        // Arrasta da direita para a esquerda (dedo vai para a esquerda) -> Mês subsequente
+        handleNextMonth();
+      }
+    }
+
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+  };
 
   const handleOpenExpensesModal = () => {
     setFocusedSectionType("expenses");
@@ -1050,9 +1117,9 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-12 selection:bg-indigo-500/35 selection:text-white">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-[max(3rem,calc(env(safe-area-inset-bottom,0px)+1.5rem))] selection:bg-indigo-500/35 selection:text-white">
       {/* HEADER PRINCIPAL */}
-      <header className="bg-slate-900/80 border-b border-slate-800/80 backdrop-blur-md sticky top-0 z-50">
+      <header className="bg-slate-900/80 border-b border-slate-800/80 backdrop-blur-md sticky top-0 z-50 pt-[env(safe-area-inset-top,0px)]">
         <div className="max-w-7xl mx-auto px-3 py-2 sm:px-6 sm:py-3.5 lg:px-8">
           {/* LAYOUT MOBILE (md:hidden) - LINHA ÚNICA COMPACTA MINIMALISTA */}
           <div className="flex items-center justify-between gap-2 md:hidden">
@@ -1206,8 +1273,12 @@ export default function App() {
         </div>
       </header>
 
-      {/* CONTÊINER GERAL */}
-      <main className="max-w-7xl mx-auto px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
+      {/* CONTÊINER GERAL COM GESTO DE DESLIZE DE MÊS */}
+      <main
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="max-w-7xl mx-auto px-3 py-4 sm:px-6 sm:py-8 lg:px-8"
+      >
         {fetchError ? (
           <div className="max-w-3xl mx-auto my-12 bg-slate-900 border border-red-500/30 rounded-3xl p-8 shadow-2xl text-slate-200">
             <div className="flex items-center gap-4 mb-6 text-red-400">
@@ -1379,6 +1450,8 @@ export default function App() {
           budgetsCount={Object.keys(budgets).length}
           viewMode={viewMode}
           onSetViewMode={handleSetViewMode}
+          themeMode={themeMode}
+          onSetThemeMode={handleSetThemeMode}
         />
 
         {/* MODAL DE BOAS-VINDAS / ONBOARDING APÓS REGISTRO */}
@@ -1412,6 +1485,8 @@ export default function App() {
           }}
           viewMode={viewMode}
           onSetViewMode={handleSetViewMode}
+          themeMode={themeMode}
+          onSetThemeMode={handleSetThemeMode}
         />
 
         {/* MODAL DE SEÇÃO FOCADA (GASTOS DO MÊS / PLANEJAMENTO / PARCELAS) */}

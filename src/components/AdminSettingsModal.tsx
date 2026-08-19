@@ -34,10 +34,14 @@ import {
   SlidersHorizontal,
   Layers,
   Table2,
+  Sun,
+  Moon,
+  Smartphone,
 } from "lucide-react";
 import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "../lib/admin";
 import { Transaction } from "../types";
 import SpreadsheetUpload from "./SpreadsheetUpload";
+import { ThemeMode } from "../lib/theme";
 
 interface AdminSettingsModalProps {
   isOpen: boolean;
@@ -57,6 +61,8 @@ interface AdminSettingsModalProps {
   budgetsCount: number;
   viewMode?: "compact" | "full";
   onSetViewMode?: (mode: "compact" | "full") => void;
+  themeMode?: ThemeMode;
+  onSetThemeMode?: (mode: ThemeMode) => void;
 }
 
 interface SystemStatus {
@@ -99,6 +105,8 @@ export default function AdminSettingsModal({
   budgetsCount,
   viewMode = "compact",
   onSetViewMode,
+  themeMode = "system",
+  onSetThemeMode,
 }: AdminSettingsModalProps) {
   const isAdmin = isUserAdmin(user);
   const [copiedId, setCopiedId] = useState(false);
@@ -496,6 +504,103 @@ CREATE TABLE IF NOT EXISTS public.transactions (
                         </div>
                         <p className="text-[11px] text-slate-400 leading-normal">
                           Exibe todas as tabelas e listas diretamente rolando a página inicial para baixo como em uma planilha tradicional.
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* PREFERÊNCIAS DE APARÊNCIA E TEMA */}
+                {onSetThemeMode && (
+                  <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sun className="w-4 h-4 text-amber-400" />
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                          Aparência e Tema
+                        </h4>
+                      </div>
+                      <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                        {themeMode === "system" ? "Padrão Celular" : themeMode === "dark" ? "Escuro" : "Claro"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Selecione se o aplicativo deve seguir o tema padrão do celular ou fixar em modo escuro/claro:
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => onSetThemeMode("system")}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          themeMode === "system"
+                            ? "bg-emerald-500/15 border-emerald-500/40 text-white shadow-sm ring-1 ring-emerald-500/30"
+                            : "bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <Smartphone className="w-4 h-4 text-emerald-400" />
+                            <span className="text-xs font-bold text-white">Padrão Celular</span>
+                          </div>
+                          {themeMode === "system" && (
+                            <span className="text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                              Ativo
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400">
+                          Segue o tema claro/escuro das configurações do dispositivo.
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onSetThemeMode("dark")}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          themeMode === "dark"
+                            ? "bg-emerald-500/15 border-emerald-500/40 text-white shadow-sm ring-1 ring-emerald-500/30"
+                            : "bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <Moon className="w-4 h-4 text-indigo-400" />
+                            <span className="text-xs font-bold text-white">Tema Escuro</span>
+                          </div>
+                          {themeMode === "dark" && (
+                            <span className="text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                              Ativo
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400">
+                          Fundo escuro em tom slate-950 com alto contraste.
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onSetThemeMode("light")}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          themeMode === "light"
+                            ? "bg-emerald-500/15 border-emerald-500/40 text-white shadow-sm ring-1 ring-emerald-500/30"
+                            : "bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <Sun className="w-4 h-4 text-amber-400" />
+                            <span className="text-xs font-bold text-white">Tema Claro</span>
+                          </div>
+                          {themeMode === "light" && (
+                            <span className="text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                              Ativo
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400">
+                          Fundo claro limpo e suave para uso diurno.
                         </p>
                       </button>
                     </div>
