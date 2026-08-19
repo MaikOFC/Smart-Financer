@@ -21,6 +21,7 @@ import {
   Settings,
   Crown,
   Lock,
+  MoreVertical,
 } from "lucide-react";
 import { Transaction } from "./types";
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from "./initialData";
@@ -32,6 +33,7 @@ import AuthScreen from "./components/AuthScreen";
 import AddTransactionModal from "./components/AddTransactionModal";
 import AdminSettingsModal from "./components/AdminSettingsModal";
 import WelcomeOnboardingModal from "./components/WelcomeOnboardingModal";
+import UserMenuDrawer from "./components/UserMenuDrawer";
 import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "./lib/admin";
 import {
   isSupabaseConfigured,
@@ -111,6 +113,9 @@ export default function App() {
 
   // Welcome / Onboarding Modal state (Triggered right after registration)
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
+
+  // Mobile & Global User Menu Drawer (3 pontinhos)
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   // Auth Success Handler
   const handleAuthSuccess = (
@@ -1016,124 +1021,218 @@ export default function App() {
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-12 selection:bg-indigo-500/35 selection:text-white">
       {/* HEADER PRINCIPAL */}
       <header className="bg-slate-900/80 border-b border-slate-800/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-3.5 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-3.5">
-          {/* LOGO & TITULO */}
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 shadow-sm">
-              <Wallet className="w-6 h-6" />
+        <div className="max-w-7xl mx-auto px-3 py-2 sm:px-6 sm:py-3.5 lg:px-8">
+          {/* LAYOUT MOBILE (md:hidden) */}
+          <div className="flex flex-col gap-2 md:hidden">
+            {/* Linha Superior: 3 Pontinhos no Canto Esquerdo | Logo Central | Avatar Usuário */}
+            <div className="flex items-center justify-between">
+              {/* CANTO SUPERIOR ESQUERDO: Botão 3 Pontinhos para abrir o Menu Lateral */}
+              <button
+                id="btn-mobile-menu"
+                onClick={() => setIsUserMenuOpen(true)}
+                className="p-2 bg-slate-950/70 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-800/90 rounded-xl transition-all cursor-pointer shadow-sm flex items-center justify-center active:scale-95"
+                title="Menu & Opções da Conta"
+              >
+                <MoreVertical className="w-5 h-5 text-emerald-400" />
+              </button>
+
+              {/* LOGO SMART FINANCER (Centralizado) */}
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20 shadow-sm">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <h1 className="text-base font-black tracking-tight text-white">
+                  Smart<span className="text-emerald-400">Financer</span>
+                </h1>
+              </div>
+
+              {/* AVATAR / STATUS DO USUÁRIO NO CANTO DIREITO */}
+              <button
+                onClick={() => setIsUserMenuOpen(true)}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-all cursor-pointer ${
+                  isAdmin
+                    ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                    : "bg-slate-950/70 text-indigo-300 border-slate-800/90"
+                }`}
+                title={user.name}
+              >
+                {isAdmin ? <Crown className="w-4 h-4" /> : <span className="text-xs font-bold font-mono">{user.name ? user.name[0].toUpperCase() : "U"}</span>}
+              </button>
             </div>
-            <div>
-              <h1 className="text-lg font-black tracking-tight flex items-center gap-1.5 text-white">
-                Smart<span className="text-emerald-400">Financer</span>
-              </h1>
-              <p className="text-[10px] text-slate-400 font-medium hidden sm:block">
-                Controle financeiro inteligente, gráficos e relatórios automatizados
-              </p>
+
+            {/* BARRA TRANSPARENTE DE PERÍODO (SUBIDA E COMPACTA NO MOBILE) */}
+            <div className="flex items-center justify-center gap-1.5 bg-slate-950/70 border border-slate-800/90 py-1 px-2 rounded-xl shadow-inner mx-auto w-full max-w-xs">
+              <button
+                onClick={handlePrevMonth}
+                className="p-1 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition-all cursor-pointer"
+                title="Mês Anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <select
+                value={currentMonthNum}
+                onChange={(e) => changeMonth(`${currentYear}-${e.target.value}`)}
+                className="bg-slate-900 border border-slate-800/80 text-xs font-bold text-slate-200 px-2.5 py-1 rounded-lg hover:border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
+              >
+                {MONTHS_LIST.map((m) => (
+                  <option key={m.value} value={m.value} className="bg-slate-900 text-slate-200">
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={currentYear}
+                onChange={(e) => changeMonth(`${e.target.value}-${currentMonthNum}`)}
+                className="bg-slate-900 border border-slate-800/80 text-xs font-bold font-mono text-slate-200 px-2 py-1 rounded-lg hover:border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
+              >
+                {availableYears.map((yr) => (
+                  <option key={yr} value={yr} className="bg-slate-900 text-slate-200">
+                    {yr}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                onClick={handleNextMonth}
+                className="p-1 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition-all cursor-pointer"
+                title="Próximo Mês"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
-          {/* SELETOR DE PERÍODO NO TOPO */}
-          <div className="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800/90 p-1.5 rounded-2xl shadow-inner">
-            <div className="hidden lg:flex items-center gap-1.5 px-2 text-slate-400">
-              <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">Período:</span>
+          {/* LAYOUT DESKTOP (hidden md:flex) */}
+          <div className="hidden md:flex justify-between items-center gap-3.5">
+            {/* LOGO & TITULO */}
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 shadow-sm">
+                <Wallet className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="text-lg font-black tracking-tight flex items-center gap-1.5 text-white">
+                  Smart<span className="text-emerald-400">Financer</span>
+                </h1>
+                <p className="text-[10px] text-slate-400 font-medium hidden sm:block">
+                  Controle financeiro inteligente, gráficos e relatórios automatizados
+                </p>
+              </div>
             </div>
 
-            <button
-              onClick={handlePrevMonth}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl transition-all cursor-pointer"
-              title="Mês Anterior"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
+            {/* SELETOR DE PERÍODO NO TOPO */}
+            <div className="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800/90 p-1.5 rounded-2xl shadow-inner">
+              <div className="hidden lg:flex items-center gap-1.5 px-2 text-slate-400">
+                <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">Período:</span>
+              </div>
 
-            <select
-              value={currentMonthNum}
-              onChange={(e) => changeMonth(`${currentYear}-${e.target.value}`)}
-              className="bg-slate-900 border border-slate-800/80 text-xs font-bold text-slate-200 px-3 py-1.5 rounded-xl hover:border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
-            >
-              {MONTHS_LIST.map((m) => (
-                <option key={m.value} value={m.value} className="bg-slate-900 text-slate-200">
-                  {m.label}
-                </option>
-              ))}
-            </select>
+              <button
+                onClick={handlePrevMonth}
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl transition-all cursor-pointer"
+                title="Mês Anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
 
-            <select
-              value={currentYear}
-              onChange={(e) => changeMonth(`${e.target.value}-${currentMonthNum}`)}
-              className="bg-slate-900 border border-slate-800/80 text-xs font-bold font-mono text-slate-200 px-2.5 py-1.5 rounded-xl hover:border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
-            >
-              {availableYears.map((yr) => (
-                <option key={yr} value={yr} className="bg-slate-900 text-slate-200">
-                  {yr}
-                </option>
-              ))}
-            </select>
+              <select
+                value={currentMonthNum}
+                onChange={(e) => changeMonth(`${currentYear}-${e.target.value}`)}
+                className="bg-slate-900 border border-slate-800/80 text-xs font-bold text-slate-200 px-3 py-1.5 rounded-xl hover:border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
+              >
+                {MONTHS_LIST.map((m) => (
+                  <option key={m.value} value={m.value} className="bg-slate-900 text-slate-200">
+                    {m.label}
+                  </option>
+                ))}
+              </select>
 
-            <button
-              onClick={handleNextMonth}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl transition-all cursor-pointer"
-              title="Próximo Mês"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+              <select
+                value={currentYear}
+                onChange={(e) => changeMonth(`${e.target.value}-${currentMonthNum}`)}
+                className="bg-slate-900 border border-slate-800/80 text-xs font-bold font-mono text-slate-200 px-2.5 py-1.5 rounded-xl hover:border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
+              >
+                {availableYears.map((yr) => (
+                  <option key={yr} value={yr} className="bg-slate-900 text-slate-200">
+                    {yr}
+                  </option>
+                ))}
+              </select>
 
-          {/* USUÁRIO & AÇÕES */}
-          <div className="flex items-center gap-2">
-            <div className={`flex items-center gap-2 border px-3 py-1.5 rounded-2xl ${
-              isAdmin 
-                ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
-                : "bg-slate-950/60 border-slate-800/80 text-slate-200"
-            }`}>
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${
+              <button
+                onClick={handleNextMonth}
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl transition-all cursor-pointer"
+                title="Próximo Mês"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* USUÁRIO & AÇÕES (DESKTOP) */}
+            <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 border px-3 py-1.5 rounded-2xl ${
                 isAdmin 
-                  ? "bg-amber-500/20 text-amber-400 border-amber-500/30" 
-                  : "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                  : "bg-slate-950/60 border-slate-800/80 text-slate-200"
               }`}>
-                {isAdmin ? <Crown className="w-3.5 h-3.5" /> : <UserIcon className="w-3.5 h-3.5" />}
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${
+                  isAdmin 
+                    ? "bg-amber-500/20 text-amber-400 border-amber-500/30" 
+                    : "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
+                }`}>
+                  {isAdmin ? <Crown className="w-3.5 h-3.5" /> : <UserIcon className="w-3.5 h-3.5" />}
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[9px] leading-none font-bold uppercase tracking-wider opacity-70">
+                    {isAdmin ? "Admin Master" : "Usuário"}
+                  </span>
+                  <span className="text-xs font-bold leading-tight max-w-[110px] truncate" title={user.name}>{user.name}</span>
+                </div>
               </div>
-              <div className="flex flex-col text-left">
-                <span className="text-[9px] leading-none font-bold uppercase tracking-wider opacity-70">
-                  {isAdmin ? "Admin Master" : "Usuário"}
-                </span>
-                <span className="text-xs font-bold leading-tight max-w-[110px] truncate" title={user.name}>{user.name}</span>
-              </div>
+
+              {/* BOTÃO ADMIN / CONFIGURAÇÕES */}
+              <button
+                onClick={() => setIsAdminModalOpen(true)}
+                className={`flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl transition-all border cursor-pointer ${
+                  isAdmin
+                    ? "bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border-amber-500/30 hover:border-amber-400/50"
+                    : "bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border-slate-800 hover:border-indigo-500/40"
+                }`}
+                title={isAdmin ? "Painel de Administração, Exportações e Servidor" : "Configurações da Conta e Salário"}
+              >
+                <Settings className={`w-4 h-4 ${isAdmin ? "text-amber-400" : "text-indigo-400"}`} />
+                <span>{isAdmin ? "Painel ADM" : "Configurações"}</span>
+                {isAdmin && (
+                  <span className="text-[9px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 font-mono rounded font-bold">ADM</span>
+                )}
+              </button>
+
+              {/* BOTÃO SAIR */}
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-3 py-2 rounded-xl transition-all border border-rose-500/20 cursor-pointer"
+                title="Sair da Conta"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sair</span>
+              </button>
+
+              {/* BOTÃO DE 3 PONTINHOS (MENU LATERAL) */}
+              <button
+                onClick={() => setIsUserMenuOpen(true)}
+                className="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 rounded-xl transition-all cursor-pointer shadow-sm flex items-center justify-center"
+                title="Menu & Opções da Conta"
+              >
+                <MoreVertical className="w-5 h-5 text-emerald-400" />
+              </button>
             </div>
-
-            {/* BOTÃO ADMIN / CONFIGURAÇÕES */}
-            <button
-              onClick={() => setIsAdminModalOpen(true)}
-              className={`flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl transition-all border cursor-pointer ${
-                isAdmin
-                  ? "bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border-amber-500/30 hover:border-amber-400/50"
-                  : "bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border-slate-800 hover:border-indigo-500/40"
-              }`}
-              title={isAdmin ? "Painel de Administração, Exportações e Servidor" : "Configurações da Conta e Salário"}
-            >
-              <Settings className={`w-4 h-4 ${isAdmin ? "text-amber-400" : "text-indigo-400"}`} />
-              <span className="hidden sm:inline">{isAdmin ? "Painel ADM" : "Configurações"}</span>
-              {isAdmin && (
-                <span className="text-[9px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 font-mono rounded font-bold">ADM</span>
-              )}
-            </button>
-
-            {/* BOTÃO SAIR */}
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-3 py-2 rounded-xl transition-all border border-rose-500/20 cursor-pointer"
-              title="Sair da Conta"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Sair</span>
-            </button>
           </div>
         </div>
       </header>
 
       {/* CONTÊINER GERAL */}
-      <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
         {fetchError ? (
           <div className="max-w-3xl mx-auto my-12 bg-slate-900 border border-red-500/30 rounded-3xl p-8 shadow-2xl text-slate-200">
             <div className="flex items-center gap-4 mb-6 text-red-400">
@@ -1308,6 +1407,26 @@ export default function App() {
           selectedMonth={selectedMonth}
           defaultSalary={defaultSalary}
           onUpdateDefaultSalary={handleUpdateDefaultSalary}
+        />
+
+        {/* MENU LATERAL / BARRA LATERAL (3 PONTINHOS) */}
+        <UserMenuDrawer
+          isOpen={isUserMenuOpen}
+          onClose={() => setIsUserMenuOpen(false)}
+          user={user}
+          isAdmin={isAdmin}
+          defaultSalary={defaultSalary}
+          selectedMonth={selectedMonth}
+          onOpenSettings={() => setIsAdminModalOpen(true)}
+          onOpenAddModal={() => {
+            setAddModalSection("left");
+            setIsAddModalOpen(true);
+          }}
+          onLogout={handleLogout}
+          onScrollToAi={() => {
+            const el = document.getElementById("ai-consultant-section");
+            el?.scrollIntoView({ behavior: "smooth" });
+          }}
         />
 
         {/* CONSULTOR DE IA FINANCEIRO */}

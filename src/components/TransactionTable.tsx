@@ -12,7 +12,9 @@ import {
   ArrowDown,
   AlertCircle,
   Copy,
+  Info,
 } from "lucide-react";
+import TransactionDetailModal from "./TransactionDetailModal";
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -43,6 +45,9 @@ export default function TransactionTable({
   const [editCategory, setEditCategory] = useState("");
   const [editDate, setEditDate] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
+
+  // State for item detail viewer (mobile tap)
+  const [selectedTransactionForDetail, setSelectedTransactionForDetail] = useState<Transaction | null>(null);
 
   const startEditing = (t: Transaction) => {
     setEditingId(t.id);
@@ -271,11 +276,11 @@ export default function TransactionTable({
             </button>
           </div>
 
-          <div className="overflow-x-auto">
+            <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                  <th className="py-2.5 px-2">
+                  <th className="py-2.5 px-3">
                     <button
                       type="button"
                       onClick={handleToggleLeftProductSort}
@@ -300,8 +305,8 @@ export default function TransactionTable({
                       )}
                     </button>
                   </th>
-                  <th className="py-2.5 px-2">Categoria</th>
-                  <th className="py-2.5 px-2">
+                  <th className="py-2.5 px-2 hidden sm:table-cell">Categoria</th>
+                  <th className="py-2.5 px-3 text-right sm:text-left">
                     <button
                       type="button"
                       onClick={handleToggleLeftPriceSort}
@@ -326,8 +331,8 @@ export default function TransactionTable({
                       )}
                     </button>
                   </th>
-                  <th className="py-2.5 px-2 text-center">Destaque</th>
-                  <th className="py-2.5 px-2 text-right">Ações</th>
+                  <th className="py-2.5 px-2 text-center hidden sm:table-cell">Destaque</th>
+                  <th className="py-2.5 px-2 text-right hidden sm:table-cell">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
@@ -368,14 +373,23 @@ export default function TransactionTable({
                       ? "bg-amber-500/5 hover:bg-amber-500/10 text-amber-300 border-l-4 border-amber-500"
                       : t.isDiscount
                       ? "bg-slate-800/40 hover:bg-slate-800/50 text-slate-400 italic border-l-4 border-slate-600"
-                      : "hover:bg-slate-800/20 border-l-4 border-transparent text-slate-300";
+                      : "hover:bg-slate-800/30 border-l-4 border-transparent text-slate-300";
 
                     return (
-                      <tr key={t.id} className={`transition-all ${rowBg}`}>
+                      <tr
+                        key={t.id}
+                        onClick={() => {
+                          if (!isEditing) {
+                            setSelectedTransactionForDetail(t);
+                          }
+                        }}
+                        className={`transition-all cursor-pointer select-none group ${rowBg}`}
+                        title="Toque para visualizar detalhes, editar ou excluir"
+                      >
                         {/* Descrição */}
-                        <td className="py-3 px-2 font-medium">
+                        <td className="py-3 px-3 font-medium">
                           {isEditing ? (
-                            <div className="space-y-1">
+                            <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
                               <input
                                 type="text"
                                 value={editDesc}
@@ -394,8 +408,8 @@ export default function TransactionTable({
                               )}
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1.5">
-                              <span>{t.description}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-100 group-hover:text-white transition-colors">{t.description}</span>
                               {t.isDiscount && (
                                 <span className="text-[9px] bg-slate-800 text-slate-400 border border-slate-700 px-1.5 py-0.5 rounded uppercase font-bold not-italic">
                                   Desconto
@@ -405,8 +419,8 @@ export default function TransactionTable({
                           )}
                         </td>
 
-                        {/* Categoria */}
-                        <td className="py-3 px-2">
+                        {/* Categoria (Escondida no mobile para layout super limpo) */}
+                        <td className="py-3 px-2 hidden sm:table-cell" onClick={(e) => isEditing && e.stopPropagation()}>
                           {isEditing ? (
                             <select
                               value={editCategory}
@@ -426,33 +440,35 @@ export default function TransactionTable({
                           )}
                         </td>
 
-                        {/* Preço */}
-                        <td className="py-3 px-2 font-bold font-mono">
+                        {/* Preço (Formatado perfeitamente sem corte) */}
+                        <td className="py-3 px-3 font-bold font-mono text-right sm:text-left whitespace-nowrap">
                           {isEditing ? (
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={editAmount}
-                              onChange={(e) => setEditAmount(parseFloat(e.target.value) || 0)}
-                              className="bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg w-24 text-xs text-white focus:outline-none focus:border-indigo-500"
-                            />
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editAmount}
+                                onChange={(e) => setEditAmount(parseFloat(e.target.value) || 0)}
+                                className="bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg w-24 text-xs text-white focus:outline-none focus:border-indigo-500"
+                              />
+                            </div>
                           ) : (
-                            <span className={t.isDiscount ? "text-slate-400 font-normal" : "text-slate-200"}>
+                            <span className={`text-xs sm:text-xs font-bold ${t.isDiscount ? "text-slate-400 font-normal" : t.isOrangeHighlight ? "text-amber-300" : "text-slate-100 group-hover:text-emerald-400 transition-colors"}`}>
                               {t.isDiscount ? "- " : ""}
                               R$ {t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                           )}
                         </td>
 
-                        {/* Destaque (Estilo de Planilha) */}
-                        <td className="py-3 px-2 text-center">
+                        {/* Destaque (Escondido no mobile, acessível pelo modal ou desktop) */}
+                        <td className="py-3 px-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                           {!isEditing && (
                             <div className="flex justify-center gap-1.5">
                               {/* Orange Highlight Toggle */}
                               <button
                                 onClick={() => onUpdateTransaction(t.id, { isOrangeHighlight: !t.isOrangeHighlight, isDiscount: false })}
                                 title="Destacar Laranja"
-                                className={`p-1.5 rounded-lg transition-all ${
+                                className={`p-1.5 rounded-lg transition-all cursor-pointer ${
                                   t.isOrangeHighlight ? "bg-amber-500 text-white" : "bg-slate-800 text-slate-500 hover:text-slate-300 hover:bg-slate-700"
                                 }`}
                               >
@@ -462,7 +478,7 @@ export default function TransactionTable({
                               <button
                                 onClick={() => onUpdateTransaction(t.id, { isDiscount: !t.isDiscount, isOrangeHighlight: false })}
                                 title="Marcar como Desconto"
-                                className={`p-1.5 rounded-lg text-xs font-black transition-all ${
+                                className={`p-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
                                   t.isDiscount ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-500 hover:text-slate-300 hover:bg-slate-700"
                                 }`}
                               >
@@ -472,18 +488,18 @@ export default function TransactionTable({
                           )}
                         </td>
 
-                        {/* Ações */}
-                        <td className="py-3 px-2 text-right">
+                        {/* Ações (Escondidas no mobile, acessíveis pelo modal ou desktop) */}
+                        <td className="py-3 px-2 text-right hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
                             {isEditing ? (
                               <>
                                 <button
                                   onClick={() => saveEditing(t.id)}
-                                  className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-lg"
+                                  className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-lg cursor-pointer"
                                 >
                                   <Check className="w-4 h-4" />
                                 </button>
-                                <button onClick={cancelEditing} className="p-1 text-rose-400 hover:bg-rose-500/10 rounded-lg">
+                                <button onClick={cancelEditing} className="p-1 text-rose-400 hover:bg-rose-500/10 rounded-lg cursor-pointer">
                                   <X className="w-4 h-4" />
                                 </button>
                               </>
@@ -491,13 +507,15 @@ export default function TransactionTable({
                               <>
                                 <button
                                   onClick={() => startEditing(t)}
-                                  className="p-1 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                                  className="p-1 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
+                                  title="Editar item"
                                 >
                                   <Edit2 className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   onClick={() => onDeleteTransaction(t.id)}
-                                  className="p-1 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-all"
+                                  className="p-1 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
+                                  title="Excluir item"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -571,7 +589,7 @@ export default function TransactionTable({
               <thead>
                 <tr className="border-b border-slate-800 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
                   {/* Coluna PRODUTO com ordenação sutil */}
-                  <th className="py-2.5 px-2">
+                  <th className="py-2.5 px-3">
                     <button
                       type="button"
                       onClick={handleToggleRightProductSort}
@@ -598,7 +616,7 @@ export default function TransactionTable({
                   </th>
 
                   {/* Coluna PREÇO ESTIMADO com ordenação sutil */}
-                  <th className="py-2.5 px-2">
+                  <th className="py-2.5 px-3 text-right sm:text-left">
                     <button
                       type="button"
                       onClick={handleToggleRightPriceSort}
@@ -624,9 +642,9 @@ export default function TransactionTable({
                     </button>
                   </th>
 
-                  <th className="py-2.5 px-2">Label / Nota</th>
-                  <th className="py-2.5 px-2">Categoria</th>
-                  <th className="py-2.5 px-2 text-right">Ações</th>
+                  <th className="py-2.5 px-2 hidden sm:table-cell">Label / Nota</th>
+                  <th className="py-2.5 px-2 hidden sm:table-cell">Categoria</th>
+                  <th className="py-2.5 px-2 text-right hidden sm:table-cell">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
@@ -674,16 +692,22 @@ export default function TransactionTable({
                     return (
                       <tr
                         key={t.id}
-                        className={`transition-all ${
+                        onClick={() => {
+                          if (!isEditing) {
+                            setSelectedTransactionForDetail(t);
+                          }
+                        }}
+                        className={`transition-all cursor-pointer select-none group ${
                           isDuplicate
                             ? "bg-amber-500/[0.04] hover:bg-amber-500/[0.08] text-slate-200 border-l-2 border-amber-500/70"
-                            : "hover:bg-slate-800/20 text-slate-300 border-l-2 border-transparent"
+                            : "hover:bg-slate-800/30 text-slate-300 border-l-2 border-transparent"
                         }`}
+                        title="Toque para visualizar detalhes, editar ou excluir"
                       >
                         {/* Descrição & Indicador de Duplicata */}
-                        <td className="py-3 px-2 font-medium">
+                        <td className="py-3 px-3 font-medium">
                           {isEditing ? (
-                            <div className="space-y-1">
+                            <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
                               <input
                                 type="text"
                                 value={editDesc}
@@ -703,7 +727,7 @@ export default function TransactionTable({
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-white">{t.description}</span>
+                              <span className="font-semibold text-white group-hover:text-indigo-300 transition-colors">{t.description}</span>
                               {isDuplicate && (
                                 <span
                                   className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase tracking-tight"
@@ -716,18 +740,20 @@ export default function TransactionTable({
                           )}
                         </td>
 
-                        {/* Preço */}
-                        <td className="py-3 px-2 font-bold font-mono">
+                        {/* Preço (Formatado perfeitamente no mobile) */}
+                        <td className="py-3 px-3 font-bold font-mono text-right sm:text-left whitespace-nowrap">
                           {isEditing ? (
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={editAmount}
-                              onChange={(e) => setEditAmount(parseFloat(e.target.value) || 0)}
-                              className="bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg w-24 text-xs text-white focus:outline-none"
-                            />
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editAmount}
+                                onChange={(e) => setEditAmount(parseFloat(e.target.value) || 0)}
+                                className="bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg w-24 text-xs text-white focus:outline-none"
+                              />
+                            </div>
                           ) : (
-                            <span className={hasSpecialLabel ? "text-slate-500 italic font-normal" : "text-slate-200"}>
+                            <span className={hasSpecialLabel ? "text-slate-500 italic font-normal" : "text-slate-100 group-hover:text-amber-400 transition-colors"}>
                               {hasSpecialLabel
                                 ? "—"
                                 : `R$ ${t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
@@ -735,8 +761,8 @@ export default function TransactionTable({
                           )}
                         </td>
 
-                        {/* Label / Nota */}
-                        <td className="py-3 px-2">
+                        {/* Label / Nota (Escondida no mobile, visível no modal) */}
+                        <td className="py-3 px-2 hidden sm:table-cell" onClick={(e) => isEditing && e.stopPropagation()}>
                           {isEditing ? (
                             <input
                               type="text"
@@ -754,8 +780,8 @@ export default function TransactionTable({
                           )}
                         </td>
 
-                        {/* Categoria */}
-                        <td className="py-3 px-2">
+                        {/* Categoria (Escondida no mobile, visível no modal) */}
+                        <td className="py-3 px-2 hidden sm:table-cell" onClick={(e) => isEditing && e.stopPropagation()}>
                           {isEditing ? (
                             <select
                               value={editCategory}
@@ -775,8 +801,8 @@ export default function TransactionTable({
                           )}
                         </td>
 
-                        {/* Ações */}
-                        <td className="py-3 px-2 text-right">
+                        {/* Ações (Escondidas no mobile, visíveis no modal) */}
+                        <td className="py-3 px-2 text-right hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
                             {isEditing ? (
                               <>
@@ -851,12 +877,12 @@ export default function TransactionTable({
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-slate-800 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-2">Valor Parcela</th>
-                <th className="py-3 px-2">Mês Quitação</th>
-                <th className="py-3 px-2 text-center">Parcelas Restantes</th>
-                <th className="py-3 px-2">Saldo Devedor</th>
-                <th className="py-3 px-2">Descrição / Detalhe</th>
-                <th className="py-3 px-2 text-right">Ações</th>
+                <th className="py-3 px-3">Descrição / Detalhe</th>
+                <th className="py-3 px-3 text-right sm:text-left">Valor Parcela</th>
+                <th className="py-3 px-2 hidden sm:table-cell">Mês Quitação</th>
+                <th className="py-3 px-2 text-center hidden sm:table-cell">Parcelas Restantes</th>
+                <th className="py-3 px-2 hidden sm:table-cell">Saldo Devedor</th>
+                <th className="py-3 px-2 text-right hidden sm:table-cell">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
@@ -901,24 +927,60 @@ export default function TransactionTable({
                   };
 
                   return (
-                    <tr key={t.id} className={`hover:bg-slate-800/20 transition-all text-slate-300 ${remainingCount > 0 ? "bg-amber-500/[0.01]" : "opacity-40"}`}>
-                      {/* Valor Parcela */}
-                      <td className="py-3 px-2 font-black font-mono text-emerald-400">
+                    <tr
+                      key={t.id}
+                      onClick={() => {
+                        if (!isEditing) {
+                          setSelectedTransactionForDetail(t);
+                        }
+                      }}
+                      className={`hover:bg-slate-800/30 transition-all text-slate-300 cursor-pointer select-none group ${
+                        remainingCount > 0 ? "bg-amber-500/[0.01]" : "opacity-40"
+                      }`}
+                      title="Toque para visualizar detalhes, parcelas restantes ou editar"
+                    >
+                      {/* Descrição */}
+                      <td className="py-3 px-3 font-medium">
                         {isEditing ? (
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={editAmount}
-                            onChange={(e) => setEditAmount(parseFloat(e.target.value) || 0)}
-                            className="bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg w-24 text-xs text-white focus:outline-none focus:border-indigo-500"
-                          />
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="text"
+                              value={editDesc}
+                              onChange={(e) => setEditDesc(e.target.value)}
+                              className="bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg w-full text-xs text-white focus:outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-white group-hover:text-emerald-300 transition-colors">{t.description}</span>
+                            {remainingCount > 0 ? (
+                              <span className="inline-block sm:hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/25">
+                                {remainingCount}x
+                              </span>
+                            ) : null}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Valor Parcela */}
+                      <td className="py-3 px-3 font-black font-mono text-emerald-400 text-right sm:text-left whitespace-nowrap">
+                        {isEditing ? (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={editAmount}
+                              onChange={(e) => setEditAmount(parseFloat(e.target.value) || 0)}
+                              className="bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg w-24 text-xs text-white focus:outline-none focus:border-indigo-500"
+                            />
+                          </div>
                         ) : (
                           `R$ ${t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                         )}
                       </td>
 
-                      {/* Mês de Quitação */}
-                      <td className="py-3 px-2 text-slate-400 font-medium">
+                      {/* Mês de Quitação (Escondido no mobile, visível no modal) */}
+                      <td className="py-3 px-2 text-slate-400 font-medium hidden sm:table-cell" onClick={(e) => isEditing && e.stopPropagation()}>
                         {isEditing ? (
                           <input
                             type="date"
@@ -931,8 +993,8 @@ export default function TransactionTable({
                         )}
                       </td>
 
-                      {/* Parcelas Restantes */}
-                      <td className="py-3 px-2 text-center">
+                      {/* Parcelas Restantes (Escondido no mobile, visível no modal) */}
+                      <td className="py-3 px-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                         {remainingCount > 0 ? (
                           <span className="inline-block px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/25 rounded-full font-bold font-mono text-[10px]">
                             {remainingCount}x restantes
@@ -944,8 +1006,8 @@ export default function TransactionTable({
                         )}
                       </td>
 
-                      {/* Saldo Restante */}
-                      <td className="py-3 px-2 font-bold font-mono">
+                      {/* Saldo Restante (Escondido no mobile, visível no modal) */}
+                      <td className="py-3 px-2 font-bold font-mono hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                         {remainingCount > 0 ? (
                           <span className="text-amber-400">
                             R$ {remainingAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -955,32 +1017,18 @@ export default function TransactionTable({
                         )}
                       </td>
 
-                      {/* Descrição */}
-                      <td className="py-3 px-2 font-medium">
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            value={editDesc}
-                            onChange={(e) => setEditDesc(e.target.value)}
-                            className="bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg w-full text-xs text-white focus:outline-none focus:border-indigo-500"
-                          />
-                        ) : (
-                          t.description
-                        )}
-                      </td>
-
-                      {/* Ações */}
-                      <td className="py-3 px-2 text-right">
+                      {/* Ações (Escondidas no mobile, visíveis no modal) */}
+                      <td className="py-3 px-2 text-right hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
                           {isEditing ? (
                             <>
                               <button
                                 onClick={() => saveEditing(t.id)}
-                                className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-lg"
+                                className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-lg cursor-pointer"
                               >
                                 <Check className="w-4 h-4" />
                               </button>
-                              <button onClick={cancelEditing} className="p-1 text-rose-400 hover:bg-rose-500/10 rounded-lg">
+                              <button onClick={cancelEditing} className="p-1 text-rose-400 hover:bg-rose-500/10 rounded-lg cursor-pointer">
                                 <X className="w-4 h-4" />
                               </button>
                             </>
@@ -988,13 +1036,15 @@ export default function TransactionTable({
                             <>
                               <button
                                 onClick={() => startEditing(t)}
-                                className="p-1 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                                className="p-1 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
+                                title="Editar item"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => onDeleteTransaction(t.id)}
-                                className="p-1 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-all"
+                                className="p-1 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
+                                title="Excluir item"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1040,6 +1090,28 @@ export default function TransactionTable({
           </div>
         </div>
       </div>
+
+      {/* VISUALIZADOR DE DETALHES DO ITEM (TOQUE NO MOBILE OU DESKTOP) */}
+      <TransactionDetailModal
+        isOpen={!!selectedTransactionForDetail}
+        transaction={selectedTransactionForDetail}
+        onClose={() => setSelectedTransactionForDetail(null)}
+        onUpdateTransaction={(id, updated) => {
+          onUpdateTransaction(id, updated);
+          if (selectedTransactionForDetail && selectedTransactionForDetail.id === id) {
+            setSelectedTransactionForDetail({
+              ...selectedTransactionForDetail,
+              ...updated,
+            });
+          }
+        }}
+        onDeleteTransaction={(id) => {
+          onDeleteTransaction(id);
+          setSelectedTransactionForDetail(null);
+        }}
+        categories={finalCategories}
+        selectedMonth={selectedMonth}
+      />
     </div>
   );
 }
