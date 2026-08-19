@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Transaction } from "../types";
 import TransactionDetailModal from "./TransactionDetailModal";
+import AnimatedNumber from "./AnimatedNumber";
 
 interface FocusedSectionModalProps {
   isOpen: boolean;
@@ -385,13 +386,16 @@ export default function FocusedSectionModal({
             <div className="flex items-center gap-2">
               <span className="sm:hidden text-xs font-mono font-bold text-emerald-400 px-2.5 py-1 bg-slate-900 rounded-lg border border-slate-800">
                 R${" "}
-                {activeTab === "expenses"
-                  ? expensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                  : activeTab === "planning"
-                  ? planningTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                  : allInstallments
-                      .reduce((sum, t) => sum + t.amount * getRemainingInstallments(t.date), 0)
-                      .toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <AnimatedNumber
+                  value={
+                    activeTab === "expenses"
+                      ? expensesTotal
+                      : activeTab === "planning"
+                      ? planningTotal
+                      : allInstallments.reduce((sum, t) => sum + t.amount * getRemainingInstallments(t.date), 0)
+                  }
+                  duration={1000}
+                />
               </span>
 
               <button
@@ -466,13 +470,16 @@ export default function FocusedSectionModal({
               <span className="text-xs text-slate-400 font-medium">Total:</span>
               <span className="text-sm font-mono font-black text-white px-3 py-1 bg-slate-900 border border-slate-800 rounded-xl">
                 R${" "}
-                {activeTab === "expenses"
-                  ? expensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                  : activeTab === "planning"
-                  ? planningTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                  : allInstallments
-                      .reduce((sum, t) => sum + t.amount * getRemainingInstallments(t.date), 0)
-                      .toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <AnimatedNumber
+                  value={
+                    activeTab === "expenses"
+                      ? expensesTotal
+                      : activeTab === "planning"
+                      ? planningTotal
+                      : allInstallments.reduce((sum, t) => sum + t.amount * getRemainingInstallments(t.date), 0)
+                  }
+                  duration={1000}
+                />
               </span>
             </div>
           </div>

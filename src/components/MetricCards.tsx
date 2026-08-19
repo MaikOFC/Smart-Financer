@@ -1,5 +1,6 @@
 import React from "react";
 import { TrendingUp, TrendingDown, DollarSign, Wallet, ExternalLink } from "lucide-react";
+import AnimatedNumber from "./AnimatedNumber";
 
 interface MetricCardsProps {
   budget: number;
@@ -76,7 +77,7 @@ export default function MetricCards({
         <div className="flex items-baseline gap-1.5 mb-2">
           <span className="text-sm font-bold text-rose-400 font-mono">R$</span>
           <span className="text-2xl font-black font-mono text-white tracking-tight group-hover:text-rose-200 transition-colors">
-            {leftExpensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <AnimatedNumber value={leftExpensesTotal} duration={1000} />
           </span>
         </div>
         <div className="flex items-center justify-between">
@@ -100,7 +101,7 @@ export default function MetricCards({
         <div className="flex items-baseline gap-1.5 mb-2">
           <span className="text-sm font-bold text-slate-500 font-mono">R$</span>
           <span className={`text-2xl font-black font-mono tracking-tight ${sobra >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-            {sobra.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <AnimatedNumber value={sobra} duration={1000} />
           </span>
         </div>
         <p className="text-xs text-slate-500">Orçamento menos as despesas do mês</p>
@@ -134,13 +135,13 @@ export default function MetricCards({
           <div className="flex justify-between items-center text-xs">
             <span className="text-slate-500" title="Compras futuras e planejamentos">Planejado:</span>
             <span className="font-bold text-amber-400 group-hover:text-amber-300">
-              R$ {rightExpensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              R$ <AnimatedNumber value={rightExpensesTotal} duration={1000} />
             </span>
           </div>
           <div className="flex justify-between items-center text-xs">
             <span className="text-slate-500" title="Soma dos saldos devedores restantes de todas as parcelas ativas">Saldo Parcelas:</span>
             <span className="font-bold text-amber-400 group-hover:text-amber-300">
-              R$ {bottomIncomesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              R$ <AnimatedNumber value={bottomIncomesTotal} duration={1000} />
             </span>
           </div>
         </div>

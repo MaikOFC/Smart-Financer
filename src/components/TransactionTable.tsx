@@ -15,6 +15,7 @@ import {
   Info,
 } from "lucide-react";
 import TransactionDetailModal from "./TransactionDetailModal";
+import AnimatedNumber from "./AnimatedNumber";
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -536,7 +537,7 @@ export default function TransactionTable({
         <div className="mt-6 border-t border-slate-800 pt-4 flex items-center justify-between">
           <span className="font-bold text-slate-400 text-xs uppercase tracking-wider">Total Despesas:</span>
           <div className="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-4 py-2 rounded-2xl text-base font-black font-mono">
-            R$ {leftTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            R$ <AnimatedNumber value={leftTotal} duration={1000} />
           </div>
         </div>
       </div>
@@ -852,7 +853,7 @@ export default function TransactionTable({
             <span className="text-[10px] text-slate-500 font-medium font-sans">Valor meramente informativo (não diminui o saldo do mês)</span>
           </div>
           <div className="bg-slate-950/55 text-amber-400 border border-slate-800 px-4 py-2 rounded-2xl text-base font-black font-mono">
-            R$ {rightTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            R$ <AnimatedNumber value={rightTotal} duration={1000} />
           </div>
         </div>
       </div>
@@ -1071,8 +1072,9 @@ export default function TransactionTable({
             </span>
           </div>
           <div className="bg-slate-950/55 text-amber-400 border border-slate-800 px-4 py-2 rounded-2xl text-base font-black font-mono">
-            R$ {
-              bottomTransactions.reduce((acc, t) => {
+            R${" "}
+            <AnimatedNumber
+              value={bottomTransactions.reduce((acc, t) => {
                 const getRemainingCount = (endDateStr: string) => {
                   try {
                     const [selYear, selMonth] = selectedMonth.split("-").map(Number);
@@ -1084,9 +1086,10 @@ export default function TransactionTable({
                     return 0;
                   }
                 };
-                return acc + (t.amount * getRemainingCount(t.date));
-              }, 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-            }
+                return acc + t.amount * getRemainingCount(t.date);
+              }, 0)}
+              duration={1000}
+            />
           </div>
         </div>
       </div>
