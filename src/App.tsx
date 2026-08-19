@@ -28,6 +28,8 @@ import {
   TrendingDown,
   TrendingUp,
   PlusCircle,
+  ArrowUpCircle,
+  X,
 } from "lucide-react";
 import { Transaction } from "./types";
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from "./initialData";
@@ -43,6 +45,7 @@ import UserMenuDrawer from "./components/UserMenuDrawer";
 import FocusedSectionModal from "./components/FocusedSectionModal";
 import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "./lib/admin";
 import { ThemeMode, getStoredThemeMode, saveThemeMode, applyTheme } from "./lib/theme";
+import { checkServerVersion, forceReloadApp, CURRENT_CLIENT_VERSION } from "./lib/updateManager";
 import {
   isSupabaseConfigured,
   getSupabaseTransactions,
@@ -162,6 +165,20 @@ export default function App() {
     setThemeMode(mode);
     saveThemeMode(mode);
   };
+
+  // Verificação de Atualização em Segundo Plano (OTA)
+  const [pendingUpdateVersion, setPendingUpdateVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      checkServerVersion().then((res) => {
+        if (res.hasUpdate) {
+          setPendingUpdateVersion(res.serverVersion);
+        }
+      }).catch(() => {});
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Modal de Seção Focada (Gastos do Mês / Planejado & Parcelas)
   const [isFocusedSectionOpen, setIsFocusedSectionOpen] = useState(false);
@@ -1272,6 +1289,44 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {/* BANNER FLUTUANTE DE NOVA VERSÃO DISPONÍVEL (OTA UPDATE) */}
+      <AnimatePresence>
+        {pendingUpdateVersion && (
+          <motion.aside
+            aria-label="Atualização disponível"
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed bottom-4 left-3 right-3 sm:bottom-auto sm:top-20 sm:left-auto sm:right-6 sm:max-w-md z-50 bg-indigo-950/95 border border-indigo-500/50 text-white p-3.5 rounded-2xl shadow-2xl backdrop-blur-md flex items-center justify-between gap-3"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-2 bg-indigo-500/20 text-indigo-300 rounded-xl shrink-0">
+                <ArrowUpCircle className="w-5 h-5 animate-pulse text-indigo-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold truncate">Atualização disponível (v{pendingUpdateVersion})</p>
+                <p className="text-[10px] text-indigo-200">Toque para carregar as novas melhorias.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => forceReloadApp()}
+                className="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-400 active:bg-indigo-600 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition-colors"
+              >
+                Atualizar
+              </button>
+              <button
+                onClick={() => setPendingUpdateVersion(null)}
+                className="p-1 text-indigo-300 hover:text-white cursor-pointer"
+                title="Fechar aviso"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
 
       {/* CONTÊINER GERAL COM GESTO DE DESLIZE DE MÊS */}
       <main

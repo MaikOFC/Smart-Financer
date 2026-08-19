@@ -37,11 +37,13 @@ import {
   Sun,
   Moon,
   Smartphone,
+  ArrowUpCircle,
 } from "lucide-react";
 import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "../lib/admin";
 import { Transaction } from "../types";
 import SpreadsheetUpload from "./SpreadsheetUpload";
 import { ThemeMode } from "../lib/theme";
+import { CURRENT_CLIENT_VERSION, checkServerVersion, forceReloadApp } from "../lib/updateManager";
 
 interface AdminSettingsModalProps {
   isOpen: boolean;
@@ -121,6 +123,46 @@ export default function AdminSettingsModal({
   const [applyToFuture, setApplyToFuture] = useState(true);
   const [isSavingSalary, setIsSavingSalary] = useState(false);
   const [salarySavedFeedback, setSalarySavedFeedback] = useState(false);
+
+  // Update OTA state
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateFeedback, setUpdateFeedback] = useState<string | null>(null);
+  const [updateIsLatest, setUpdateIsLatest] = useState<boolean | null>(null);
+
+  const handleCheckUpdates = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateFeedback(null);
+    setUpdateIsLatest(null);
+
+    try {
+      const result = await checkServerVersion();
+      if (result.hasUpdate) {
+        setUpdateFeedback(`Nova versão (${result.serverVersion}) disponível! Aplicando atualização...`);
+        setUpdateIsLatest(false);
+        setTimeout(() => {
+          forceReloadApp();
+        }, 1200);
+      } else {
+        setUpdateFeedback(`Seu aplicativo já está na versão mais recente (v${CURRENT_CLIENT_VERSION}).`);
+        setUpdateIsLatest(true);
+        setTimeout(() => {
+          setUpdateFeedback(null);
+        }, 4000);
+      }
+    } catch (e) {
+      setUpdateFeedback("Não foi possível verificar no momento.");
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
+  const handleForceReload = () => {
+    setIsCheckingUpdate(true);
+    setUpdateFeedback("Limpando caches e atualizando...");
+    setTimeout(() => {
+      forceReloadApp();
+    }, 500);
+  };
 
   useEffect(() => {
     setSalaryInput(String(defaultSalary || 2500));
@@ -606,6 +648,64 @@ CREATE TABLE IF NOT EXISTS public.transactions (
                     </div>
                   </div>
                 )}
+
+                {/* ATUALIZAÇÕES AUTOMÁTICAS PELA NUVEM (OTA) */}
+                <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ArrowUpCircle className="w-4 h-4 text-indigo-400" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                        Atualizações do Sistema (Sem Reinstalar APK)
+                      </h4>
+                    </div>
+                    <span className="text-[10px] font-mono text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                      v{CURRENT_CLIENT_VERSION}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Sempre que novas melhorias forem publicadas, seu APK se conecta à nuvem e atualiza tudo automaticamente:
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleCheckUpdates}
+                      disabled={isCheckingUpdate}
+                      className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-bold text-xs transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? "animate-spin" : ""}`} />
+                      <span>{isCheckingUpdate ? "Verificando na Nuvem..." : "Buscar Atualização Agora"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleForceReload}
+                      disabled={isCheckingUpdate}
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 font-bold text-xs transition-all cursor-pointer"
+                      title="Força o download dos arquivos mais recentes e limpa o cache da WebView"
+                    >
+                      <span>Limpar Cache & Recarregar</span>
+                    </button>
+                  </div>
+
+                  {updateFeedback && (
+                    <div
+                      className={`p-3 rounded-xl text-xs leading-relaxed flex items-start gap-2 animate-fadeIn ${
+                        updateIsLatest === true
+                          ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
+                          : "bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
+                      }`}
+                    >
+                      {updateIsLatest === true ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5 animate-spin" />
+                      )}
+                      <span>{updateFeedback}</span>
+                    </div>
+                  )}
+                </div>
 
                 {/* DICA DE COMO FUNCIONA O ORÇAMENTO */}
                 <div className="bg-slate-950/40 border border-slate-800/80 p-4 rounded-xl flex items-start gap-3">

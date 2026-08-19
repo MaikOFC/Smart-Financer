@@ -23,10 +23,28 @@ dotenv.config();
 
 const app = express();
 const PORT = 3000;
+const SERVER_VERSION = "2.4.0";
+const SERVER_BUILD_TIME = new Date().toISOString();
 
 // Increase body limit for image uploads
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
+
+// Endpoint de Versão e Atualização Automática (OTA)
+app.get("/api/version", (req, res) => {
+  res.json({
+    version: SERVER_VERSION,
+    buildTime: SERVER_BUILD_TIME,
+    timestamp: Date.now(),
+    features: [
+      "Atualizações automáticas diretas pela nuvem",
+      "Navegação com Swipe entre meses",
+      "Tema Claro, Escuro e Padrão do Celular",
+      "Animação contínua e suave de valores",
+      "Suporte a entalhes e Safe Areas do Android",
+    ],
+  });
+});
 
 // Initialize Gemini API client safely
 let ai: GoogleGenAI | null = null;

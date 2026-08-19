@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   X,
@@ -18,8 +18,12 @@ import {
   Sun,
   Moon,
   Smartphone,
+  RefreshCw,
+  ArrowUpCircle,
+  CheckCircle2,
 } from "lucide-react";
 import { ThemeMode } from "../lib/theme";
+import { CURRENT_CLIENT_VERSION, checkServerVersion, forceReloadApp } from "../lib/updateManager";
 
 interface UserMenuDrawerProps {
   isOpen: boolean;
@@ -54,7 +58,46 @@ export default function UserMenuDrawer({
   themeMode = "system",
   onSetThemeMode,
 }: UserMenuDrawerProps) {
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateFeedback, setUpdateFeedback] = useState<string | null>(null);
+  const [updateIsLatest, setUpdateIsLatest] = useState<boolean | null>(null);
+
   if (!isOpen) return null;
+
+  const handleCheckUpdates = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateFeedback(null);
+    setUpdateIsLatest(null);
+
+    try {
+      const result = await checkServerVersion();
+      if (result.hasUpdate) {
+        setUpdateFeedback(`Nova versão (${result.serverVersion}) encontrada! Recarregando...`);
+        setUpdateIsLatest(false);
+        setTimeout(() => {
+          forceReloadApp();
+        }, 1200);
+      } else {
+        setUpdateFeedback(`Seu aplicativo já está atualizado na versão mais recente (v${CURRENT_CLIENT_VERSION}).`);
+        setUpdateIsLatest(true);
+        setTimeout(() => {
+          setUpdateFeedback(null);
+        }, 4000);
+      }
+    } catch (e) {
+      setUpdateFeedback("Não foi possível verificar no momento.");
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
+  const handleForceReload = () => {
+    setIsCheckingUpdate(true);
+    setUpdateFeedback("Limpando cache e atualizando arquivos...");
+    setTimeout(() => {
+      forceReloadApp();
+    }, 500);
+  };
 
   return (
     <AnimatePresence>
@@ -331,6 +374,66 @@ export default function UserMenuDrawer({
                       </div>
                     </div>
                   )}
+
+                  {/* ATUALIZAÇÕES DO APLICATIVO / OTA UPDATE */}
+                  <div className="pt-3 border-t border-slate-800/80 space-y-2">
+                    <div className="flex items-center justify-between px-2">
+                      <div className="flex items-center gap-1.5">
+                        <ArrowUpCircle className="w-3.5 h-3.5 text-indigo-400" />
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Versão & Atualizações
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">
+                        v{CURRENT_CLIENT_VERSION}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 bg-slate-950/80 rounded-xl border border-slate-800/80 space-y-2">
+                      <p className="text-[10px] text-slate-400 leading-tight">
+                        Atualize novas funções instantaneamente sem precisar reinstalar o APK.
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleCheckUpdates}
+                          disabled={isCheckingUpdate}
+                          className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-bold text-[10px] transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${isCheckingUpdate ? "animate-spin" : ""}`} />
+                          <span>{isCheckingUpdate ? "Buscando..." : "Buscar Atualização"}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleForceReload}
+                          disabled={isCheckingUpdate}
+                          className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold text-[10px] transition-all cursor-pointer"
+                          title="Limpa caches locais do navegador/WebView e recarrega os arquivos mais recentes"
+                        >
+                          <span>Recarregar</span>
+                        </button>
+                      </div>
+
+                      {updateFeedback && (
+                        <div
+                          className={`p-2 rounded-lg text-[10px] leading-tight flex items-start gap-1.5 animate-fadeIn ${
+                            updateIsLatest === true
+                              ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
+                              : "bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
+                          }`}
+                        >
+                          {updateIsLatest === true ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                          ) : (
+                            <RefreshCw className="w-3.5 h-3.5 text-indigo-400 shrink-0 mt-0.5 animate-spin" />
+                          )}
+                          <span>{updateFeedback}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
