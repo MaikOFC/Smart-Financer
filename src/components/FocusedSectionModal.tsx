@@ -204,7 +204,11 @@ export default function FocusedSectionModal({
                   : "bottom_left"
               );
             }}
-            className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 px-4 py-2 rounded-xl border border-emerald-500/20 cursor-pointer transition-all"
+            className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border cursor-pointer transition-all ${
+              type === "planning"
+                ? "text-amber-400 hover:text-amber-300 bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/20"
+                : "text-rose-400 hover:text-rose-300 bg-rose-500/10 border-rose-500/25 hover:bg-rose-500/20"
+            }`}
           >
             <Plus className="w-4 h-4" /> Adicionar Primeiro Item
           </button>
@@ -213,7 +217,7 @@ export default function FocusedSectionModal({
     }
 
     return (
-      <div className="divide-y divide-slate-800/80 bg-slate-900/60 sm:bg-slate-950/40 rounded-2xl border border-slate-800/80 overflow-hidden shadow-inner">
+      <div className="divide-y divide-slate-800/80 bg-slate-900/60 rounded-2xl border border-slate-800/80 overflow-hidden shadow-sm">
         {list.map((t) => {
           const remainingCount = type === "installments" ? getRemainingInstallments(t.date) : 0;
           const remainingBalance = t.amount * remainingCount;
@@ -226,13 +230,17 @@ export default function FocusedSectionModal({
                 t.isOrangeHighlight
                   ? "border-l-4 border-amber-500 bg-amber-500/5"
                   : t.isDiscount
-                  ? "border-l-4 border-slate-600 bg-slate-800/20 italic"
-                  : "border-l-4 border-transparent"
+                  ? "border-l-4 border-emerald-500 bg-emerald-500/5"
+                  : type === "planning"
+                  ? "border-l-4 border-amber-500/40 hover:border-amber-500"
+                  : "border-l-4 border-rose-500/40 hover:border-rose-500"
               }`}
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">
+                  <span className={`text-sm font-bold text-white transition-colors ${
+                    type === "planning" ? "group-hover:text-amber-400" : "group-hover:text-rose-400"
+                  }`}>
                     {t.description}
                   </span>
                   {t.isDiscount && (
@@ -248,7 +256,7 @@ export default function FocusedSectionModal({
                 </div>
 
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] bg-slate-800/90 text-slate-300 border border-slate-700/60 px-2 py-0.5 rounded-full font-medium">
+                  <span className="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded-full font-medium">
                     {t.category || "Outros"}
                   </span>
                   {type === "installments" && (
@@ -264,13 +272,13 @@ export default function FocusedSectionModal({
                   <div
                     className={`text-sm sm:text-base font-black font-mono ${
                       t.isDiscount
-                        ? "text-slate-400"
-                        : type === "expenses" || type === "installments"
-                        ? "text-rose-400"
-                        : "text-amber-400"
+                        ? "text-emerald-400"
+                        : type === "planning"
+                        ? "text-amber-400"
+                        : "text-rose-400"
                     }`}
                   >
-                    {t.isDiscount ? "- " : ""}
+                    {t.isDiscount ? "+ " : ""}
                     R${" "}
                     {t.amount.toLocaleString("pt-BR", {
                       minimumFractionDigits: 2,
@@ -341,28 +349,32 @@ export default function FocusedSectionModal({
           className="relative w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-4xl bg-slate-950 sm:bg-slate-900 border-0 sm:border border-slate-800 rounded-none sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col z-10"
         >
           {/* Header Superior - Mobile & Desktop */}
-          <div className="p-3.5 sm:p-6 pt-[max(0.875rem,env(safe-area-inset-top,0px))] border-b border-slate-800 bg-slate-900/90 sm:bg-slate-950/60 flex items-center justify-between gap-3 sticky top-0 z-20 backdrop-blur-md">
+          <div className="p-3.5 sm:p-6 pt-[max(0.875rem,env(safe-area-inset-top,0px))] border-b border-slate-800 bg-slate-900/95 flex items-center justify-between gap-3 sticky top-0 z-20 backdrop-blur-md">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
               {/* Botão de Voltar para Mobile */}
               <button
                 onClick={onClose}
-                className="p-2 sm:hidden text-slate-300 hover:text-white bg-slate-800/90 active:bg-slate-700 rounded-xl border border-slate-700/80 transition-all cursor-pointer flex items-center justify-center"
+                className={`p-2 sm:hidden rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+                  activeTab === "planning"
+                    ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30"
+                    : "bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/30"
+                }`}
                 title="Voltar ao Painel"
               >
-                <ArrowLeft className="w-5 h-5 text-emerald-400" />
+                <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
               </button>
 
               <div className={`hidden sm:flex p-3 rounded-2xl border ${
-                activeTab === "expenses"
-                  ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                  : activeTab === "planning"
-                  ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
-                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                activeTab === "planning"
+                  ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                  : "bg-rose-500/10 text-rose-400 border-rose-500/20"
               }`}>
                 {activeTab === "expenses" ? (
                   <TrendingDown className="w-6 h-6" />
-                ) : (
+                ) : activeTab === "planning" ? (
                   <TrendingUp className="w-6 h-6" />
+                ) : (
+                  <Layers className="w-6 h-6" />
                 )}
               </div>
 
@@ -371,7 +383,7 @@ export default function FocusedSectionModal({
                   {activeTab === "expenses" && "Despesas Mensais"}
                   {activeTab === "planning" && "Planejamento Futuro"}
                   {activeTab === "installments" && "Parcelas & Devedores"}
-                  <span className="text-[10px] sm:text-xs font-mono font-normal text-slate-400 px-2 py-0.5 bg-slate-800/80 rounded-lg border border-slate-700/60 hidden sm:inline-block">
+                  <span className="text-[10px] sm:text-xs font-mono font-normal text-slate-400 px-2 py-0.5 bg-slate-800 rounded-lg border border-slate-700 hidden sm:inline-block">
                     {getMonthLabel(selectedMonth)}
                   </span>
                 </h2>
@@ -384,7 +396,11 @@ export default function FocusedSectionModal({
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="sm:hidden text-xs font-mono font-bold text-emerald-400 px-2.5 py-1 bg-slate-900 rounded-lg border border-slate-800">
+              <span className={`sm:hidden text-xs font-mono font-bold px-2.5 py-1 rounded-lg border ${
+                activeTab === "planning"
+                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                  : "bg-rose-500/10 text-rose-400 border-rose-500/30"
+              }`}>
                 R${" "}
                 <AnimatedNumber
                   value={
@@ -409,7 +425,11 @@ export default function FocusedSectionModal({
                       : "bottom_left"
                   );
                 }}
-                className="hidden sm:flex items-center gap-1.5 text-xs font-bold bg-emerald-500/15 hover:bg-emerald-500/25 active:bg-emerald-500/30 text-emerald-400 px-3 sm:px-4 py-2 rounded-xl border border-emerald-500/30 transition-all cursor-pointer shadow-sm"
+                className={`hidden sm:flex items-center gap-1.5 text-xs font-bold px-3 sm:px-4 py-2 rounded-xl border transition-all cursor-pointer shadow-sm ${
+                  activeTab === "planning"
+                    ? "bg-amber-500/15 hover:bg-amber-500/25 active:bg-amber-500/30 text-amber-400 border-amber-500/30"
+                    : "bg-rose-500/15 hover:bg-rose-500/25 active:bg-rose-500/30 text-rose-400 border-rose-500/30"
+                }`}
               >
                 <Plus className="w-4 h-4" />
                 <span>Adicionar Item</span>
@@ -417,7 +437,7 @@ export default function FocusedSectionModal({
 
               <button
                 onClick={onClose}
-                className="hidden sm:flex p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800/60 hover:bg-slate-800 transition-all cursor-pointer"
+                className="hidden sm:flex p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition-all cursor-pointer"
                 title="Fechar janela"
               >
                 <X className="w-5 h-5" />
@@ -425,12 +445,12 @@ export default function FocusedSectionModal({
             </div>
           </div>
 
-          {/* Abas Superiores no Desktop (Ocultas no Mobile pois o Mobile usa a barra inferior estilo WhatsApp) */}
-          <div className="hidden sm:flex px-6 pt-3 pb-2 bg-slate-950/40 border-b border-slate-800/80 items-center justify-between gap-2">
+          {/* Abas Superiores no Desktop */}
+          <div className="hidden sm:flex px-6 pt-3 pb-2 bg-slate-950/60 border-b border-slate-800 items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 p-1 bg-slate-900 rounded-2xl border border-slate-800">
               <button
                 onClick={() => setActiveTab("expenses")}
-                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeTab === "expenses"
                     ? "bg-rose-500/20 text-rose-300 border border-rose-500/30 shadow-sm"
                     : "text-slate-400 hover:text-slate-200"
@@ -442,9 +462,9 @@ export default function FocusedSectionModal({
 
               <button
                 onClick={() => setActiveTab("planning")}
-                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeTab === "planning"
-                    ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shadow-sm"
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-sm"
                     : "text-slate-400 hover:text-slate-200"
                 }`}
               >
@@ -454,9 +474,9 @@ export default function FocusedSectionModal({
 
               <button
                 onClick={() => setActiveTab("installments")}
-                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeTab === "installments"
-                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
+                    ? "bg-rose-500/20 text-rose-300 border border-rose-500/30 shadow-sm"
                     : "text-slate-400 hover:text-slate-200"
                 }`}
               >
@@ -468,7 +488,11 @@ export default function FocusedSectionModal({
             {/* Total Indicator Desktop */}
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-400 font-medium">Total:</span>
-              <span className="text-sm font-mono font-black text-white px-3 py-1 bg-slate-900 border border-slate-800 rounded-xl">
+              <span className={`text-sm font-mono font-black px-3 py-1 bg-slate-900 border rounded-xl ${
+                activeTab === "planning"
+                  ? "text-amber-400 border-amber-500/30"
+                  : "text-rose-400 border-rose-500/30"
+              }`}>
                 R${" "}
                 <AnimatedNumber
                   value={
@@ -485,7 +509,7 @@ export default function FocusedSectionModal({
           </div>
 
           {/* Search & Filter Bar */}
-          <div className="px-3 sm:px-6 py-2.5 bg-slate-900/60 border-b border-slate-800/60 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+          <div className="px-3 sm:px-6 py-2.5 bg-slate-900/60 border-b border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-2.5">
             <div className="w-full sm:w-64">
               <input
                 type="text"
@@ -528,7 +552,7 @@ export default function FocusedSectionModal({
             </div>
           </div>
 
-          {/* Viewport com Carousel Deslizante Horizontal (Sem efeito de opacidade/transparência) */}
+          {/* Viewport com Carousel Deslizante Horizontal */}
           <div
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
@@ -568,28 +592,32 @@ export default function FocusedSectionModal({
                   : "bottom_left"
               );
             }}
-            className="sm:hidden fixed bottom-[max(5rem,calc(env(safe-area-inset-bottom,0px)+4.5rem))] right-4 z-30 w-13 h-13 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-90 text-slate-950 font-black shadow-lg shadow-emerald-500/30 flex items-center justify-center transition-transform cursor-pointer"
+            className={`sm:hidden fixed bottom-[max(5rem,calc(env(safe-area-inset-bottom,0px)+4.5rem))] right-4 z-30 w-13 h-13 rounded-2xl active:scale-90 font-black shadow-lg flex items-center justify-center transition-transform cursor-pointer ${
+              activeTab === "planning"
+                ? "bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/30"
+                : "bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/30"
+            }`}
             title="Adicionar novo item"
           >
             <Plus className="w-6 h-6 stroke-[3]" />
           </button>
 
-          {/* BARRA DE NAVEGAÇÃO INFERIOR ESTILO WHATSAPP (FIXA NO FUNDO NO MOBILE, AO ALCANCE DO DEDO) */}
-          <div className="sm:hidden fixed bottom-0 left-0 right-0 z-20 bg-slate-950/95 border-t border-slate-800/90 backdrop-blur-xl px-2 py-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] flex items-center justify-around shadow-2xl">
+          {/* BARRA DE NAVEGAÇÃO INFERIOR ESTILO WHATSAPP */}
+          <div className="sm:hidden fixed bottom-0 left-0 right-0 z-20 bg-slate-950/95 border-t border-slate-800 backdrop-blur-xl px-2 py-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] flex items-center justify-around shadow-2xl">
             {/* ABA 1: DESPESAS */}
             <button
               id="nav-tab-expenses"
               onClick={() => setActiveTab("expenses")}
               className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-2xl transition-all cursor-pointer ${
                 activeTab === "expenses"
-                  ? "text-white font-bold"
+                  ? "text-rose-400 font-bold"
                   : "text-slate-400 hover:text-slate-300 font-medium"
               }`}
             >
               <div
                 className={`px-4 py-1 rounded-full flex items-center justify-center transition-all ${
                   activeTab === "expenses"
-                    ? "border border-slate-600 bg-slate-900/70 text-white shadow-sm"
+                    ? "border border-rose-500/30 bg-rose-500/15 text-rose-400 shadow-sm"
                     : "border border-transparent"
                 }`}
               >
@@ -607,14 +635,14 @@ export default function FocusedSectionModal({
               onClick={() => setActiveTab("planning")}
               className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-2xl transition-all cursor-pointer ${
                 activeTab === "planning"
-                  ? "text-white font-bold"
+                  ? "text-amber-400 font-bold"
                   : "text-slate-400 hover:text-slate-300 font-medium"
               }`}
             >
               <div
                 className={`px-4 py-1 rounded-full flex items-center justify-center transition-all ${
                   activeTab === "planning"
-                    ? "border border-slate-600 bg-slate-900/70 text-white shadow-sm"
+                    ? "border border-amber-500/30 bg-amber-500/15 text-amber-400 shadow-sm"
                     : "border border-transparent"
                 }`}
               >
@@ -632,14 +660,14 @@ export default function FocusedSectionModal({
               onClick={() => setActiveTab("installments")}
               className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-2xl transition-all cursor-pointer ${
                 activeTab === "installments"
-                  ? "text-white font-bold"
+                  ? "text-rose-400 font-bold"
                   : "text-slate-400 hover:text-slate-300 font-medium"
               }`}
             >
               <div
                 className={`px-4 py-1 rounded-full flex items-center justify-center transition-all ${
                   activeTab === "installments"
-                    ? "border border-slate-600 bg-slate-900/70 text-white shadow-sm"
+                    ? "border border-rose-500/30 bg-rose-500/15 text-rose-400 shadow-sm"
                     : "border border-transparent"
                 }`}
               >

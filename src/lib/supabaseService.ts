@@ -592,13 +592,18 @@ export async function updateUserDefaultSalary(
       const baseYear = parseInt(yearStr, 10);
       const baseMonth = parseInt(monthStr, 10);
 
+      const budgetPromises = [];
       for (let i = 0; i <= 12; i++) {
         const d = new Date(baseYear, baseMonth - 1 + i, 1);
         const mKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
         updatedBudgetsMap[mKey] = cleanSalary;
-        // Update in supabase
-        await setSupabaseBudget(userId, mKey, cleanSalary);
+        budgetPromises.push(
+          setSupabaseBudget(userId, mKey, cleanSalary).catch((e) =>
+            console.warn(`Aviso ao atualizar orçamento do mês ${mKey}:`, e)
+          )
+        );
       }
+      await Promise.all(budgetPromises);
     } catch (err) {
       console.error("Erro ao propagar orçamento para meses futuros no Supabase:", err);
     }

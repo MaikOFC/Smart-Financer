@@ -153,43 +153,43 @@ export default function UserMenuDrawer({
               {/* CARD DE PERFIL DO USUÁRIO */}
               <div className="p-4 sm:p-5">
                 <div
-                  className={`p-4 rounded-2xl border ${
+                  className={`p-4 rounded-2xl border transition-all ${
                     isAdmin
-                      ? "bg-gradient-to-br from-amber-950/30 via-slate-900 to-slate-950 border-amber-500/30 text-amber-200"
-                      : "bg-gradient-to-br from-indigo-950/25 via-slate-900 to-slate-950 border-indigo-500/25 text-slate-200"
-                  } shadow-md`}
+                      ? "bg-amber-50/80 border-amber-200 text-slate-800 dark:bg-slate-900 dark:border-amber-500/30 dark:text-amber-200"
+                      : "bg-slate-50 border-slate-200 text-slate-800 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200"
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-11 h-11 rounded-2xl flex items-center justify-center border font-bold text-sm shadow-inner ${
+                      className={`w-11 h-11 rounded-2xl flex items-center justify-center border font-bold text-sm ${
                         isAdmin
-                          ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                          : "bg-indigo-500/20 text-indigo-300 border-indigo-500/40"
+                          ? "bg-amber-100 text-amber-600 border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20"
+                          : "bg-indigo-100 text-indigo-600 border-indigo-200 dark:bg-slate-800 dark:text-indigo-400 dark:border-slate-700"
                       }`}
                     >
-                      {isAdmin ? <Crown className="w-5 h-5 text-amber-400" /> : <UserIcon className="w-5 h-5 text-indigo-400" />}
+                      {isAdmin ? <Crown className="w-5 h-5" /> : <UserIcon className="w-5 h-5" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-black text-white truncate max-w-[150px]">
+                        <span className="text-sm font-black text-slate-900 dark:text-slate-100 truncate max-w-[150px]">
                           {user.name}
                         </span>
                         {isAdmin && (
-                          <span className="text-[9px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded">
+                          <span className="text-[9px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30 px-1.5 py-0.5 rounded">
                             ADM
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-slate-400 truncate mt-0.5" title={user.email}>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 truncate mt-0.5 font-medium" title={user.email}>
                         {user.email}
                       </p>
                     </div>
                   </div>
 
                   {/* SALÁRIO BASE ATUAL */}
-                  <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                    <span className="text-[11px] text-slate-400">Salário / Entrada Base:</span>
-                    <span className="font-mono font-extrabold text-emerald-400">
+                  <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Salário / Entrada Base:</span>
+                    <span className="font-mono font-extrabold text-emerald-600 dark:text-emerald-400 text-sm">
                       R$ {defaultSalary.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>

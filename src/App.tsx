@@ -1812,12 +1812,7 @@ export default function App() {
           className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl sm:rounded-3xl bg-emerald-500 hover:bg-emerald-400 active:scale-90 text-slate-950 flex flex-col items-center justify-center font-black shadow-2xl shadow-emerald-500/35 border-2 border-emerald-300/60 cursor-pointer transition-all group"
           title="Adicionar Novo Gasto do Mês"
         >
-          <div className="relative flex items-center justify-center">
-            <TrendingDown className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5] text-slate-950 group-hover:scale-110 transition-transform" />
-            <span className="absolute -top-1.5 -right-2 bg-slate-950 text-emerald-400 text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center border border-emerald-400/80 shadow">
-              +
-            </span>
-          </div>
+          <TrendingDown className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5] text-slate-950 group-hover:scale-110 transition-transform" />
           <span className="text-[9px] font-extrabold tracking-tighter leading-none mt-0.5 sm:mt-1 text-slate-950">
             Gasto
           </span>
