@@ -32,6 +32,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "../lib/admin";
+import { useModalBackHandler } from "../hooks/useBackNavigation";
 
 interface AdminSettingsModalProps {
   isOpen: boolean;
@@ -100,6 +101,9 @@ export default function AdminSettingsModal({
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [pingMs, setPingMs] = useState<number | null>(null);
+
+  // Intercepta botão voltar do celular
+  useModalBackHandler(isOpen, onClose, "admin_settings_modal");
 
   // Sync tab when opening
   useEffect(() => {

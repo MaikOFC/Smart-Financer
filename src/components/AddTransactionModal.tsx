@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Tag, DollarSign, List, Calendar, Star, Percent, AlertCircle, ShieldAlert, TrendingDown, TrendingUp, Layers } from "lucide-react";
+import { X, Tag, DollarSign, List, Calendar, Star, Percent, AlertCircle, ShieldAlert, TrendingDown, TrendingUp, Layers, Clock, Calculator } from "lucide-react";
 import { Transaction } from "../types";
+import { useModalBackHandler } from "../hooks/useBackNavigation";
+import { calculateEndDateFromInstallments, getRemainingInstallments } from "../utils/installmentUtils";
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -41,9 +43,14 @@ export default function AddTransactionModal({
   const [newCategoryName, setNewCategoryName] = useState("");
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [date, setDate] = useState("");
+  const [startMonth, setStartMonth] = useState(selectedMonth);
+  const [installmentCount, setInstallmentCount] = useState<number>(6);
   const [note, setNote] = useState("");
   const [isOrangeHighlight, setIsOrangeHighlight] = useState(false);
   const [isDiscount, setIsDiscount] = useState(false);
+
+  // Integração com o botão voltar do celular
+  useModalBackHandler(isOpen, onClose, "add_transaction_modal");
 
   const availableCategories = categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES;
 
@@ -71,24 +78,41 @@ export default function AddTransactionModal({
     if (isOpen) {
       setDescription("");
       setAmountStr("");
-      setCategory(section === "right" ? "Tecnologia" : "Outros");
+      setCategory(section === "right" ? "Tecnologia" : section === "bottom_left" ? "Outros" : "Outros");
       setNewCategoryName("");
       setIsCreatingCategory(false);
       setNote("");
       setIsOrangeHighlight(false);
       setIsDiscount(false);
+      setStartMonth(selectedMonth);
+      setInstallmentCount(6);
 
-      // Default date logic: Use today's date if it's within the selected month.
-      // Otherwise, default to YYYY-MM-15 (middle of the selected month).
-      const today = new Date();
-      const todayYYYYMM = today.toISOString().slice(0, 7);
-      if (todayYYYYMM === selectedMonth) {
-        setDate(today.toISOString().slice(0, 10));
+      // Default date logic:
+      if (section === "bottom_left") {
+        setDate(calculateEndDateFromInstallments(selectedMonth, 6));
       } else {
-        setDate(`${selectedMonth}-15`);
+        const today = new Date();
+        const todayYYYYMM = today.toISOString().slice(0, 7);
+        if (todayYYYYMM === selectedMonth) {
+          setDate(today.toISOString().slice(0, 10));
+        } else {
+          setDate(`${selectedMonth}-15`);
+        }
       }
     }
   }, [isOpen, section, selectedMonth]);
+
+  // Sync installment count when startMonth or installmentCount changes
+  const handleInstallmentCountChange = (count: number) => {
+    const safeCount = Math.max(1, count || 1);
+    setInstallmentCount(safeCount);
+    setDate(calculateEndDateFromInstallments(startMonth, safeCount));
+  };
+
+  const handleStartMonthChange = (sMonth: string) => {
+    setStartMonth(sMonth);
+    setDate(calculateEndDateFromInstallments(sMonth, installmentCount));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,16 +137,22 @@ export default function AddTransactionModal({
       }
     }
 
+    const finalEndDate = section === "bottom_left"
+      ? calculateEndDateFromInstallments(startMonth, installmentCount)
+      : date;
+
     const newTransaction: Omit<Transaction, "id"> = {
       description: description.trim(),
       amount,
-      date,
-      type: section === "bottom_left" ? "income" : "expense",
+      date: finalEndDate,
+      startDate: section === "bottom_left" ? startMonth : undefined,
+      totalInstallments: section === "bottom_left" ? installmentCount : undefined,
+      type: "expense",
       tableSection: section,
       category: finalCategory,
       isOrangeHighlight: section === "left" ? isOrangeHighlight : false,
       isDiscount: section === "left" ? isDiscount : false,
-      note: section === "right" ? note.trim() : "",
+      note: section === "right" ? note.trim() : section === "bottom_left" ? `${installmentCount}x parcelas` : "",
     };
 
     onAdd(newTransaction);
@@ -134,14 +164,28 @@ export default function AddTransactionModal({
       ? "Gastos do Mês"
       : section === "right"
       ? "Planejamento & Compras Futuras"
-      : "Parcelas e Recebíveis";
+      : "Parcelas e Devedores";
 
   const sectionBadgeColor =
     section === "left"
       ? "text-rose-400 bg-rose-500/10 border-rose-500/20"
       : section === "right"
       ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
-      : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+      : "text-amber-400 bg-amber-500/10 border-amber-500/20";
+
+  const formatMonthNice = (mStr: string) => {
+    try {
+      const [y, m] = mStr.split("-");
+      const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+      const idx = parseInt(m, 10) - 1;
+      return `${monthNames[idx] || m}/${y}`;
+    } catch {
+      return mStr;
+    }
+  };
+
+  const parsedAmount = parseFloat(amountStr) || 0;
+  const totalParcelasCost = parsedAmount * installmentCount;
 
   return (
     <AnimatePresence>
@@ -162,7 +206,7 @@ export default function AddTransactionModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", duration: 0.4 }}
-            className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 sm:p-8 text-white z-10 overflow-hidden"
+            className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 sm:p-8 text-white z-10 overflow-hidden max-h-[90vh] overflow-y-auto"
           >
             {/* Upper Glow decoration */}
             <div className="absolute top-0 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-indigo-500 to-transparent" />
@@ -175,7 +219,7 @@ export default function AddTransactionModal({
                     ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
                     : section === "right"
                     ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                    : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                    : "bg-amber-500/10 text-amber-400 border-amber-500/20"
                 }`}>
                   {section === "left" ? (
                     <TrendingDown className="w-5 h-5" />
@@ -187,7 +231,7 @@ export default function AddTransactionModal({
                 </div>
                 <div>
                   <span className={`text-[10px] font-black tracking-widest uppercase px-2.5 py-0.5 rounded-full border ${sectionBadgeColor}`}>
-                    {section === "left" ? "Adicionar Gasto" : "Adicionar Item"}
+                    {section === "left" ? "Adicionar Gasto" : section === "bottom_left" ? "Nova Parcela" : "Adicionar Item"}
                   </span>
                   <h3 className="text-lg font-bold text-white mt-1">
                     {sectionName}
@@ -196,7 +240,7 @@ export default function AddTransactionModal({
               </div>
               <button
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors focus:outline-none"
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors focus:outline-none cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -208,7 +252,7 @@ export default function AddTransactionModal({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Nome do Produto / Descrição
+                    {section === "bottom_left" ? "Descrição da Parcela / Devedor" : "Nome do Produto / Descrição"}
                   </label>
                   {isDuplicate && (
                     <span className="text-[10px] font-bold text-rose-400 flex items-center gap-1 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
@@ -221,7 +265,7 @@ export default function AddTransactionModal({
                   <input
                     type="text"
                     required
-                    placeholder="Ex: Assinatura Netflix, Monitor 4K"
+                    placeholder={section === "bottom_left" ? "Ex: Celular, Notebook, Seguro..." : "Ex: Assinatura Netflix, Monitor 4K"}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     className={`w-full bg-slate-950 border px-4 py-3 pl-11 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none transition-all font-medium ${
@@ -250,44 +294,138 @@ export default function AddTransactionModal({
                 )}
               </div>
 
-              {/* Grid for Price & Date */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Preço */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Preço (R$)
-                  </label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                    <input
-                      type="number"
-                      step="0.01"
-                      required
-                      placeholder="0,00"
-                      value={amountStr}
-                      onChange={(e) => setAmountStr(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 px-4 py-3 pl-11 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-bold font-mono"
-                    />
-                  </div>
-                </div>
+              {/* Grid for Price & Date / Installment controls */}
+              {section === "bottom_left" ? (
+                /* Configuração Específica de Parcelas */
+                <div className="space-y-4 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Valor da Parcela Mensal */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Valor da Parcela Mensal (R$)
+                      </label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          placeholder="0,00"
+                          value={amountStr}
+                          onChange={(e) => setAmountStr(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 px-4 py-3 pl-11 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-bold font-mono"
+                        />
+                      </div>
+                    </div>
 
-                {/* Data */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Data
-                  </label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                    <input
-                      type="date"
-                      required
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 px-4 py-3 pl-11 pr-4 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium font-mono"
-                    />
+                    {/* Quantidade de Parcelas */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Quantidade de Parcelas
+                      </label>
+                      <div className="relative">
+                        <Calculator className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <input
+                          type="number"
+                          min="1"
+                          max="120"
+                          required
+                          value={installmentCount}
+                          onChange={(e) => handleInstallmentCountChange(parseInt(e.target.value, 10) || 1)}
+                          className="w-full bg-slate-950 border border-slate-800 px-4 py-3 pl-11 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-bold font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mês de Início e Término Calculado */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Mês de Início
+                      </label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <input
+                          type="month"
+                          required
+                          value={startMonth}
+                          onChange={(e) => handleStartMonthChange(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 px-4 py-3 pl-11 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Mês da Última Parcela (Quitação)
+                      </label>
+                      <div className="p-3 bg-slate-950 border border-slate-800/80 rounded-xl text-xs font-mono font-bold text-amber-300 flex items-center justify-between">
+                        <span>{formatMonthNice(date.substring(0, 7))}</span>
+                        <span className="text-[10px] text-slate-500 font-normal">Auto-calculado</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Resumo da projeção */}
+                  <div className="p-3.5 bg-slate-950/70 border border-amber-500/20 rounded-2xl space-y-1 text-xs">
+                    <div className="flex items-center justify-between text-slate-300">
+                      <span className="text-slate-400">Impacto Mensal:</span>
+                      <span className="font-bold font-mono text-rose-400">
+                        - R$ {parsedAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mês
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-300">
+                      <span className="text-slate-400">Custo Total ({installmentCount}x):</span>
+                      <span className="font-black font-mono text-white">
+                        R$ {totalParcelasCost.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
+                      Essa parcela será automaticamente incluída nos gastos dos próximos meses ({formatMonthNice(startMonth)} até {formatMonthNice(date.substring(0, 7))}) até acabar.
+                    </p>
                   </div>
                 </div>
-              </div>
+              ) : (
+                /* Preço e Data normais para Despesas e Planejamento */
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Preço */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Preço (R$)
+                    </label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                      <input
+                        type="number"
+                        step="0.01"
+                        required
+                        placeholder="0,00"
+                        value={amountStr}
+                        onChange={(e) => setAmountStr(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 px-4 py-3 pl-11 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-bold font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Data */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Data
+                    </label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                      <input
+                        type="date"
+                        required
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 px-4 py-3 pl-11 pr-4 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Categoria */}
               <div className="space-y-1.5">
@@ -299,7 +437,7 @@ export default function AddTransactionModal({
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 px-4 py-3 pl-11 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium appearance-none"
+                    className="w-full bg-slate-950 border border-slate-800 px-4 py-3 pl-11 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium appearance-none cursor-pointer"
                   >
                     {availableCategories.map((cat) => (
                       <option key={cat} value={cat} className="bg-slate-900 text-white">
@@ -395,7 +533,7 @@ export default function AddTransactionModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-800 transition-all"
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-800 transition-all cursor-pointer"
                 >
                   Cancelar
                 </button>

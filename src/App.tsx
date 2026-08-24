@@ -1324,9 +1324,8 @@ export default function App() {
                 className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 px-3 py-1.5 rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-sm shadow-emerald-500/20 border border-emerald-400/40"
                 title="Adicionar Novo Gasto do Mês"
               >
-                <TrendingDown className="w-3.5 h-3.5 stroke-[2.5]" />
+                <TrendingDown className="w-4 h-4 stroke-[2.5]" />
                 <span className="hidden sm:inline">Adicionar Gasto</span>
-                <span className="sm:hidden font-black text-sm">+</span>
               </button>
 
               {/* BOTÃO DO USUÁRIO NO DESKTOP (ABRE O MENU LATERAL / DISPENSA OS 3 PONTINHOS NO PC) */}

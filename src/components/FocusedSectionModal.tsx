@@ -21,6 +21,7 @@ import {
 import { Transaction } from "../types";
 import TransactionDetailModal from "./TransactionDetailModal";
 import AnimatedNumber from "./AnimatedNumber";
+import { useModalBackHandler } from "../hooks/useBackNavigation";
 
 interface FocusedSectionModalProps {
   isOpen: boolean;
@@ -52,6 +53,9 @@ export default function FocusedSectionModal({
 }: FocusedSectionModalProps) {
   const [activeTab, setActiveTab] = useState<"expenses" | "planning" | "installments">(initialSectionType);
   const [selectedTransactionForDetail, setSelectedTransactionForDetail] = useState<Transaction | null>(null);
+
+  // Intercepta o botão voltar do celular para fechar a aba/modal focada
+  useModalBackHandler(isOpen, onClose, "focused_section_modal");
 
   // Sync activeTab when modal is triggered with a specific section
   React.useEffect(() => {

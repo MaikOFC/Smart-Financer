@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { processImportFile } from "../utils/fileParser";
 import { Transaction } from "../types";
+import { useModalBackHandler } from "../hooks/useBackNavigation";
 
 interface WelcomeOnboardingModalProps {
   isOpen: boolean;
@@ -44,6 +45,9 @@ export default function WelcomeOnboardingModal({
   const [successCount, setSuccessCount] = useState<number | null>(null);
   const [importedFileName, setImportedFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Intercepta botão voltar do celular para fechar/pular onboarding
+  useModalBackHandler(isOpen, onClose, "welcome_onboarding_modal");
 
   if (!isOpen) return null;
 
@@ -106,25 +110,23 @@ export default function WelcomeOnboardingModal({
   };
 
   const handleFinishOnboarding = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setSavingSalary(true);
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     const parsed = parseSalaryValue(salaryInput);
+    
+    // Fecha o modal imediatamente para resposta instantânea ao usuário
+    onClose();
 
+    // Dispara a atualização do salário em background
     try {
-      // Dispara a atualização do salário
-      const updatePromise = onUpdateDefaultSalary(parsed, true, selectedMonth);
-      if (updatePromise && typeof updatePromise.then === "function") {
-        // Aguarda no máximo 1 segundo para não travar a navegação do usuário
-        await Promise.race([
-          updatePromise,
-          new Promise((resolve) => setTimeout(resolve, 1000)),
-        ]);
+      if (onUpdateDefaultSalary) {
+        onUpdateDefaultSalary(parsed, true, selectedMonth);
       }
     } catch (err) {
       console.error("Erro ao salvar salário inicial:", err);
-    } finally {
-      setSavingSalary(false);
-      onClose();
     }
   };
 
@@ -138,13 +140,13 @@ export default function WelcomeOnboardingModal({
           transition={{ duration: 0.22, ease: "easeOut" }}
           className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden relative my-6 text-slate-800 dark:text-slate-100"
         >
-          {/* TOPO DEGRADÊ DECORATIVO */}
-          <div className="h-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-500" />
+          {/* TOPO DECORATIVO LIMPO */}
+          <div className="h-1.5 bg-emerald-500" />
 
           {/* BOTÃO FECHAR */}
           <button
             type="button"
-            onClick={handleFinishOnboarding}
+            onClick={() => handleFinishOnboarding()}
             className="absolute top-5 right-5 text-slate-400 hover:text-slate-700 dark:hover:text-white p-2 rounded-xl bg-slate-100 dark:bg-slate-800/60 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all cursor-pointer z-10"
             title="Ir para o painel"
           >
@@ -310,26 +312,18 @@ export default function WelcomeOnboardingModal({
             <div className="pt-2 space-y-2">
               <button
                 type="submit"
-                disabled={loading || savingSalary}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-sm py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 hover:-translate-y-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                onClick={(e) => handleFinishOnboarding(e)}
+                disabled={loading}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-sm py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 hover:-translate-y-0.5 transition-all cursor-pointer disabled:opacity-50"
               >
-                {savingSalary ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Iniciando seu painel...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Prosseguir para a Tela Inicial</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
+                <span>Prosseguir para a Tela Inicial</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
 
               <button
                 type="button"
-                onClick={handleFinishOnboarding}
-                disabled={loading || savingSalary}
+                onClick={(e) => handleFinishOnboarding(e)}
+                disabled={loading}
                 className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer text-center"
               >
                 Pular importação e entrar agora

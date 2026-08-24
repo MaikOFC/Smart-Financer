@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { ThemeMode } from "../lib/theme";
 import { CURRENT_CLIENT_VERSION, checkServerVersion, forceReloadApp } from "../lib/updateManager";
+import { useModalBackHandler } from "../hooks/useBackNavigation";
 
 interface UserMenuDrawerProps {
   isOpen: boolean;
@@ -65,6 +66,9 @@ export default function UserMenuDrawer({
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateFeedback, setUpdateFeedback] = useState<string | null>(null);
   const [updateIsLatest, setUpdateIsLatest] = useState<boolean | null>(null);
+
+  // Intercepta botão voltar do celular para fechar o menu lateral
+  useModalBackHandler(isOpen, onClose, "user_menu_drawer");
 
   if (!isOpen) return null;
 
@@ -123,55 +127,55 @@ export default function UserMenuDrawer({
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 300 }}
-            className="w-screen max-w-xs sm:max-w-sm bg-slate-900 border-r border-slate-800 shadow-2xl flex flex-col justify-between overflow-y-auto"
+            className="w-screen max-w-xs sm:max-w-sm bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col justify-between overflow-y-auto text-slate-800 dark:text-slate-100"
           >
             {/* TOPO DO MENU */}
             <div>
               {/* CABEÇALHO */}
-              <div className="p-5 pt-[max(1.25rem,env(safe-area-inset-top,0px))] border-b border-slate-800/80 flex items-center justify-between bg-slate-950/50">
+              <div className="p-5 pt-[max(1.25rem,env(safe-area-inset-top,0px))] border-b border-slate-200 dark:border-slate-800/80 flex items-center justify-between bg-slate-50 dark:bg-slate-950/50">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+                  <div className="p-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/20">
                     <Wallet className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-black text-white tracking-tight">
-                      Smart<span className="text-emerald-400">Financer</span>
+                    <h3 className="text-sm font-black text-slate-900 dark:text-white tracking-tight">
+                      Smart<span className="text-emerald-600 dark:text-emerald-400">Financer</span>
                     </h3>
-                    <p className="text-[10px] text-slate-400 font-mono">Menu & Conta</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Menu & Conta</p>
                   </div>
                 </div>
 
                 <button
                   onClick={onClose}
-                  className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800/60 hover:bg-slate-800 transition-all cursor-pointer"
+                  className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/60 dark:hover:bg-slate-800 transition-all cursor-pointer"
                   title="Fechar menu"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* CARD DE PERFIL DO USUÁRIO */}
+              {/* CARD DE PERFIL DO USUÁRIO - DESIGN PLANO E SEM DEGRADÊ/REFLEXO */}
               <div className="p-4 sm:p-5">
                 <div
                   className={`p-4 rounded-2xl border transition-all ${
                     isAdmin
-                      ? "bg-amber-50/80 border-amber-200 text-slate-800 dark:bg-slate-900 dark:border-amber-500/30 dark:text-amber-200"
-                      : "bg-slate-50 border-slate-200 text-slate-800 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200"
+                      ? "bg-amber-50 border-amber-200 text-slate-900 dark:bg-slate-950/80 dark:border-amber-500/30 dark:text-amber-200"
+                      : "bg-slate-50 border-slate-200 text-slate-900 dark:bg-slate-950/80 dark:border-slate-800 dark:text-slate-100"
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-11 h-11 rounded-2xl flex items-center justify-center border font-bold text-sm ${
+                      className={`w-11 h-11 rounded-2xl flex items-center justify-center border font-bold text-sm shrink-0 ${
                         isAdmin
-                          ? "bg-amber-100 text-amber-600 border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20"
-                          : "bg-indigo-100 text-indigo-600 border-indigo-200 dark:bg-slate-800 dark:text-indigo-400 dark:border-slate-700"
+                          ? "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20"
+                          : "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-slate-800 dark:text-indigo-400 dark:border-slate-700"
                       }`}
                     >
                       {isAdmin ? <Crown className="w-5 h-5" /> : <UserIcon className="w-5 h-5" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-black text-slate-900 dark:text-slate-100 truncate max-w-[150px]">
+                        <span className="text-sm font-black text-slate-900 dark:text-white truncate max-w-[150px]">
                           {user.name}
                         </span>
                         {isAdmin && (
@@ -188,7 +192,7 @@ export default function UserMenuDrawer({
 
                   {/* SALÁRIO BASE ATUAL */}
                   <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Salário / Entrada Base:</span>
+                    <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Salário / Entrada Base:</span>
                     <span className="font-mono font-extrabold text-emerald-600 dark:text-emerald-400 text-sm">
                       R$ {defaultSalary.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
@@ -197,7 +201,7 @@ export default function UserMenuDrawer({
 
                 {/* LISTA DE AÇÕES / NAVEGAÇÃO */}
                 <div className="mt-5 space-y-1.5">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-2">
+                  <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 mb-2">
                     Ações Principais
                   </p>
 
@@ -207,20 +211,20 @@ export default function UserMenuDrawer({
                       onClose();
                       onOpenAddModal();
                     }}
-                    className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-950/60 hover:bg-slate-850 border border-slate-800/80 hover:border-emerald-500/30 transition-all text-left group cursor-pointer"
+                    className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/60 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800/80 hover:border-emerald-500/40 dark:hover:border-emerald-500/30 transition-all text-left group cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:bg-emerald-500/20 transition-colors">
+                      <div className="p-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg group-hover:bg-emerald-500/20 transition-colors">
                         <PlusCircle className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-slate-200 group-hover:text-white">
+                        <p className="text-xs font-bold text-slate-900 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-white">
                           Novo Lançamento
                         </p>
-                        <p className="text-[10px] text-slate-400">Adicionar gasto ou compra</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">Adicionar gasto ou compra</p>
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-300" />
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:text-slate-600 dark:group-hover:text-slate-300" />
                   </button>
 
                   {/* CONFIGURAÇÕES DE SALÁRIO */}
@@ -229,20 +233,20 @@ export default function UserMenuDrawer({
                       onClose();
                       onOpenSettings("salary");
                     }}
-                    className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-950/60 hover:bg-slate-850 border border-slate-800/80 hover:border-emerald-500/30 transition-all text-left group cursor-pointer"
+                    className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/60 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800/80 hover:border-emerald-500/40 dark:hover:border-emerald-500/30 transition-all text-left group cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
+                      <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
                         <Wallet className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-slate-200 group-hover:text-white">
+                        <p className="text-xs font-bold text-slate-900 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-white">
                           Configuração de Salário
                         </p>
-                        <p className="text-[10px] text-slate-400">Definir salário base mensal e preferências</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">Definir salário base mensal e preferências</p>
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-300" />
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:text-slate-600 dark:group-hover:text-slate-300" />
                   </button>
 
                   {/* INPUT INVISÍVEL PARA IMPORTAÇÃO DIRETA DE ARQUIVOS */}
@@ -256,7 +260,6 @@ export default function UserMenuDrawer({
                           onDirectImportFile(file);
                         }
                         onClose();
-                        // Reset para permitir selecionar o mesmo arquivo novamente se necessário
                         e.target.value = "";
                       }
                     }}
@@ -273,21 +276,21 @@ export default function UserMenuDrawer({
                         fileInputRef.current.click();
                       }
                     }}
-                    className="w-full flex items-center justify-between p-3 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/25 hover:border-purple-500/40 transition-all text-left group cursor-pointer"
+                    className="w-full flex items-center justify-between p-3 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-500/10 dark:hover:bg-purple-500/20 border border-purple-200 dark:border-purple-500/25 hover:border-purple-400 dark:hover:border-purple-500/40 transition-all text-left group cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-purple-500/20 text-purple-300 rounded-lg group-hover:bg-purple-500/30 transition-colors">
+                      <div className="p-2 bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 rounded-lg group-hover:bg-purple-200 dark:group-hover:bg-purple-500/30 transition-colors">
                         <FileSpreadsheet className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-purple-200 group-hover:text-white flex items-center gap-1.5">
+                        <p className="text-xs font-bold text-purple-900 dark:text-purple-200 group-hover:text-purple-950 dark:group-hover:text-white flex items-center gap-1.5">
                           <span>Importar Planilha / Extrato</span>
-                          <span className="text-[9px] font-mono bg-purple-500/30 text-purple-300 px-1 py-0.2 rounded">Direto</span>
+                          <span className="text-[9px] font-mono bg-purple-200 text-purple-800 dark:bg-purple-500/30 dark:text-purple-300 px-1 py-0.2 rounded font-bold">Direto</span>
                         </p>
-                        <p className="text-[10px] text-purple-300/80">Selecione Excel, CSV, PDF ou foto do comprovante</p>
+                        <p className="text-[10px] text-purple-700 dark:text-purple-300/80">Selecione Excel, CSV, PDF ou foto do comprovante</p>
                       </div>
                     </div>
-                    <Upload className="w-4 h-4 text-purple-400 group-hover:text-purple-200 shrink-0" />
+                    <Upload className="w-4 h-4 text-purple-600 dark:text-purple-400 group-hover:text-purple-800 dark:group-hover:text-purple-200 shrink-0" />
                   </button>
 
                   {/* PAINEL DE ADMINISTRAÇÃO MASTER (SOMENTE PARA ADMIN) */}
@@ -297,21 +300,21 @@ export default function UserMenuDrawer({
                         onClose();
                         onOpenSettings("admin");
                       }}
-                      className="w-full flex items-center justify-between p-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 hover:border-amber-500/40 transition-all text-left group cursor-pointer"
+                      className="w-full flex items-center justify-between p-3 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 border border-amber-200 dark:border-amber-500/25 hover:border-amber-400 dark:hover:border-amber-500/40 transition-all text-left group cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-amber-500/20 text-amber-300 rounded-lg group-hover:bg-amber-500/30 transition-colors">
+                        <div className="p-2 bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 rounded-lg group-hover:bg-amber-200 dark:group-hover:bg-amber-500/30 transition-colors">
                           <Crown className="w-4 h-4" />
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-amber-200 group-hover:text-white flex items-center gap-1.5">
+                          <p className="text-xs font-bold text-amber-900 dark:text-amber-200 group-hover:text-amber-950 dark:group-hover:text-white flex items-center gap-1.5">
                             <span>Painel Master ADM</span>
-                            <span className="text-[9px] font-mono bg-amber-500/30 text-amber-300 px-1 py-0.2 rounded">Restrito</span>
+                            <span className="text-[9px] font-mono bg-amber-200 text-amber-800 dark:bg-amber-500/30 dark:text-amber-300 px-1 py-0.2 rounded font-bold">Restrito</span>
                           </p>
-                          <p className="text-[10px] text-amber-300/80">Backups, exportações e banco de dados</p>
+                          <p className="text-[10px] text-amber-700 dark:text-amber-300/80">Backups, exportações e banco de dados</p>
                         </div>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-amber-400 group-hover:text-amber-200 shrink-0" />
+                      <ChevronRight className="w-4 h-4 text-amber-600 dark:text-amber-400 group-hover:text-amber-800 dark:group-hover:text-amber-200 shrink-0" />
                     </button>
                   )}
 
@@ -322,42 +325,42 @@ export default function UserMenuDrawer({
                         onClose();
                         onScrollToAi();
                       }}
-                      className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-950/60 hover:bg-slate-850 border border-slate-800/80 hover:border-indigo-500/30 transition-all text-left group cursor-pointer"
+                      className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/60 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800/80 hover:border-indigo-500/40 dark:hover:border-indigo-500/30 transition-all text-left group cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:bg-indigo-500/20 transition-colors">
+                        <div className="p-2 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400 rounded-lg group-hover:bg-indigo-100 dark:group-hover:bg-indigo-500/20 transition-colors">
                           <BrainCircuit className="w-4 h-4" />
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-slate-200 group-hover:text-white">
+                          <p className="text-xs font-bold text-slate-900 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-white">
                             Consultor IA Gemini
                           </p>
-                          <p className="text-[10px] text-slate-400">Análise e dicas de economia</p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400">Análise e dicas de economia</p>
                         </div>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-300" />
+                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:text-slate-600 dark:group-hover:text-slate-300" />
                     </button>
                   )}
 
                   {/* SELETOR DE TEMA / APARÊNCIA */}
                   {onSetThemeMode && (
-                    <div className="pt-3 border-t border-slate-800/80">
+                    <div className="pt-3 border-t border-slate-200 dark:border-slate-800/80">
                       <div className="flex items-center justify-between px-2 mb-2">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           Tema / Aparência
                         </p>
-                        <span className="text-[10px] font-mono text-emerald-400">
+                        <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
                           {themeMode === "system" ? "Padrão Celular" : themeMode === "dark" ? "Escuro" : "Claro"}
                         </span>
                       </div>
-                      <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-950/80 rounded-xl border border-slate-800/80">
+                      <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 dark:bg-slate-950/80 rounded-xl border border-slate-200 dark:border-slate-800/80">
                         <button
                           type="button"
                           onClick={() => onSetThemeMode("system")}
                           className={`py-2 px-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer flex flex-col items-center justify-center gap-1 text-center ${
                             themeMode === "system"
-                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
-                              : "text-slate-400 hover:text-slate-200"
+                              ? "bg-white text-emerald-700 shadow-sm border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30"
+                              : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
                           }`}
                           title="Segue automaticamente o tema claro ou escuro configurado no seu celular"
                         >
@@ -369,8 +372,8 @@ export default function UserMenuDrawer({
                           onClick={() => onSetThemeMode("dark")}
                           className={`py-2 px-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer flex flex-col items-center justify-center gap-1 text-center ${
                             themeMode === "dark"
-                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
-                              : "text-slate-400 hover:text-slate-200"
+                              ? "bg-white text-emerald-700 shadow-sm border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30"
+                              : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
                           }`}
                           title="Tema Escuro"
                         >
@@ -382,8 +385,8 @@ export default function UserMenuDrawer({
                           onClick={() => onSetThemeMode("light")}
                           className={`py-2 px-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer flex flex-col items-center justify-center gap-1 text-center ${
                             themeMode === "light"
-                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
-                              : "text-slate-400 hover:text-slate-200"
+                              ? "bg-white text-emerald-700 shadow-sm border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30"
+                              : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
                           }`}
                           title="Tema Claro"
                         >
@@ -396,17 +399,17 @@ export default function UserMenuDrawer({
 
                   {/* SELETOR DE MODO DE VISUALIZAÇÃO NO MENU */}
                   {onSetViewMode && (
-                    <div className="pt-3 border-t border-slate-800/80">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-2">
+                    <div className="pt-3 border-t border-slate-200 dark:border-slate-800/80">
+                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 mb-2">
                         Modo de Visualização
                       </p>
-                      <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-950/80 rounded-xl border border-slate-800/80">
+                      <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 dark:bg-slate-950/80 rounded-xl border border-slate-200 dark:border-slate-800/80">
                         <button
                           onClick={() => onSetViewMode("compact")}
                           className={`py-2 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer text-center ${
                             viewMode === "compact"
-                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
-                              : "text-slate-400 hover:text-slate-200"
+                              ? "bg-white text-emerald-700 shadow-sm border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30"
+                              : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
                           }`}
                         >
                           Modo Focado (Cards)
@@ -415,8 +418,8 @@ export default function UserMenuDrawer({
                           onClick={() => onSetViewMode("full")}
                           className={`py-2 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer text-center ${
                             viewMode === "full"
-                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
-                              : "text-slate-400 hover:text-slate-200"
+                              ? "bg-white text-emerald-700 shadow-sm border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30"
+                              : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
                           }`}
                         >
                           Modo Padrão (Planilha)
@@ -426,21 +429,21 @@ export default function UserMenuDrawer({
                   )}
 
                   {/* ATUALIZAÇÕES DO APLICATIVO / OTA UPDATE */}
-                  <div className="pt-3 border-t border-slate-800/80 space-y-2">
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800/80 space-y-2">
                     <div className="flex items-center justify-between px-2">
                       <div className="flex items-center gap-1.5">
-                        <ArrowUpCircle className="w-3.5 h-3.5 text-indigo-400" />
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        <ArrowUpCircle className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                        <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           Versão & Atualizações
                         </p>
                       </div>
-                      <span className="text-[10px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">
+                      <span className="text-[10px] font-mono font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-500/20">
                         v{CURRENT_CLIENT_VERSION}
                       </span>
                     </div>
 
-                    <div className="p-2.5 bg-slate-950/80 rounded-xl border border-slate-800/80 space-y-2">
-                      <p className="text-[10px] text-slate-400 leading-tight">
+                    <div className="p-2.5 bg-slate-100 dark:bg-slate-950/80 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-2">
+                      <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-tight">
                         Atualize novas funções instantaneamente sem precisar reinstalar o APK.
                       </p>
 
@@ -449,7 +452,7 @@ export default function UserMenuDrawer({
                           type="button"
                           onClick={handleCheckUpdates}
                           disabled={isCheckingUpdate}
-                          className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-bold text-[10px] transition-all cursor-pointer disabled:opacity-50"
+                          className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-800 dark:bg-indigo-600/20 dark:hover:bg-indigo-600/30 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 font-bold text-[10px] transition-all cursor-pointer disabled:opacity-50"
                         >
                           <RefreshCw className={`w-3 h-3 ${isCheckingUpdate ? "animate-spin" : ""}`} />
                           <span>{isCheckingUpdate ? "Buscando..." : "Buscar Atualização"}</span>
@@ -459,7 +462,7 @@ export default function UserMenuDrawer({
                           type="button"
                           onClick={handleForceReload}
                           disabled={isCheckingUpdate}
-                          className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold text-[10px] transition-all cursor-pointer"
+                          className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 font-bold text-[10px] transition-all cursor-pointer"
                           title="Limpa caches locais do navegador/WebView e recarrega os arquivos mais recentes"
                         >
                           <span>Recarregar</span>
@@ -470,14 +473,14 @@ export default function UserMenuDrawer({
                         <div
                           className={`p-2 rounded-lg text-[10px] leading-tight flex items-start gap-1.5 animate-fadeIn ${
                             updateIsLatest === true
-                              ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
-                              : "bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20"
+                              : "bg-indigo-100 text-indigo-800 border border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/20"
                           }`}
                         >
                           {updateIsLatest === true ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                           ) : (
-                            <RefreshCw className="w-3.5 h-3.5 text-indigo-400 shrink-0 mt-0.5 animate-spin" />
+                            <RefreshCw className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5 animate-spin" />
                           )}
                           <span>{updateFeedback}</span>
                         </div>
@@ -489,20 +492,20 @@ export default function UserMenuDrawer({
             </div>
 
             {/* RODAPÉ DO DRAWER COM BOTÃO DE LOGOUT */}
-            <div className="p-4 sm:p-5 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] border-t border-slate-800/80 bg-slate-950/50 space-y-3">
+            <div className="p-4 sm:p-5 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] border-t border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/50 space-y-3">
               <button
                 onClick={() => {
                   onClose();
                   onLogout();
                 }}
-                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-bold text-xs transition-all cursor-pointer hover:border-rose-500/40"
+                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 font-bold text-xs transition-all cursor-pointer hover:border-rose-400 dark:hover:border-rose-500/40"
               >
                 <LogOut className="w-4 h-4" />
                 <span>Sair da Conta</span>
               </button>
 
-              <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-500 font-mono">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>Sessão segura ativa</span>
               </div>
             </div>

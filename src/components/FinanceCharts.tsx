@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { Transaction } from "../types";
 import { PieChart as PieIcon, BarChart2 } from "lucide-react";
+import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth } from "../utils/installmentUtils";
 
 interface FinanceChartsProps {
   transactions: Transaction[];
@@ -36,10 +37,11 @@ const COLORS = [
 export default function FinanceCharts({ transactions, budgets, selectedMonth, defaultSalary = 2500 }: FinanceChartsProps) {
   const isLeft = (sec: string) => sec === "left" || sec === "esquerda" || sec === "despesas";
 
-  // 1. DATA FOR MONTHLY CATEGORIES (Pie Chart - Apenas despesas reais do mês, excluindo planejamento)
+  // 1. DATA FOR MONTHLY CATEGORIES (Pie Chart - Gastos reais do mês + Parcelas ativas do mês)
   const currentMonthTransactions = transactions.filter(
     (t) => isLeft(t.tableSection) && !!t.date && t.date.startsWith(selectedMonth)
   );
+  const activeInstallments = getActiveInstallmentsForMonth(transactions, selectedMonth);
 
   const categoryTotals: Record<string, number> = {};
   currentMonthTransactions.forEach((t) => {
@@ -48,16 +50,21 @@ export default function FinanceCharts({ transactions, budgets, selectedMonth, de
     categoryTotals[cat] = (categoryTotals[cat] || 0) + t.amount;
   });
 
+  activeInstallments.forEach((t) => {
+    const cat = t.category || "Parcelas / Empréstimos";
+    categoryTotals[cat] = (categoryTotals[cat] || 0) + t.amount;
+  });
+
   const pieData = Object.keys(categoryTotals).map((cat) => ({
     name: cat,
     value: categoryTotals[cat],
   }));
 
-  // 2. DATA FOR ANNUAL REPORT (Bar/Area Chart comparing months - Apenas gastos reais)
+  // 2. DATA FOR ANNUAL REPORT (Bar/Area Chart comparing months - Gastos reais + Parcelas ativas)
   const allMonths = Array.from(
     new Set(
       transactions
-        .filter((t) => isLeft(t.tableSection))
+        .filter((t) => isLeft(t.tableSection) || t.tableSection === "bottom_left")
         .map((t) => t.date?.substring(0, 7))
         .filter(Boolean)
     )
@@ -70,7 +77,8 @@ export default function FinanceCharts({ transactions, budgets, selectedMonth, de
       .filter((t) => isLeft(t.tableSection))
       .reduce((sum, t) => (t.isDiscount ? sum - t.amount : sum + t.amount), 0);
 
-    const totalExpenses = leftExpenses; // Apenas gastos reais (exclui planejamento)
+    const monthlyInstallments = getMonthlyInstallmentsTotal(transactions, m);
+    const totalExpenses = leftExpenses + monthlyInstallments;
     const income = budgets[m] !== undefined ? budgets[m] : defaultSalary;
 
     const formattedMonth = (() => {
@@ -87,7 +95,7 @@ export default function FinanceCharts({ transactions, budgets, selectedMonth, de
       monthLabel: formattedMonth,
       despesas: totalExpenses,
       orcamento: income,
-      sobra: income - leftExpenses,
+      sobra: income - totalExpenses,
     };
   });
 

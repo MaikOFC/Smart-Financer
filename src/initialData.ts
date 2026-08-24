@@ -183,33 +183,41 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
     id: "part-1",
     description: "Pai - Celular",
     amount: 100.00,
-    date: "2026-12-01", // Quitação em Dezembro 2026
+    startDate: "2026-07",
+    date: "2026-12-01", // Quitação em Dezembro 2026 (6 parcelas: Jul a Dez)
     type: "expense",
-    tableSection: "bottom_left"
+    tableSection: "bottom_left",
+    category: "Outros"
   },
   {
     id: "part-2",
     description: "Notebook - Mãe",
     amount: 243.00,
-    date: "2026-09-01", // Quitação em Setembro 2026
+    startDate: "2026-07",
+    date: "2026-09-01", // Quitação em Setembro 2026 (3 parcelas: Jul a Set)
     type: "expense",
-    tableSection: "bottom_left"
+    tableSection: "bottom_left",
+    category: "Família"
   },
   {
     id: "part-3",
     description: "Memoria ram - Pai",
     amount: 50.00,
-    date: "2027-01-01", // Quitação em Janeiro 2027
+    startDate: "2026-07",
+    date: "2027-01-01", // Quitação em Janeiro 2027 (7 parcelas: Jul a Jan)
     type: "expense",
-    tableSection: "bottom_left"
+    tableSection: "bottom_left",
+    category: "Tecnologia"
   },
   {
     id: "part-4",
     description: "Viagem - Karinne",
     amount: 50.00,
-    date: "2027-01-01", // Quitação em Janeiro 2027
+    startDate: "2026-07",
+    date: "2027-01-01", // Quitação em Janeiro 2027 (7 parcelas: Jul a Jan)
     type: "expense",
-    tableSection: "bottom_left"
+    tableSection: "bottom_left",
+    category: "Lazer"
   }
 ];
 

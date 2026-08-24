@@ -19,6 +19,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Transaction } from "../types";
+import { useModalBackHandler } from "../hooks/useBackNavigation";
 
 interface TransactionDetailModalProps {
   transaction: Transaction | null;
@@ -48,6 +49,9 @@ export default function TransactionDetailModal({
   const [editIsHighlight, setEditIsHighlight] = useState(false);
   const [editIsDiscount, setEditIsDiscount] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Intercepta o botão voltar do celular para fechar os detalhes
+  useModalBackHandler(isOpen, onClose, "transaction_detail_modal");
 
   useEffect(() => {
     if (transaction) {
