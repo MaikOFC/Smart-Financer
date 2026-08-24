@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   X,
@@ -21,6 +21,7 @@ import {
   RefreshCw,
   ArrowUpCircle,
   CheckCircle2,
+  Upload,
 } from "lucide-react";
 import { ThemeMode } from "../lib/theme";
 import { CURRENT_CLIENT_VERSION, checkServerVersion, forceReloadApp } from "../lib/updateManager";
@@ -32,7 +33,7 @@ interface UserMenuDrawerProps {
   isAdmin: boolean;
   defaultSalary: number;
   selectedMonth: string;
-  onOpenSettings: () => void;
+  onOpenSettings: (mode?: "salary" | "admin") => void;
   onOpenAddModal: () => void;
   onLogout: () => void;
   onScrollToAi?: () => void;
@@ -40,6 +41,7 @@ interface UserMenuDrawerProps {
   onSetViewMode?: (mode: "compact" | "full") => void;
   themeMode?: ThemeMode;
   onSetThemeMode?: (mode: ThemeMode) => void;
+  onDirectImportFile?: (file: File) => void;
 }
 
 export default function UserMenuDrawer({
@@ -57,7 +59,9 @@ export default function UserMenuDrawer({
   onSetViewMode,
   themeMode = "system",
   onSetThemeMode,
+  onDirectImportFile,
 }: UserMenuDrawerProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateFeedback, setUpdateFeedback] = useState<string | null>(null);
   const [updateIsLatest, setUpdateIsLatest] = useState<boolean | null>(null);
@@ -219,51 +223,97 @@ export default function UserMenuDrawer({
                     <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-300" />
                   </button>
 
-                  {/* CONFIGURAÇÕES / PAINEL ADM */}
+                  {/* CONFIGURAÇÕES DE SALÁRIO */}
                   <button
                     onClick={() => {
                       onClose();
-                      onOpenSettings();
+                      onOpenSettings("salary");
                     }}
-                    className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-950/60 hover:bg-slate-850 border border-slate-800/80 hover:border-indigo-500/30 transition-all text-left group cursor-pointer"
+                    className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-950/60 hover:bg-slate-850 border border-slate-800/80 hover:border-emerald-500/30 transition-all text-left group cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg transition-colors ${isAdmin ? "bg-amber-500/10 text-amber-400 group-hover:bg-amber-500/20" : "bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20"}`}>
-                        <Settings className="w-4 h-4" />
+                      <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
+                        <Wallet className="w-4 h-4" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-xs font-bold text-slate-200 group-hover:text-white">
-                            {isAdmin ? "Painel ADM & Configurações" : "Configurações & Salário"}
-                          </p>
-                        </div>
-                        <p className="text-[10px] text-slate-400">Ajustar salário, backups e dados</p>
+                        <p className="text-xs font-bold text-slate-200 group-hover:text-white">
+                          Configuração de Salário
+                        </p>
+                        <p className="text-[10px] text-slate-400">Definir salário base mensal e preferências</p>
                       </div>
                     </div>
                     <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-300" />
                   </button>
 
-                  {/* IMPORTAÇÃO DE PLANILHA / EXTRATOS */}
-                  <button
-                    onClick={() => {
-                      onClose();
-                      onOpenSettings();
+                  {/* INPUT INVISÍVEL PARA IMPORTAÇÃO DIRETA DE ARQUIVOS */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        const file = e.target.files[0];
+                        if (onDirectImportFile) {
+                          onDirectImportFile(file);
+                        }
+                        onClose();
+                        // Reset para permitir selecionar o mesmo arquivo novamente se necessário
+                        e.target.value = "";
+                      }
                     }}
-                    className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-950/60 hover:bg-slate-850 border border-slate-800/80 hover:border-purple-500/30 transition-all text-left group cursor-pointer"
+                    accept=".csv, .xlsx, .xls, .pdf, .png, .jpg, .jpeg, .webp, image/*"
+                    className="hidden"
+                    id="drawer-direct-file-input"
+                  />
+
+                  {/* IMPORTAÇÃO DIRETA DE PLANILHA / EXTRATOS */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (fileInputRef.current) {
+                        fileInputRef.current.click();
+                      }
+                    }}
+                    className="w-full flex items-center justify-between p-3 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/25 hover:border-purple-500/40 transition-all text-left group cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:bg-purple-500/20 transition-colors">
+                      <div className="p-2 bg-purple-500/20 text-purple-300 rounded-lg group-hover:bg-purple-500/30 transition-colors">
                         <FileSpreadsheet className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-slate-200 group-hover:text-white">
-                          Importar Planilha / Extrato
+                        <p className="text-xs font-bold text-purple-200 group-hover:text-white flex items-center gap-1.5">
+                          <span>Importar Planilha / Extrato</span>
+                          <span className="text-[9px] font-mono bg-purple-500/30 text-purple-300 px-1 py-0.2 rounded">Direto</span>
                         </p>
-                        <p className="text-[10px] text-slate-400">Excel, CSV e fotos com IA</p>
+                        <p className="text-[10px] text-purple-300/80">Selecione Excel, CSV, PDF ou foto do comprovante</p>
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-300" />
+                    <Upload className="w-4 h-4 text-purple-400 group-hover:text-purple-200 shrink-0" />
                   </button>
+
+                  {/* PAINEL DE ADMINISTRAÇÃO MASTER (SOMENTE PARA ADMIN) */}
+                  {isAdmin && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onOpenSettings("admin");
+                      }}
+                      className="w-full flex items-center justify-between p-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 hover:border-amber-500/40 transition-all text-left group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-amber-500/20 text-amber-300 rounded-lg group-hover:bg-amber-500/30 transition-colors">
+                          <Crown className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-amber-200 group-hover:text-white flex items-center gap-1.5">
+                            <span>Painel Master ADM</span>
+                            <span className="text-[9px] font-mono bg-amber-500/30 text-amber-300 px-1 py-0.2 rounded">Restrito</span>
+                          </p>
+                          <p className="text-[10px] text-amber-300/80">Backups, exportações e banco de dados</p>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-amber-400 group-hover:text-amber-200 shrink-0" />
+                    </button>
+                  )}
 
                   {/* CONSULTOR DE IA */}
                   {onScrollToAi && (

@@ -412,8 +412,8 @@ export default function TransactionTable({
                             <div className="flex items-center gap-2">
                               <span className="font-semibold text-slate-100 group-hover:text-white transition-colors">{t.description}</span>
                               {t.isDiscount && (
-                                <span className="text-[9px] bg-slate-800 text-slate-400 border border-slate-700 px-1.5 py-0.5 rounded uppercase font-bold not-italic">
-                                  Desconto
+                                <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded uppercase font-bold not-italic">
+                                  Ganho
                                 </span>
                               )}
                             </div>

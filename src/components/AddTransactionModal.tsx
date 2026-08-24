@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Tag, DollarSign, List, Calendar, Star, Percent, AlertCircle, ShieldAlert } from "lucide-react";
+import { X, Tag, DollarSign, List, Calendar, Star, Percent, AlertCircle, ShieldAlert, TrendingDown, TrendingUp, Layers } from "lucide-react";
 import { Transaction } from "../types";
 
 interface AddTransactionModalProps {
@@ -131,10 +131,17 @@ export default function AddTransactionModal({
 
   const sectionName =
     section === "left"
-      ? "Despesas Mensais"
+      ? "Gastos do Mês"
       : section === "right"
       ? "Planejamento & Compras Futuras"
       : "Parcelas e Recebíveis";
+
+  const sectionBadgeColor =
+    section === "left"
+      ? "text-rose-400 bg-rose-500/10 border-rose-500/20"
+      : section === "right"
+      ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+      : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
 
   return (
     <AnimatePresence>
@@ -162,13 +169,30 @@ export default function AddTransactionModal({
 
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
-              <div>
-                <span className="text-[10px] font-black tracking-widest text-indigo-400 uppercase bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/10">
-                  Adicionar Item
-                </span>
-                <h3 className="text-lg font-bold text-white mt-2">
-                  {sectionName}
-                </h3>
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-2xl border ${
+                  section === "left"
+                    ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                    : section === "right"
+                    ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                    : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                }`}>
+                  {section === "left" ? (
+                    <TrendingDown className="w-5 h-5" />
+                  ) : section === "right" ? (
+                    <TrendingUp className="w-5 h-5" />
+                  ) : (
+                    <Layers className="w-5 h-5" />
+                  )}
+                </div>
+                <div>
+                  <span className={`text-[10px] font-black tracking-widest uppercase px-2.5 py-0.5 rounded-full border ${sectionBadgeColor}`}>
+                    {section === "left" ? "Adicionar Gasto" : "Adicionar Item"}
+                  </span>
+                  <h3 className="text-lg font-bold text-white mt-1">
+                    {sectionName}
+                  </h3>
+                </div>
               </div>
               <button
                 onClick={onClose}
@@ -347,7 +371,7 @@ export default function AddTransactionModal({
                     </div>
                   </label>
 
-                  {/* Discount Toggle */}
+                  {/* Gain / Discount Toggle */}
                   <label className="flex items-center gap-3 cursor-pointer select-none">
                     <input
                       type="checkbox"
@@ -355,11 +379,11 @@ export default function AddTransactionModal({
                       onChange={(e) => setIsDiscount(e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className="w-5 h-5 rounded-md border border-slate-700 bg-slate-950 flex items-center justify-center peer-checked:border-indigo-500 peer-checked:bg-indigo-500/10 text-transparent peer-checked:text-indigo-400 transition-all">
-                      <Percent className="w-3.5 h-3.5" />
+                    <div className="w-5 h-5 rounded-md border border-slate-700 bg-slate-950 flex items-center justify-center peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 text-transparent peer-checked:text-emerald-400 transition-all">
+                      <TrendingUp className="w-3.5 h-3.5" />
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-xs font-bold text-slate-200">É um desconto?</span>
+                      <span className="text-xs font-bold text-slate-200">É um ganho?</span>
                       <span className="text-[10px] text-slate-500">Subtrai do total de gastos</span>
                     </div>
                   </label>

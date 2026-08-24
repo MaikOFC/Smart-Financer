@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   X,
-  Settings,
   Database,
   Download,
   FileSpreadsheet,
@@ -31,19 +30,8 @@ import {
   KeyRound,
   Upload,
   Sparkles,
-  SlidersHorizontal,
-  Layers,
-  Table2,
-  Sun,
-  Moon,
-  Smartphone,
-  ArrowUpCircle,
 } from "lucide-react";
 import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "../lib/admin";
-import { Transaction } from "../types";
-import SpreadsheetUpload from "./SpreadsheetUpload";
-import { ThemeMode } from "../lib/theme";
-import { CURRENT_CLIENT_VERSION, checkServerVersion, forceReloadApp } from "../lib/updateManager";
 
 interface AdminSettingsModalProps {
   isOpen: boolean;
@@ -58,13 +46,9 @@ interface AdminSettingsModalProps {
   onExportJson: () => void;
   onExportSupabaseCSV: (type: "transactions" | "budgets") => void;
   onResetAll: () => void;
-  onImportTransactions: (imported: Transaction[]) => void;
   transactionsCount: number;
   budgetsCount: number;
-  viewMode?: "compact" | "full";
-  onSetViewMode?: (mode: "compact" | "full") => void;
-  themeMode?: ThemeMode;
-  onSetThemeMode?: (mode: ThemeMode) => void;
+  modalMode?: "salary" | "admin";
 }
 
 interface SystemStatus {
@@ -102,67 +86,37 @@ export default function AdminSettingsModal({
   onExportJson,
   onExportSupabaseCSV,
   onResetAll,
-  onImportTransactions,
   transactionsCount,
   budgetsCount,
-  viewMode = "compact",
-  onSetViewMode,
-  themeMode = "system",
-  onSetThemeMode,
+  modalMode = "salary",
 }: AdminSettingsModalProps) {
   const isAdmin = isUserAdmin(user);
+  const isSalaryOnly = modalMode === "salary" || !isAdmin;
   const [copiedId, setCopiedId] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
-  const [activeTab, setActiveTab] = useState<"salary" | "import" | "exports" | "database" | "reset">("salary");
+  const [activeTab, setActiveTab] = useState<"salary" | "exports" | "database" | "reset">(
+    modalMode === "admin" && isAdmin ? "exports" : "salary"
+  );
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [pingMs, setPingMs] = useState<number | null>(null);
+
+  // Sync tab when opening
+  useEffect(() => {
+    if (isOpen) {
+      if (modalMode === "admin" && isAdmin) {
+        setActiveTab("exports");
+      } else {
+        setActiveTab("salary");
+      }
+    }
+  }, [isOpen, modalMode, isAdmin]);
 
   // Salary state
   const [salaryInput, setSalaryInput] = useState<string>(String(defaultSalary || 2500));
   const [applyToFuture, setApplyToFuture] = useState(true);
   const [isSavingSalary, setIsSavingSalary] = useState(false);
   const [salarySavedFeedback, setSalarySavedFeedback] = useState(false);
-
-  // Update OTA state
-  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
-  const [updateFeedback, setUpdateFeedback] = useState<string | null>(null);
-  const [updateIsLatest, setUpdateIsLatest] = useState<boolean | null>(null);
-
-  const handleCheckUpdates = async () => {
-    setIsCheckingUpdate(true);
-    setUpdateFeedback(null);
-    setUpdateIsLatest(null);
-
-    try {
-      const result = await checkServerVersion();
-      if (result.hasUpdate) {
-        setUpdateFeedback(`Nova versão (${result.serverVersion}) disponível! Aplicando atualização...`);
-        setUpdateIsLatest(false);
-        setTimeout(() => {
-          forceReloadApp();
-        }, 1200);
-      } else {
-        setUpdateFeedback(`Seu aplicativo já está na versão mais recente (v${CURRENT_CLIENT_VERSION}).`);
-        setUpdateIsLatest(true);
-        setTimeout(() => {
-          setUpdateFeedback(null);
-        }, 4000);
-      }
-    } catch (e) {
-      setUpdateFeedback("Não foi possível verificar no momento.");
-    } finally {
-      setIsCheckingUpdate(false);
-    }
-  };
-
-  const handleForceReload = () => {
-    setIsCheckingUpdate(true);
-    setUpdateFeedback("Limpando caches e atualizando...");
-    setTimeout(() => {
-      forceReloadApp();
-    }, 500);
-  };
 
   useEffect(() => {
     setSalaryInput(String(defaultSalary || 2500));
@@ -288,18 +242,18 @@ CREATE TABLE IF NOT EXISTS public.transactions (
           <div className="flex items-center justify-between p-6 border-b border-slate-800/80 bg-slate-950/40">
             <div className="flex items-center gap-3">
               <div className={`p-2.5 rounded-2xl border shadow-sm ${
-                isAdmin 
+                !isSalaryOnly
                   ? "bg-amber-500/10 text-amber-400 border-amber-500/20" 
                   : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
               }`}>
-                {isAdmin ? <Crown className="w-5 h-5" /> : <Settings className="w-5 h-5" />}
+                {!isSalaryOnly ? <Crown className="w-5 h-5" /> : <Wallet className="w-5 h-5" />}
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg font-black text-white">
-                    {isAdmin ? "Painel de Administração" : "Configurações da Conta"}
+                    {!isSalaryOnly ? "Painel de Administração (ADM)" : "Configurações & Salário"}
                   </h2>
-                  {isAdmin ? (
+                  {!isSalaryOnly ? (
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono font-bold border border-amber-500/30 flex items-center gap-1">
                       <Crown className="w-3 h-3" /> ADM PRINCIPAL
                     </span>
@@ -310,8 +264,8 @@ CREATE TABLE IF NOT EXISTS public.transactions (
                   )}
                 </div>
                 <p className="text-xs text-slate-400 font-medium">
-                  {isAdmin 
-                    ? `Acesso total à infraestrutura, exportações e banco de dados (${ADMIN_USERNAME})` 
+                  {!isSalaryOnly
+                    ? `Acesso à infraestrutura, exportações e banco de dados (${ADMIN_USERNAME})` 
                     : "Gerencie seu salário base mensal e preferências da sua conta"}
                 </p>
               </div>
@@ -324,75 +278,50 @@ CREATE TABLE IF NOT EXISTS public.transactions (
             </button>
           </div>
 
-          {/* TAB NAVIGATION */}
-          <div className="flex border-b border-slate-800/80 px-6 bg-slate-950/20 gap-2 pt-2 overflow-x-auto scrollbar-none">
-            <button
-              onClick={() => setActiveTab("salary")}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === "salary"
-                  ? "border-emerald-500 text-emerald-400"
-                  : "border-transparent text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Wallet className="w-4 h-4" />
-              Salário & Renda
-            </button>
+          {/* TAB NAVIGATION (APENAS NO MODO PAINEL ADM) */}
+          {!isSalaryOnly && (
+            <div className="flex border-b border-slate-800/80 px-6 bg-slate-950/20 gap-2 pt-2 overflow-x-auto scrollbar-none">
+              <button
+                onClick={() => setActiveTab("exports")}
+                className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === "exports"
+                    ? "border-indigo-500 text-indigo-400"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Download className="w-4 h-4" />
+                Exportações & Backups
+              </button>
 
-            <button
-              onClick={() => setActiveTab("import")}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === "import"
-                  ? "border-indigo-500 text-indigo-400"
-                  : "border-transparent text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Sparkles className="w-4 h-4 text-indigo-400" />
-              Importação Inteligente
-            </button>
+              <button
+                onClick={() => setActiveTab("database")}
+                className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === "database"
+                    ? "border-indigo-500 text-indigo-400"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Server className="w-4 h-4" />
+                Servidor & Supabase
+              </button>
 
-            <button
-              onClick={() => setActiveTab("exports")}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === "exports"
-                  ? "border-indigo-500 text-indigo-400"
-                  : "border-transparent text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              {isAdmin ? <Download className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5 text-slate-500" />}
-              Exportações & Backups
-              {!isAdmin && <span className="text-[9px] px-1 bg-slate-800 text-slate-400 rounded">ADM</span>}
-            </button>
-
-            <button
-              onClick={() => setActiveTab("database")}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === "database"
-                  ? "border-indigo-500 text-indigo-400"
-                  : "border-transparent text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              {isAdmin ? <Server className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5 text-slate-500" />}
-              Servidor & Supabase
-              {!isAdmin && <span className="text-[9px] px-1 bg-slate-800 text-slate-400 rounded">ADM</span>}
-            </button>
-
-            <button
-              onClick={() => setActiveTab("reset")}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === "reset"
-                  ? "border-rose-500 text-rose-400"
-                  : "border-transparent text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              {isAdmin ? <RefreshCw className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5 text-slate-500" />}
-              Manutenção
-              {!isAdmin && <span className="text-[9px] px-1 bg-slate-800 text-slate-400 rounded">ADM</span>}
-            </button>
-          </div>
+              <button
+                onClick={() => setActiveTab("reset")}
+                className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === "reset"
+                    ? "border-rose-500 text-rose-400"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <RefreshCw className="w-4 h-4" />
+                Manutenção
+              </button>
+            </div>
+          )}
 
           {/* TAB CONTENT */}
           <div className="p-6 overflow-y-auto space-y-5 flex-1">
-            {activeTab === "salary" && (
+            {(isSalaryOnly || activeTab === "salary") && (
               <div className="space-y-5">
                 {/* INFO BANNER */}
                 <div className="bg-emerald-950/20 border border-emerald-500/30 p-5 rounded-2xl">
@@ -485,286 +414,12 @@ CREATE TABLE IF NOT EXISTS public.transactions (
                   </button>
                 </form>
 
-                {/* PREFERÊNCIAS DE VISUALIZAÇÃO */}
-                {onSetViewMode && (
-                  <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <SlidersHorizontal className="w-4 h-4 text-emerald-400" />
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                        Modo de Visualização da Tela Principal
-                      </h4>
-                    </div>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Escolha como você prefere visualizar os lançamentos e tabelas ao navegar pelos meses:
-                    </p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => onSetViewMode("compact")}
-                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
-                          viewMode === "compact"
-                            ? "bg-emerald-500/15 border-emerald-500/40 text-white shadow-sm ring-1 ring-emerald-500/30"
-                            : "bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <Layers className="w-4 h-4 text-emerald-400" />
-                            <span className="text-xs font-bold text-white">Modo Focado (Cards)</span>
-                          </div>
-                          {viewMode === "compact" && (
-                            <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
-                              Ativo
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-400 leading-normal">
-                          Layout limpo com cards interativos no topo. Ao tocar em Despesas, Planejado ou Parcelas, abre a central deslizante focada.
-                        </p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => onSetViewMode("full")}
-                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
-                          viewMode === "full"
-                            ? "bg-emerald-500/15 border-emerald-500/40 text-white shadow-sm ring-1 ring-emerald-500/30"
-                            : "bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <Table2 className="w-4 h-4 text-indigo-400" />
-                            <span className="text-xs font-bold text-white">Modo Padrão (Planilha)</span>
-                          </div>
-                          {viewMode === "full" && (
-                            <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
-                              Ativo
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-400 leading-normal">
-                          Exibe todas as tabelas e listas diretamente rolando a página inicial para baixo como em uma planilha tradicional.
-                        </p>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* PREFERÊNCIAS DE APARÊNCIA E TEMA */}
-                {onSetThemeMode && (
-                  <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Sun className="w-4 h-4 text-amber-400" />
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                          Aparência e Tema
-                        </h4>
-                      </div>
-                      <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                        {themeMode === "system" ? "Padrão Celular" : themeMode === "dark" ? "Escuro" : "Claro"}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Selecione se o aplicativo deve seguir o tema padrão do celular ou fixar em modo escuro/claro:
-                    </p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => onSetThemeMode("system")}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                          themeMode === "system"
-                            ? "bg-emerald-500/15 border-emerald-500/40 text-white shadow-sm ring-1 ring-emerald-500/30"
-                            : "bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <Smartphone className="w-4 h-4 text-emerald-400" />
-                            <span className="text-xs font-bold text-white">Padrão Celular</span>
-                          </div>
-                          {themeMode === "system" && (
-                            <span className="text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
-                              Ativo
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-slate-400">
-                          Segue o tema claro/escuro das configurações do dispositivo.
-                        </p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => onSetThemeMode("dark")}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                          themeMode === "dark"
-                            ? "bg-emerald-500/15 border-emerald-500/40 text-white shadow-sm ring-1 ring-emerald-500/30"
-                            : "bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <Moon className="w-4 h-4 text-indigo-400" />
-                            <span className="text-xs font-bold text-white">Tema Escuro</span>
-                          </div>
-                          {themeMode === "dark" && (
-                            <span className="text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
-                              Ativo
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-slate-400">
-                          Fundo escuro em tom slate-950 com alto contraste.
-                        </p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => onSetThemeMode("light")}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                          themeMode === "light"
-                            ? "bg-emerald-500/15 border-emerald-500/40 text-white shadow-sm ring-1 ring-emerald-500/30"
-                            : "bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <Sun className="w-4 h-4 text-amber-400" />
-                            <span className="text-xs font-bold text-white">Tema Claro</span>
-                          </div>
-                          {themeMode === "light" && (
-                            <span className="text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
-                              Ativo
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-slate-400">
-                          Fundo claro limpo e suave para uso diurno.
-                        </p>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* ATUALIZAÇÕES AUTOMÁTICAS PELA NUVEM (OTA) */}
-                <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ArrowUpCircle className="w-4 h-4 text-indigo-400" />
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                        Atualizações do Sistema (Sem Reinstalar APK)
-                      </h4>
-                    </div>
-                    <span className="text-[10px] font-mono text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
-                      v{CURRENT_CLIENT_VERSION}
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Sempre que novas melhorias forem publicadas, seu APK se conecta à nuvem e atualiza tudo automaticamente:
-                  </p>
-
-                  <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={handleCheckUpdates}
-                      disabled={isCheckingUpdate}
-                      className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-bold text-xs transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? "animate-spin" : ""}`} />
-                      <span>{isCheckingUpdate ? "Verificando na Nuvem..." : "Buscar Atualização Agora"}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleForceReload}
-                      disabled={isCheckingUpdate}
-                      className="w-full sm:w-auto flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 font-bold text-xs transition-all cursor-pointer"
-                      title="Força o download dos arquivos mais recentes e limpa o cache da WebView"
-                    >
-                      <span>Limpar Cache & Recarregar</span>
-                    </button>
-                  </div>
-
-                  {updateFeedback && (
-                    <div
-                      className={`p-3 rounded-xl text-xs leading-relaxed flex items-start gap-2 animate-fadeIn ${
-                        updateIsLatest === true
-                          ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
-                          : "bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
-                      }`}
-                    >
-                      {updateIsLatest === true ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                      ) : (
-                        <RefreshCw className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5 animate-spin" />
-                      )}
-                      <span>{updateFeedback}</span>
-                    </div>
-                  )}
-                </div>
-
                 {/* DICA DE COMO FUNCIONA O ORÇAMENTO */}
                 <div className="bg-slate-950/40 border border-slate-800/80 p-4 rounded-xl flex items-start gap-3">
-                  <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                  <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                   <p className="text-[11px] text-slate-400 leading-relaxed">
                     <strong>Dica:</strong> Você também pode editar o orçamento de um mês específico clicando diretamente no card <em>"Orçamento / Entrada"</em> no topo da tela inicial.
                   </p>
-                </div>
-              </div>
-            )}
-
-            {/* ABA DE IMPORTAÇÃO */}
-            {activeTab === "import" && (
-              <div className="space-y-5">
-                {/* INFO BANNER */}
-                <div className="bg-indigo-950/20 border border-indigo-500/30 p-5 rounded-2xl">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2.5 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30 shrink-0">
-                      <Sparkles className="w-5 h-5 animate-pulse" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-black text-white">Importação Inteligente de Planilhas e Comprovantes</h4>
-                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                        Envie qualquer planilha (<strong>.xlsx</strong>, <strong>.csv</strong>, <strong>.xls</strong>) ou um <strong>print/imagem</strong> de tabelas, extratos e recibos. Nossa IA Gemini irá analisar os dados, reconhecer os valores e datas, e adicioná-los automaticamente ao seu mês selecionado (<strong className="text-indigo-300 font-mono">{selectedMonth}</strong>).
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* UPLOADER */}
-                <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5">
-                  <SpreadsheetUpload
-                    onImportTransactions={(imported) => {
-                      onImportTransactions(imported);
-                    }}
-                    hideHeader={true}
-                    isCompact={true}
-                    className="bg-transparent border-0 p-0 mb-0"
-                  />
-                </div>
-
-                {/* DICAS DE FORMATOS */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className="bg-slate-950/40 border border-slate-800/80 p-3.5 rounded-xl space-y-1.5">
-                    <div className="flex items-center gap-1.5 font-bold text-emerald-400">
-                      <FileSpreadsheet className="w-4 h-4" /> Planilhas (Excel e CSV)
-                    </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Não precisa estar em nenhum formato rígido. A IA detecta cabeçalhos como Nome/Descrição, Valor R$, Categoria e Data de vencimento.
-                    </p>
-                  </div>
-                  <div className="bg-slate-950/40 border border-slate-800/80 p-3.5 rounded-xl space-y-1.5">
-                    <div className="flex items-center gap-1.5 font-bold text-indigo-400">
-                      <Upload className="w-4 h-4" /> Prints e Fotos de Recibos
-                    </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Tirou um print do aplicativo do seu banco ou uma foto de nota fiscal? A IA faz a leitura visual (OCR) e converte automaticamente em lançamentos.
-                    </p>
-                  </div>
                 </div>
               </div>
             )}

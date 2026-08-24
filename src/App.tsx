@@ -30,9 +30,13 @@ import {
   PlusCircle,
   ArrowUpCircle,
   X,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { Transaction } from "./types";
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from "./initialData";
+import { processImportFile } from "./utils/fileParser";
 import MetricCards from "./components/MetricCards";
 import TransactionTable from "./components/TransactionTable";
 import FinanceCharts from "./components/FinanceCharts";
@@ -121,6 +125,12 @@ export default function App() {
 
   // Admin / Settings Modal state
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [adminModalMode, setAdminModalMode] = useState<"salary" | "admin">("salary");
+
+  const handleOpenSettingsModal = (mode: "salary" | "admin" = "salary") => {
+    setAdminModalMode(mode);
+    setIsAdminModalOpen(true);
+  };
 
   // Welcome / Onboarding Modal state (Triggered right after registration)
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
@@ -877,6 +887,50 @@ export default function App() {
     }
   };
 
+  // Importação Direta e Rápida de Arquivos (sem telas intermediárias)
+  const [isImportingDirectly, setIsImportingDirectly] = useState(false);
+  const [importStatusStep, setImportStatusStep] = useState<string>("");
+  const [importFeedbackToast, setImportFeedbackToast] = useState<{
+    type: "success" | "error";
+    title: string;
+    message: string;
+  } | null>(null);
+
+  const handleDirectFileImport = async (file: File) => {
+    setIsImportingDirectly(true);
+    setImportStatusStep("Iniciando leitura do arquivo...");
+    setImportFeedbackToast(null);
+
+    try {
+      const imported = await processImportFile(file, (step) => setImportStatusStep(step));
+      if (!imported || imported.length === 0) {
+        throw new Error("Nenhuma transação foi identificada no arquivo.");
+      }
+      await handleImportTransactions(imported);
+      setImportFeedbackToast({
+        type: "success",
+        title: "Importação Concluída com Sucesso!",
+        message: `${imported.length} transações foram importadas e salvas na sua planilha.`,
+      });
+      setTimeout(() => {
+        setImportFeedbackToast(null);
+      }, 5000);
+    } catch (err: any) {
+      console.error("Erro na importação direta:", err);
+      setImportFeedbackToast({
+        type: "error",
+        title: "Não foi possível importar",
+        message: err.message || "Erro ao ler a planilha/extrato. Verifique o formato do arquivo.",
+      });
+      setTimeout(() => {
+        setImportFeedbackToast(null);
+      }, 7000);
+    } finally {
+      setIsImportingDirectly(false);
+      setImportStatusStep("");
+    }
+  };
+
   // Ask AI Advisor
   const handleAskAdvisor = async (customPrompt?: string) => {
     const promptToSend = customPrompt || advisorQuery;
@@ -1259,8 +1313,23 @@ export default function App() {
               </button>
             </div>
 
-            {/* BOTÃO DO USUÁRIO NO DESKTOP (ABRE O MENU LATERAL / DISPENSA OS 3 PONTINHOS NO PC) */}
+            {/* BOTÃO RÁPIDO: ADICIONAR GASTO (ÍCONE GASTOS DO MÊS) */}
             <div className="flex items-center gap-2">
+              <button
+                id="btn-header-add-expense"
+                onClick={() => {
+                  setAddModalSection("left");
+                  setIsAddModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 px-3 py-1.5 rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-sm shadow-emerald-500/20 border border-emerald-400/40"
+                title="Adicionar Novo Gasto do Mês"
+              >
+                <TrendingDown className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span className="hidden sm:inline">Adicionar Gasto</span>
+                <span className="sm:hidden font-black text-sm">+</span>
+              </button>
+
+              {/* BOTÃO DO USUÁRIO NO DESKTOP (ABRE O MENU LATERAL / DISPENSA OS 3 PONTINHOS NO PC) */}
               <button
                 id="btn-desktop-user-menu"
                 onClick={() => setIsUserMenuOpen(true)}
@@ -1325,6 +1394,82 @@ export default function App() {
               </button>
             </div>
           </motion.aside>
+        )}
+      </AnimatePresence>
+
+      {/* OVERLAY DE PROCESSAMENTO DE ARQUIVO DIRETO (IA) */}
+      <AnimatePresence>
+        {isImportingDirectly && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-slate-900 border border-purple-500/40 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl text-center space-y-4"
+            >
+              <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-400 flex items-center justify-center mx-auto">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold text-white">Importando Planilha / Extrato</h3>
+                <p className="text-xs text-purple-300/90 font-medium mt-1">
+                  {importStatusStep || "Analisando comprovante e estruturando lançamentos com IA..."}
+                </p>
+              </div>
+
+              <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden border border-slate-800">
+                <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-full w-2/3 animate-pulse rounded-full" />
+              </div>
+
+              <p className="text-[11px] text-slate-500">
+                Aguarde alguns instantes enquanto organizamos seus dados.
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* TOAST DE FEEDBACK DE IMPORTAÇÃO */}
+      <AnimatePresence>
+        {importFeedbackToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className={`fixed top-4 left-3 right-3 sm:left-auto sm:right-6 sm:max-w-md z-50 p-4 rounded-2xl shadow-2xl backdrop-blur-md border flex items-start gap-3 ${
+              importFeedbackToast.type === "success"
+                ? "bg-emerald-950/95 border-emerald-500/50 text-emerald-100"
+                : "bg-rose-950/95 border-rose-500/50 text-rose-100"
+            }`}
+          >
+            <div className={`p-2 rounded-xl shrink-0 ${
+              importFeedbackToast.type === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+            }`}>
+              {importFeedbackToast.type === "success" ? (
+                <CheckCircle2 className="w-5 h-5" />
+              ) : (
+                <AlertCircle className="w-5 h-5" />
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <h4 className="text-xs font-bold">{importFeedbackToast.title}</h4>
+              <p className="text-[11px] opacity-90 mt-0.5 leading-relaxed">{importFeedbackToast.message}</p>
+            </div>
+
+            <button
+              onClick={() => setImportFeedbackToast(null)}
+              className="p-1 opacity-70 hover:opacity-100 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -1500,13 +1645,9 @@ export default function App() {
           onExportJson={handleExportData}
           onExportSupabaseCSV={handleExportSupabaseCSV}
           onResetAll={handleResetAll}
-          onImportTransactions={handleImportTransactions}
           transactionsCount={transactions.length}
           budgetsCount={Object.keys(budgets).length}
-          viewMode={viewMode}
-          onSetViewMode={handleSetViewMode}
-          themeMode={themeMode}
-          onSetThemeMode={handleSetThemeMode}
+          modalMode={adminModalMode}
         />
 
         {/* MODAL DE BOAS-VINDAS / ONBOARDING APÓS REGISTRO */}
@@ -1528,7 +1669,7 @@ export default function App() {
           isAdmin={isAdmin}
           defaultSalary={defaultSalary}
           selectedMonth={selectedMonth}
-          onOpenSettings={() => setIsAdminModalOpen(true)}
+          onOpenSettings={handleOpenSettingsModal}
           onOpenAddModal={() => {
             setAddModalSection("left");
             setIsAddModalOpen(true);
@@ -1542,6 +1683,7 @@ export default function App() {
           onSetViewMode={handleSetViewMode}
           themeMode={themeMode}
           onSetThemeMode={handleSetThemeMode}
+          onDirectImportFile={handleDirectFileImport}
         />
 
         {/* MODAL DE SEÇÃO FOCADA (GASTOS DO MÊS / PLANEJAMENTO / PARCELAS) */}
@@ -1653,6 +1795,34 @@ export default function App() {
           </>
         )}
       </main>
+
+      {/* BOTÃO FLUTUANTE NA TELA INICIAL: ADICIONAR GASTO (COM O ÍCONE DE GASTOS DO MÊS) */}
+      <motion.div
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+        className="fixed bottom-6 right-6 z-40"
+      >
+        <button
+          id="btn-fab-add-expense"
+          onClick={() => {
+            setAddModalSection("left");
+            setIsAddModalOpen(true);
+          }}
+          className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl sm:rounded-3xl bg-emerald-500 hover:bg-emerald-400 active:scale-90 text-slate-950 flex flex-col items-center justify-center font-black shadow-2xl shadow-emerald-500/35 border-2 border-emerald-300/60 cursor-pointer transition-all group"
+          title="Adicionar Novo Gasto do Mês"
+        >
+          <div className="relative flex items-center justify-center">
+            <TrendingDown className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5] text-slate-950 group-hover:scale-110 transition-transform" />
+            <span className="absolute -top-1.5 -right-2 bg-slate-950 text-emerald-400 text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center border border-emerald-400/80 shadow">
+              +
+            </span>
+          </div>
+          <span className="text-[9px] font-extrabold tracking-tighter leading-none mt-0.5 sm:mt-1 text-slate-950">
+            Gasto
+          </span>
+        </button>
+      </motion.div>
     </div>
   );
 }
