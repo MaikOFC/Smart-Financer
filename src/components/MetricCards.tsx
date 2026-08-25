@@ -81,7 +81,7 @@ export default function MetricCards({
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <p className="text-xs text-slate-500">Total das despesas mensais</p>
+          <p className="text-xs text-slate-500">Despesas e parcelas ativas do mês</p>
           {viewMode === "compact" && (
             <span className="text-[10px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full">
               Ver lista ↗
@@ -104,7 +104,7 @@ export default function MetricCards({
             <AnimatedNumber value={sobra} duration={1000} />
           </span>
         </div>
-        <p className="text-xs text-slate-500">Orçamento menos as despesas do mês</p>
+        <p className="text-xs text-slate-500">Orçamento menos gastos e parcelas do mês</p>
       </div>
 
       {/* Planejamento & Recebíveis - INTERATIVO */}

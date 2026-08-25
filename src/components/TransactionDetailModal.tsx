@@ -42,7 +42,7 @@ export default function TransactionDetailModal({
 }: TransactionDetailModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editDesc, setEditDesc] = useState("");
-  const [editAmount, setEditAmount] = useState<number>(0);
+  const [editAmountStr, setEditAmountStr] = useState("");
   const [editCategory, setEditCategory] = useState("");
   const [editDate, setEditDate] = useState("");
   const [editNote, setEditNote] = useState("");
@@ -56,7 +56,7 @@ export default function TransactionDetailModal({
   useEffect(() => {
     if (transaction) {
       setEditDesc(transaction.description || "");
-      setEditAmount(transaction.amount || 0);
+      setEditAmountStr(transaction.amount !== undefined ? String(transaction.amount) : "0");
       setEditCategory(transaction.category || "Outros");
       setEditDate(transaction.date || "");
       setEditNote(transaction.note || "");
@@ -84,9 +84,11 @@ export default function TransactionDetailModal({
       return;
     }
 
+    const parsedAmount = parseFloat(editAmountStr) || 0;
+
     onUpdateTransaction(transaction.id, {
       description: trimmed,
-      amount: editAmount,
+      amount: parsedAmount,
       category: editCategory,
       date: editDate,
       note: editNote,
@@ -213,8 +215,8 @@ export default function TransactionDetailModal({
                       type="number"
                       step="0.01"
                       min="0"
-                      value={editAmount}
-                      onChange={(e) => setEditAmount(parseFloat(e.target.value) || 0)}
+                      value={editAmountStr}
+                      onChange={(e) => setEditAmountStr(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 px-4 py-2.5 rounded-xl text-sm font-mono font-bold text-white focus:outline-none focus:border-indigo-500"
                     />
                   </div>

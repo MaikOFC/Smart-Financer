@@ -22,6 +22,7 @@ import { Transaction } from "../types";
 import TransactionDetailModal from "./TransactionDetailModal";
 import AnimatedNumber from "./AnimatedNumber";
 import { useModalBackHandler } from "../hooks/useBackNavigation";
+import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth } from "../utils/installmentUtils";
 
 interface FocusedSectionModalProps {
   isOpen: boolean;
@@ -111,18 +112,24 @@ export default function FocusedSectionModal({
   const isBottomSec = (sec: string) => sec === "bottom_left" || sec === "bottom" || sec === "parcelas" || sec === "devedores" || sec === "recebiveis";
 
   // Data filters
-  const currentMonthExpenses = transactions.filter(
+  const currentMonthDirectExpenses = transactions.filter(
     (t) => isLeftSec(t.tableSection) && (!t.date || t.date.startsWith(selectedMonth))
   );
+  const activeInstallmentsThisMonth = getActiveInstallmentsForMonth(transactions, selectedMonth);
+
+  // Combined expenses: direct monthly expenses + active installments for selected month
+  const currentMonthExpenses = [...currentMonthDirectExpenses, ...activeInstallmentsThisMonth];
 
   const currentMonthPlanning = transactions.filter(
-    (t) => isRightSec(t.tableSection) && (!t.date || t.date.startsWith(selectedMonth))
+    (t) => isRightSec(t.tableSection)
   );
 
   const allInstallments = transactions.filter((t) => isBottomSec(t.tableSection));
 
   // Compute Totals
-  const expensesTotal = currentMonthExpenses.reduce((sum, t) => (t.isDiscount ? sum - t.amount : sum + t.amount), 0);
+  const directExpensesTotal = currentMonthDirectExpenses.reduce((sum, t) => (t.isDiscount ? sum - t.amount : sum + t.amount), 0);
+  const monthlyInstallmentsTotal = getMonthlyInstallmentsTotal(transactions, selectedMonth);
+  const expensesTotal = directExpensesTotal + monthlyInstallmentsTotal;
   const planningTotal = currentMonthPlanning.reduce((sum, t) => sum + t.amount, 0);
 
   // Formatted Month Label
@@ -194,36 +201,66 @@ export default function FocusedSectionModal({
 
   // Render content helper for each slide
   const renderSectionContent = (list: Transaction[], type: "expenses" | "planning" | "installments") => {
+    const installmentsBanner = type === "expenses" && activeInstallmentsThisMonth.length > 0 ? (
+      <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-rose-500/20 text-rose-300 rounded-xl shrink-0">
+            <Layers className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-rose-200">
+              {activeInstallmentsThisMonth.length} parcela{activeInstallmentsThisMonth.length > 1 ? "s" : ""} ativa{activeInstallmentsThisMonth.length > 1 ? "s" : ""} neste mês
+            </p>
+            <p className="text-[10px] text-rose-300/80">
+              Contas do mês: R$ {directExpensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} + Parcelas: R$ {monthlyInstallmentsTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setActiveTab("installments")}
+          className="text-xs font-bold text-rose-300 hover:text-white bg-rose-500/20 hover:bg-rose-500/30 px-3 py-1.5 rounded-xl border border-rose-500/30 transition-all cursor-pointer self-start sm:self-center"
+        >
+          Ver Parcelas (R$ {monthlyInstallmentsTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}) →
+        </button>
+      </div>
+    ) : null;
+
     if (list.length === 0) {
       return (
-        <div className="py-20 text-center text-slate-400">
-          <p className="text-sm font-medium">Nenhum registro encontrado nesta categoria.</p>
-          <button
-            onClick={() => {
-              onAddTransaction(
-                type === "expenses"
-                  ? "left"
-                  : type === "planning"
-                  ? "right"
-                  : "bottom_left"
-              );
-            }}
-            className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border cursor-pointer transition-all ${
-              type === "planning"
-                ? "text-amber-400 hover:text-amber-300 bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/20"
-                : "text-rose-400 hover:text-rose-300 bg-rose-500/10 border-rose-500/25 hover:bg-rose-500/20"
-            }`}
-          >
-            <Plus className="w-4 h-4" /> Adicionar Primeiro Item
-          </button>
+        <div className="space-y-4">
+          {installmentsBanner}
+          <div className="py-16 text-center text-slate-400">
+            <p className="text-sm font-medium">Nenhum registro encontrado nesta categoria.</p>
+            <button
+              onClick={() => {
+                onAddTransaction(
+                  type === "expenses"
+                    ? "left"
+                    : type === "planning"
+                    ? "right"
+                    : "bottom_left"
+                );
+              }}
+              className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border cursor-pointer transition-all ${
+                type === "planning"
+                  ? "text-amber-400 hover:text-amber-300 bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/20"
+                  : "text-rose-400 hover:text-rose-300 bg-rose-500/10 border-rose-500/25 hover:bg-rose-500/20"
+              }`}
+            >
+              <Plus className="w-4 h-4" /> Adicionar Primeiro Item
+            </button>
+          </div>
         </div>
       );
     }
 
     return (
-      <div className="divide-y divide-slate-800/80 bg-slate-900/60 rounded-2xl border border-slate-800/80 overflow-hidden shadow-sm">
-        {list.map((t) => {
-          const remainingCount = type === "installments" ? getRemainingInstallments(t.date) : 0;
+      <div className="space-y-3">
+        {installmentsBanner}
+        <div className="divide-y divide-slate-800/80 bg-slate-900/60 rounded-2xl border border-slate-800/80 overflow-hidden shadow-sm">
+          {list.map((t) => {
+          const isInst = isBottomSec(t.tableSection);
+          const remainingCount = isInst ? getRemainingInstallments(t.date) : 0;
           const remainingBalance = t.amount * remainingCount;
 
           return (
@@ -231,22 +268,38 @@ export default function FocusedSectionModal({
               key={t.id}
               onClick={() => setSelectedTransactionForDetail(t)}
               className={`p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-slate-800/50 active:bg-slate-800/70 transition-all cursor-pointer group ${
-                t.isOrangeHighlight
+                isInst && type === "expenses"
+                  ? "border-l-4 border-purple-500 bg-purple-500/5"
+                  : t.isOrangeHighlight
                   ? "border-l-4 border-amber-500 bg-amber-500/5"
                   : t.isDiscount
                   ? "border-l-4 border-emerald-500 bg-emerald-500/5"
                   : type === "planning"
                   ? "border-l-4 border-amber-500/40 hover:border-amber-500"
+                  : type === "installments"
+                  ? "border-l-4 border-purple-500/40 hover:border-purple-500"
                   : "border-l-4 border-rose-500/40 hover:border-rose-500"
               }`}
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-sm font-bold text-white transition-colors ${
-                    type === "planning" ? "group-hover:text-amber-400" : "group-hover:text-rose-400"
+                    isInst && type === "expenses"
+                      ? "group-hover:text-purple-400"
+                      : type === "planning"
+                      ? "group-hover:text-amber-400"
+                      : type === "installments"
+                      ? "group-hover:text-purple-400"
+                      : "group-hover:text-rose-400"
                   }`}>
                     {t.description}
                   </span>
+                  {isInst && type === "expenses" && (
+                    <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-1">
+                      <Layers className="w-3 h-3 text-purple-400" />
+                      Parcela ({remainingCount}x rest.)
+                    </span>
+                  )}
                   {t.isDiscount && (
                     <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded uppercase font-bold not-italic">
                       Ganho
@@ -279,6 +332,8 @@ export default function FocusedSectionModal({
                         ? "text-emerald-400"
                         : type === "planning"
                         ? "text-amber-400"
+                        : isInst && type === "expenses"
+                        ? "text-purple-300"
                         : "text-rose-400"
                     }`}
                   >
@@ -328,6 +383,7 @@ export default function FocusedSectionModal({
             </div>
           );
         })}
+        </div>
       </div>
     );
   };

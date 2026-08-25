@@ -44,15 +44,25 @@ export default function AddTransactionModal({
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [date, setDate] = useState("");
   const [startMonth, setStartMonth] = useState(selectedMonth);
-  const [installmentCount, setInstallmentCount] = useState<number>(6);
+  const [installmentCountStr, setInstallmentCountStr] = useState<string>("6");
   const [note, setNote] = useState("");
   const [isOrangeHighlight, setIsOrangeHighlight] = useState(false);
   const [isDiscount, setIsDiscount] = useState(false);
+  const [isInstallment, setIsInstallment] = useState(false);
 
   // Integração com o botão voltar do celular
   useModalBackHandler(isOpen, onClose, "add_transaction_modal");
 
   const availableCategories = categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES;
+
+  // Effective section determines whether this transaction behaves as an installment
+  const isEffectiveInstallment = section === "bottom_left" || (section === "left" && isInstallment);
+  const effectiveSection: "left" | "right" | "bottom_left" = isEffectiveInstallment
+    ? "bottom_left"
+    : section;
+
+  // Parsed installment count with safe fallback
+  const parsedInstallmentCount = Math.max(1, parseInt(installmentCountStr, 10) || 1);
 
   // Check if an item with the same name already exists in the same section for the current month / list
   const duplicateMatch = useMemo(() => {
@@ -60,16 +70,18 @@ export default function AddTransactionModal({
     if (!trimmedDesc || !existingTransactions) return null;
 
     return existingTransactions.find((t) => {
-      // Must match same table section
-      if (t.tableSection !== section) return false;
+      // Must match same effective table section
+      if (t.tableSection !== effectiveSection) return false;
 
-      // Check month filter (for left and right tables, check if date matches selected month or has no date)
-      const matchesMonth = !t.date || t.date.startsWith(selectedMonth);
-      if (!matchesMonth && section !== "bottom_left") return false;
+      // For left table (gastos do mês normais), check month filter. For right and bottom_left (parcelas), check across all
+      if (effectiveSection === "left") {
+        const matchesMonth = !t.date || t.date.startsWith(selectedMonth);
+        if (!matchesMonth) return false;
+      }
 
       return t.description.trim().toLowerCase() === trimmedDesc;
     });
-  }, [description, existingTransactions, section, selectedMonth]);
+  }, [description, existingTransactions, effectiveSection, selectedMonth]);
 
   const isDuplicate = !!duplicateMatch;
 
@@ -84,8 +96,9 @@ export default function AddTransactionModal({
       setNote("");
       setIsOrangeHighlight(false);
       setIsDiscount(false);
+      setIsInstallment(section === "bottom_left");
       setStartMonth(selectedMonth);
-      setInstallmentCount(6);
+      setInstallmentCountStr("6");
 
       // Default date logic:
       if (section === "bottom_left") {
@@ -103,15 +116,17 @@ export default function AddTransactionModal({
   }, [isOpen, section, selectedMonth]);
 
   // Sync installment count when startMonth or installmentCount changes
-  const handleInstallmentCountChange = (count: number) => {
-    const safeCount = Math.max(1, count || 1);
-    setInstallmentCount(safeCount);
-    setDate(calculateEndDateFromInstallments(startMonth, safeCount));
+  const handleInstallmentCountChange = (valStr: string) => {
+    setInstallmentCountStr(valStr);
+    const parsed = parseInt(valStr, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      setDate(calculateEndDateFromInstallments(startMonth, Math.min(120, parsed)));
+    }
   };
 
   const handleStartMonthChange = (sMonth: string) => {
     setStartMonth(sMonth);
-    setDate(calculateEndDateFromInstallments(sMonth, installmentCount));
+    setDate(calculateEndDateFromInstallments(sMonth, parsedInstallmentCount));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -137,22 +152,23 @@ export default function AddTransactionModal({
       }
     }
 
-    const finalEndDate = section === "bottom_left"
-      ? calculateEndDateFromInstallments(startMonth, installmentCount)
+    const finalCount = Math.max(1, parseInt(installmentCountStr, 10) || 1);
+    const finalEndDate = isEffectiveInstallment
+      ? calculateEndDateFromInstallments(startMonth, finalCount)
       : date;
 
     const newTransaction: Omit<Transaction, "id"> = {
       description: description.trim(),
       amount,
       date: finalEndDate,
-      startDate: section === "bottom_left" ? startMonth : undefined,
-      totalInstallments: section === "bottom_left" ? installmentCount : undefined,
+      startDate: isEffectiveInstallment ? startMonth : undefined,
+      totalInstallments: isEffectiveInstallment ? finalCount : undefined,
       type: "expense",
-      tableSection: section,
+      tableSection: effectiveSection,
       category: finalCategory,
-      isOrangeHighlight: section === "left" ? isOrangeHighlight : false,
-      isDiscount: section === "left" ? isDiscount : false,
-      note: section === "right" ? note.trim() : section === "bottom_left" ? `${installmentCount}x parcelas` : "",
+      isOrangeHighlight: section === "left" && !isEffectiveInstallment ? isOrangeHighlight : false,
+      isDiscount: section === "left" && !isEffectiveInstallment ? isDiscount : false,
+      note: section === "right" ? note.trim() : isEffectiveInstallment ? `${finalCount}x parcelas` : "",
     };
 
     onAdd(newTransaction);
@@ -161,16 +177,16 @@ export default function AddTransactionModal({
 
   const sectionName =
     section === "left"
-      ? "Gastos do Mês"
+      ? (isEffectiveInstallment ? "Gastos do Mês (Parcelado)" : "Gastos do Mês")
       : section === "right"
       ? "Planejamento & Compras Futuras"
       : "Parcelas e Devedores";
 
   const sectionBadgeColor =
-    section === "left"
+    isEffectiveInstallment
+      ? "text-purple-400 bg-purple-500/10 border-purple-500/20"
+      : section === "left"
       ? "text-rose-400 bg-rose-500/10 border-rose-500/20"
-      : section === "right"
-      ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
       : "text-amber-400 bg-amber-500/10 border-amber-500/20";
 
   const formatMonthNice = (mStr: string) => {
@@ -185,7 +201,7 @@ export default function AddTransactionModal({
   };
 
   const parsedAmount = parseFloat(amountStr) || 0;
-  const totalParcelasCost = parsedAmount * installmentCount;
+  const totalParcelasCost = parsedAmount * parsedInstallmentCount;
 
   return (
     <AnimatePresence>
@@ -215,23 +231,23 @@ export default function AddTransactionModal({
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className={`p-2.5 rounded-2xl border ${
-                  section === "left"
+                  isEffectiveInstallment
+                    ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                    : section === "left"
                     ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                    : section === "right"
-                    ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
                     : "bg-amber-500/10 text-amber-400 border-amber-500/20"
                 }`}>
-                  {section === "left" ? (
-                    <TrendingDown className="w-5 h-5" />
-                  ) : section === "right" ? (
-                    <TrendingUp className="w-5 h-5" />
-                  ) : (
+                  {isEffectiveInstallment ? (
                     <Layers className="w-5 h-5" />
+                  ) : section === "left" ? (
+                    <TrendingDown className="w-5 h-5" />
+                  ) : (
+                    <TrendingUp className="w-5 h-5" />
                   )}
                 </div>
                 <div>
                   <span className={`text-[10px] font-black tracking-widest uppercase px-2.5 py-0.5 rounded-full border ${sectionBadgeColor}`}>
-                    {section === "left" ? "Adicionar Gasto" : section === "bottom_left" ? "Nova Parcela" : "Adicionar Item"}
+                    {isEffectiveInstallment ? "Nova Parcela" : section === "left" ? "Adicionar Gasto" : "Adicionar Item"}
                   </span>
                   <h3 className="text-lg font-bold text-white mt-1">
                     {sectionName}
@@ -252,7 +268,7 @@ export default function AddTransactionModal({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                    {section === "bottom_left" ? "Descrição da Parcela / Devedor" : "Nome do Produto / Descrição"}
+                    {isEffectiveInstallment ? "Descrição da Parcela / Devedor" : "Nome do Produto / Descrição"}
                   </label>
                   {isDuplicate && (
                     <span className="text-[10px] font-bold text-rose-400 flex items-center gap-1 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
@@ -265,7 +281,7 @@ export default function AddTransactionModal({
                   <input
                     type="text"
                     required
-                    placeholder={section === "bottom_left" ? "Ex: Celular, Notebook, Seguro..." : "Ex: Assinatura Netflix, Monitor 4K"}
+                    placeholder={isEffectiveInstallment ? "Ex: Celular, Notebook, Seguro..." : "Ex: Assinatura Netflix, Supermercado"}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     className={`w-full bg-slate-950 border px-4 py-3 pl-11 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none transition-all font-medium ${
@@ -295,7 +311,7 @@ export default function AddTransactionModal({
               </div>
 
               {/* Grid for Price & Date / Installment controls */}
-              {section === "bottom_left" ? (
+              {isEffectiveInstallment ? (
                 /* Configuração Específica de Parcelas */
                 <div className="space-y-4 pt-1">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -330,8 +346,9 @@ export default function AddTransactionModal({
                           min="1"
                           max="120"
                           required
-                          value={installmentCount}
-                          onChange={(e) => handleInstallmentCountChange(parseInt(e.target.value, 10) || 1)}
+                          placeholder="Ex: 6"
+                          value={installmentCountStr}
+                          onChange={(e) => handleInstallmentCountChange(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-800 px-4 py-3 pl-11 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-bold font-mono"
                         />
                       </div>
@@ -360,7 +377,7 @@ export default function AddTransactionModal({
                       <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                         Mês da Última Parcela (Quitação)
                       </label>
-                      <div className="p-3 bg-slate-950 border border-slate-800/80 rounded-xl text-xs font-mono font-bold text-amber-300 flex items-center justify-between">
+                      <div className="p-3 bg-slate-950 border border-slate-800/80 rounded-xl text-xs font-mono font-bold text-purple-300 flex items-center justify-between">
                         <span>{formatMonthNice(date.substring(0, 7))}</span>
                         <span className="text-[10px] text-slate-500 font-normal">Auto-calculado</span>
                       </div>
@@ -368,7 +385,7 @@ export default function AddTransactionModal({
                   </div>
 
                   {/* Resumo da projeção */}
-                  <div className="p-3.5 bg-slate-950/70 border border-amber-500/20 rounded-2xl space-y-1 text-xs">
+                  <div className="p-3.5 bg-slate-950/70 border border-purple-500/20 rounded-2xl space-y-1 text-xs">
                     <div className="flex items-center justify-between text-slate-300">
                       <span className="text-slate-400">Impacto Mensal:</span>
                       <span className="font-bold font-mono text-rose-400">
@@ -376,13 +393,13 @@ export default function AddTransactionModal({
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-slate-300">
-                      <span className="text-slate-400">Custo Total ({installmentCount}x):</span>
+                      <span className="text-slate-400">Custo Total ({parsedInstallmentCount}x):</span>
                       <span className="font-black font-mono text-white">
                         R$ {totalParcelasCost.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
-                      Essa parcela será automaticamente incluída nos gastos dos próximos meses ({formatMonthNice(startMonth)} até {formatMonthNice(date.substring(0, 7))}) até acabar.
+                      Essa parcela será incluída automaticamente nos gastos mensais de {formatMonthNice(startMonth)} até {formatMonthNice(date.substring(0, 7))}.
                     </p>
                   </div>
                 </div>
@@ -491,13 +508,16 @@ export default function AddTransactionModal({
               )}
 
               {section === "left" && (
-                <div className="pt-2 flex flex-col sm:flex-row gap-4">
-                  {/* Orange Highlight (Destaque) Toggle */}
+                <div className="pt-2 flex flex-col gap-2.5">
+                  {/* Destacar item */}
                   <label className="flex items-center gap-3 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={isOrangeHighlight}
-                      onChange={(e) => setIsOrangeHighlight(e.target.checked)}
+                      onChange={(e) => {
+                        setIsOrangeHighlight(e.target.checked);
+                        if (e.target.checked) setIsDiscount(false);
+                      }}
                       className="sr-only peer"
                     />
                     <div className="w-5 h-5 rounded-md border border-slate-700 bg-slate-950 flex items-center justify-center peer-checked:border-amber-500 peer-checked:bg-amber-500/10 text-transparent peer-checked:text-amber-400 transition-all">
@@ -509,12 +529,19 @@ export default function AddTransactionModal({
                     </div>
                   </label>
 
-                  {/* Gain / Discount Toggle */}
-                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                  {/* É um ganho? */}
+                  <label className={`flex items-center gap-3 cursor-pointer select-none ${isInstallment ? "opacity-40 cursor-not-allowed" : ""}`}>
                     <input
                       type="checkbox"
+                      disabled={isInstallment}
                       checked={isDiscount}
-                      onChange={(e) => setIsDiscount(e.target.checked)}
+                      onChange={(e) => {
+                        setIsDiscount(e.target.checked);
+                        if (e.target.checked) {
+                          setIsOrangeHighlight(false);
+                          setIsInstallment(false);
+                        }
+                      }}
                       className="sr-only peer"
                     />
                     <div className="w-5 h-5 rounded-md border border-slate-700 bg-slate-950 flex items-center justify-center peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 text-transparent peer-checked:text-emerald-400 transition-all">
@@ -523,6 +550,38 @@ export default function AddTransactionModal({
                     <div className="flex flex-col">
                       <span className="text-xs font-bold text-slate-200">É um ganho?</span>
                       <span className="text-[10px] text-slate-500">Subtrai do total de gastos</span>
+                    </div>
+                  </label>
+
+                  {/* É uma parcela? */}
+                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isInstallment}
+                      onChange={(e) => {
+                        const val = e.target.checked;
+                        setIsInstallment(val);
+                        if (val) {
+                          setIsDiscount(false);
+                          setDate(calculateEndDateFromInstallments(startMonth, parsedInstallmentCount));
+                        } else {
+                          const today = new Date();
+                          const todayYYYYMM = today.toISOString().slice(0, 7);
+                          if (todayYYYYMM === selectedMonth) {
+                            setDate(today.toISOString().slice(0, 10));
+                          } else {
+                            setDate(`${selectedMonth}-15`);
+                          }
+                        }
+                      }}
+                      className="sr-only peer"
+                    />
+                    <div className="w-5 h-5 rounded-md border border-slate-700 bg-slate-950 flex items-center justify-center peer-checked:border-purple-500 peer-checked:bg-purple-500/20 text-transparent peer-checked:text-purple-400 transition-all">
+                      <Layers className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-200">É uma parcela?</span>
+                      <span className="text-[10px] text-purple-400/90 font-medium">Divide em parcelas mensais futuras</span>
                     </div>
                   </label>
                 </div>
@@ -545,11 +604,15 @@ export default function AddTransactionModal({
                       ? "bg-rose-500/20 text-rose-300 border border-rose-500/30 cursor-not-allowed opacity-75 shadow-none"
                       : "bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white shadow-indigo-500/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   }`}
-                  title={isDuplicate ? "Não é possível cadastrar: item duplicado" : "Adicionar Item"}
+                  title={isDuplicate ? "Não é possível cadastrar: item duplicado" : isEffectiveInstallment ? "Adicionar Parcela" : "Adicionar Item"}
                 >
                   {isDuplicate ? (
                     <>
                       <ShieldAlert className="w-3.5 h-3.5" /> Item Duplicado (Bloqueado)
+                    </>
+                  ) : isEffectiveInstallment ? (
+                    <>
+                      <Layers className="w-3.5 h-3.5" /> Adicionar Parcela
                     </>
                   ) : (
                     "Adicionar Item"

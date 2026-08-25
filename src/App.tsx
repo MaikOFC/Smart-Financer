@@ -47,6 +47,7 @@ import AdminSettingsModal from "./components/AdminSettingsModal";
 import WelcomeOnboardingModal from "./components/WelcomeOnboardingModal";
 import UserMenuDrawer from "./components/UserMenuDrawer";
 import FocusedSectionModal from "./components/FocusedSectionModal";
+import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth } from "./utils/installmentUtils";
 import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "./lib/admin";
 import { ThemeMode, getStoredThemeMode, saveThemeMode, applyTheme } from "./lib/theme";
 import { checkServerVersion, forceReloadApp, CURRENT_CLIENT_VERSION } from "./lib/updateManager";
@@ -604,16 +605,22 @@ export default function App() {
     (t) => !!t.date && t.date.startsWith(selectedMonth) && !isBottomSec(t.tableSection)
   );
 
-  // Left total = Left expenses sum - left discount sum
-  const leftExpensesTotal = currentMonthTransactions
+  // Despesas diretas do mês corrente (contas de consumo, etc.)
+  const directLeftExpensesTotal = currentMonthTransactions
     .filter((t) => isLeftSec(t.tableSection))
     .reduce((acc, t) => {
       if (t.isDiscount) return acc - t.amount;
       return acc + t.amount;
     }, 0);
 
-  // Right total
-  const rightExpensesTotal = currentMonthTransactions
+  // Valor total das parcelas ativas devidas no mês selecionado
+  const monthlyInstallmentsTotal = getMonthlyInstallmentsTotal(transactions, selectedMonth);
+
+  // Total de gastos do mês = contas mensais diretas + parcelas ativas do mês
+  const leftExpensesTotal = directLeftExpensesTotal + monthlyInstallmentsTotal;
+
+  // Right total (Planejamento Futuro / Compras Futuras - visível em todas as datas)
+  const rightExpensesTotal = transactions
     .filter((t) => isRightSec(t.tableSection))
     .reduce((acc, t) => acc + t.amount, 0);
 
@@ -639,7 +646,7 @@ export default function App() {
       return acc + (t.amount * remainingCount);
     }, 0);
 
-  // Sobra = Budget (Income) - Left expenses
+  // Sobra = Orçamento - Gastos totais do mês (contas + parcelas ativas)
   const sobra = activeBudget - leftExpensesTotal;
 
   // Add a new transaction (called from the AddTransactionModal)
@@ -649,8 +656,10 @@ export default function App() {
     // Strict duplicate check to ensure no duplicates can be inserted
     const isDup = transactions.some((t) => {
       if (t.tableSection !== newTransaction.tableSection) return false;
-      const matchesMonth = !t.date || t.date.startsWith(selectedMonth);
-      if (!matchesMonth && newTransaction.tableSection !== "bottom_left") return false;
+      if (newTransaction.tableSection === "left") {
+        const matchesMonth = !t.date || t.date.startsWith(selectedMonth);
+        if (!matchesMonth) return false;
+      }
       return t.description.trim().toLowerCase() === newTransaction.description.trim().toLowerCase();
     });
 
@@ -791,7 +800,7 @@ export default function App() {
   // One-click permanent deduplication for a table section
   const handleDeduplicateSection = async (section: "left" | "right" | "bottom_left") => {
     const filterByMonth = (t: Transaction) => {
-      if (t.tableSection === "bottom_left") return true;
+      if (t.tableSection === "bottom_left" || t.tableSection === "right") return true;
       return !t.date || t.date.startsWith(selectedMonth);
     };
 

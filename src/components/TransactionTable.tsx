@@ -13,9 +13,12 @@ import {
   AlertCircle,
   Copy,
   Info,
+  Layers,
+  Eye,
 } from "lucide-react";
 import TransactionDetailModal from "./TransactionDetailModal";
 import AnimatedNumber from "./AnimatedNumber";
+import { getMonthlyInstallmentsTotal, isInstallmentActiveInMonth, getRemainingInstallments } from "../utils/installmentUtils";
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -41,7 +44,7 @@ export default function TransactionTable({
   // Local state for editing rows
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDesc, setEditDesc] = useState("");
-  const [editAmount, setEditAmount] = useState<number>(0);
+  const [editAmountStr, setEditAmountStr] = useState<string>("");
   const [editNote, setEditNote] = useState("");
   const [editCategory, setEditCategory] = useState("");
   const [editDate, setEditDate] = useState("");
@@ -53,7 +56,7 @@ export default function TransactionTable({
   const startEditing = (t: Transaction) => {
     setEditingId(t.id);
     setEditDesc(t.description);
-    setEditAmount(t.amount);
+    setEditAmountStr(t.amount !== undefined ? String(t.amount) : "");
     setEditNote(t.note || "");
     setEditCategory(t.category || "Outros");
     setEditDate(t.date);
@@ -85,9 +88,11 @@ export default function TransactionTable({
       return;
     }
 
+    const parsedAmt = parseFloat(editAmountStr) || 0;
+
     onUpdateTransaction(id, {
       description: trimmedDesc,
-      amount: editAmount,
+      amount: parsedAmt,
       note: editNote,
       category: editCategory,
       date: editDate,
@@ -104,8 +109,9 @@ export default function TransactionTable({
   // Filter transactions for the selected month
   const filterByMonth = (t: Transaction) => {
     const isBottom = t.tableSection === "bottom_left" || (t.tableSection as any) === "bottom";
-    if (isBottom) return true; // Keep all receivables visible
-    return !!t.date && t.date.startsWith(selectedMonth);
+    const isRight = isRightSec(t.tableSection);
+    if (isBottom || isRight) return true; // Keep all receivables and future planning items visible across all months
+    return !t.date || t.date.startsWith(selectedMonth);
   };
 
   const isLeftSec = (sec: string) => sec === "left" || sec === "esquerda" || sec === "despesas";
@@ -141,9 +147,17 @@ export default function TransactionTable({
     else setRightSortBy("price-desc");
   };
 
-  const rawLeftTransactions = transactions.filter((t) => isLeftSec(t.tableSection) && filterByMonth(t));
-  const rawRightTransactions = transactions.filter((t) => isRightSec(t.tableSection) && filterByMonth(t));
-  const bottomTransactions = transactions.filter((t) => isBottomSec(t.tableSection) && filterByMonth(t));
+  // Direct monthly expenses for selected month
+  const rawDirectLeftTransactions = transactions.filter((t) => isLeftSec(t.tableSection) && filterByMonth(t));
+  
+  // Active installments due in the selected month
+  const activeInstallmentsThisMonth = transactions.filter((t) => isInstallmentActiveInMonth(t, selectedMonth));
+  
+  // Unified Left Table: Contains both direct monthly expenses and active installments
+  const rawLeftTransactions = [...rawDirectLeftTransactions, ...activeInstallmentsThisMonth];
+
+  const rawRightTransactions = transactions.filter((t) => isRightSec(t.tableSection));
+  const bottomTransactions = transactions.filter((t) => isBottomSec(t.tableSection));
 
   // Check if there are transactions in other months
   const allLeftOtherMonths = transactions.filter((t) => isLeftSec(t.tableSection) && !t.date?.startsWith(selectedMonth));
@@ -243,13 +257,19 @@ export default function TransactionTable({
     return list;
   }, [rawRightTransactions, onlyDuplicates, rightSortBy, rightDuplicatesInfo]);
 
-  // Compute Left Table Total
-  const leftTotal = leftTransactions.reduce((acc, t) => {
+  // Direct expenses total (excluding active installments)
+  const directExpensesTotal = rawDirectLeftTransactions.reduce((acc, t) => {
     if (t.isDiscount) {
       return acc - t.amount;
     }
     return acc + t.amount;
   }, 0);
+
+  // Active monthly installments due for this selected month
+  const monthlyInstallments = getMonthlyInstallmentsTotal(transactions, selectedMonth);
+
+  // Combined Left Table Total (direct expenses + active installments)
+  const totalMonthlyExpenses = directExpensesTotal + monthlyInstallments;
 
   // Compute Right Table Total
   const rightTotal = rawRightTransactions.reduce((acc, t) => acc + t.amount, 0);
@@ -370,7 +390,10 @@ export default function TransactionTable({
                 ) : (
                   leftTransactions.map((t) => {
                     const isEditing = editingId === t.id;
-                    const rowBg = t.isOrangeHighlight
+                    const isInst = isBottomSec(t.tableSection);
+                    const rowBg = isInst
+                      ? "bg-purple-500/[0.03] hover:bg-purple-500/[0.08] border-l-4 border-purple-500/50 text-slate-200"
+                      : t.isOrangeHighlight
                       ? "bg-amber-500/5 hover:bg-amber-500/10 text-amber-300 border-l-4 border-amber-500"
                       : t.isDiscount
                       ? "bg-slate-800/40 hover:bg-slate-800/50 text-slate-400 italic border-l-4 border-slate-600"
@@ -409,8 +432,14 @@ export default function TransactionTable({
                               )}
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-semibold text-slate-100 group-hover:text-white transition-colors">{t.description}</span>
+                              {isInst && (
+                                <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-1">
+                                  <Layers className="w-3 h-3 text-purple-400" />
+                                  Parcela ({getRemainingInstallments(t.date, selectedMonth)}x)
+                                </span>
+                              )}
                               {t.isDiscount && (
                                 <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded uppercase font-bold not-italic">
                                   Ganho
@@ -448,8 +477,8 @@ export default function TransactionTable({
                               <input
                                 type="number"
                                 step="0.01"
-                                value={editAmount}
-                                onChange={(e) => setEditAmount(parseFloat(e.target.value) || 0)}
+                                value={editAmountStr}
+                                onChange={(e) => setEditAmountStr(e.target.value)}
                                 className="bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg w-24 text-xs text-white focus:outline-none focus:border-indigo-500"
                               />
                             </div>
@@ -534,10 +563,17 @@ export default function TransactionTable({
         </div>
 
         {/* Total da Tabela de Despesas */}
-        <div className="mt-6 border-t border-slate-800 pt-4 flex items-center justify-between">
-          <span className="font-bold text-slate-400 text-xs uppercase tracking-wider">Total Despesas:</span>
+        <div className="mt-6 border-t border-slate-800 pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <span className="font-bold text-slate-400 text-xs uppercase tracking-wider">Total Gastos do Mês:</span>
+            {monthlyInstallments > 0 && (
+              <p className="text-[11px] text-slate-400 font-medium font-sans">
+                (Contas: R$ {directExpensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} + Parcelas ativas: R$ {monthlyInstallments.toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
+              </p>
+            )}
+          </div>
           <div className="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-4 py-2 rounded-2xl text-base font-black font-mono">
-            R$ <AnimatedNumber value={leftTotal} duration={1000} />
+            R$ <AnimatedNumber value={totalMonthlyExpenses} duration={1000} />
           </div>
         </div>
       </div>
@@ -748,8 +784,8 @@ export default function TransactionTable({
                               <input
                                 type="number"
                                 step="0.01"
-                                value={editAmount}
-                                onChange={(e) => setEditAmount(parseFloat(e.target.value) || 0)}
+                                value={editAmountStr}
+                                onChange={(e) => setEditAmountStr(e.target.value)}
                                 className="bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg w-24 text-xs text-white focus:outline-none"
                               />
                             </div>
@@ -860,18 +896,18 @@ export default function TransactionTable({
 
       {/* SEÇÃO INFERIOR - PARCELAS / RECEBÍVEIS */}
       <div id="table-bottom-container" className="lg:col-span-2 bg-slate-900 rounded-3xl border border-slate-800 p-6 hover:border-slate-700/50 transition-all">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
-            <h3 className="text-base font-bold text-white">Parcelas, Reembolsos e Devedores</h3>
-            <p className="text-xs text-slate-400">Controle de dinheiro emprestado ou a receber de parentes e amigos</p>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-bold text-white">Visualização de Parcelas & Devedores</h3>
+              <span className="text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Eye className="w-3 h-3" /> Apenas Visualização
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Acompanhamento centralizado de todas as compras parceladas e devedores cadastrados em Gastos do Mês
+            </p>
           </div>
-          <button
-            id="btn-add-bottom"
-            onClick={() => onAddTransaction("bottom_left")}
-            className="flex items-center gap-1.5 text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3.5 py-1.5 rounded-xl border border-emerald-500/15 transition-all"
-          >
-            <Plus className="w-4 h-4" /> Adicionar Parcela
-          </button>
         </div>
 
         <div className="overflow-x-auto">
@@ -970,8 +1006,8 @@ export default function TransactionTable({
                             <input
                               type="number"
                               step="0.01"
-                              value={editAmount}
-                              onChange={(e) => setEditAmount(parseFloat(e.target.value) || 0)}
+                              value={editAmountStr}
+                              onChange={(e) => setEditAmountStr(e.target.value)}
                               className="bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg w-24 text-xs text-white focus:outline-none focus:border-indigo-500"
                             />
                           </div>
