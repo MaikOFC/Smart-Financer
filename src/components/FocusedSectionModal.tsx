@@ -369,9 +369,7 @@ export default function FocusedSectionModal({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (window.confirm(`Deseja excluir "${t.description}"?`)) {
-                        onDeleteTransaction(t.id);
-                      }
+                      onDeleteTransaction(t.id);
                     }}
                     className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 cursor-pointer"
                     title="Excluir item"

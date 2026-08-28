@@ -389,7 +389,7 @@ app.get("/api/system-status", (req, res) => {
       nodeVersion: process.version,
       uptimeSeconds: Math.floor(process.uptime()),
       environment: process.env.NODE_ENV || "development",
-      aiModelIntegration: !!process.env.GEMINI_API_KEY ? "Gemini API Ativa" : "Não Configurado",
+      aiModelIntegration: !!process.env.GEMINI_API_KEY ? "Gemini 2.5 Flash Ativo" : "Não Configurado",
     },
     timestamp: new Date().toISOString(),
   });
@@ -403,28 +403,36 @@ app.get("/api/config", (req, res) => {
   });
 });
 
-// Candidate models in order of priority (respecting @google/genai guidelines)
+// Candidate models in order of priority (Fast, lightweight & economic flash models)
 const CANDIDATE_MODELS = [
-  "gemini-3.7-flash",
   "gemini-3.1-flash-lite",
+  "gemini-3.7-flash",
   "gemini-flash-latest",
 ];
 
-// Helper to call Gemini with automatic exponential backoff and model fallback on 503 / 429 / demand spikes
+// Helper to call Gemini with automatic exponential backoff, timeout and model fallback
 async function callGeminiWithFallback(aiClient: GoogleGenAI, requestConfig: any): Promise<any> {
   let lastError: any = null;
 
   for (const modelName of CANDIDATE_MODELS) {
-    // Try up to 2 attempts per model
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         console.log(`[Gemini] Requesting model ${modelName} (attempt ${attempt + 1})...`);
-        const response = await aiClient.models.generateContent({
+        
+        // Wrap with a 15-second timeout per attempt to guarantee no infinite hanging
+        const generatePromise = aiClient.models.generateContent({
           ...requestConfig,
           model: modelName,
         });
 
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout ao conectar com modelo ${modelName}`)), 15000)
+        );
+
+        const response: any = await Promise.race([generatePromise, timeoutPromise]);
+
         if (response && response.text) {
+          console.log(`[Gemini] Model ${modelName} responded successfully.`);
           return response;
         }
       } catch (err: any) {
@@ -442,11 +450,11 @@ async function callGeminiWithFallback(aiClient: GoogleGenAI, requestConfig: any)
           errMessage.includes("429") ||
           errMessage.includes("high demand") ||
           errMessage.includes("temporarily unavailable") ||
-          errMessage.includes("UNAVAILABLE");
+          errMessage.includes("UNAVAILABLE") ||
+          errMessage.includes("Timeout");
 
         if (isTransient && attempt === 0) {
-          // Wait 1.5 seconds before retrying same model
-          await new Promise((resolve) => setTimeout(resolve, 1500));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
           continue;
         }
 

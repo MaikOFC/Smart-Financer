@@ -945,13 +945,21 @@ export default function App() {
     const promptToSend = customPrompt || advisorQuery;
     if (!promptToSend.trim()) return;
 
+    if (customPrompt) {
+      setAdvisorQuery(customPrompt);
+    }
+
     setAdvisorLoading(true);
     setAdvisorResponse(null);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
       const response = await fetch("/api/ask-advisor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           prompt: promptToSend,
           transactions: transactions.filter((t) => t.date.startsWith(selectedMonth)),
@@ -960,6 +968,7 @@ export default function App() {
         }),
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
       if (!response.ok || data.error) {
         throw new Error(data.error || "Erro ao consultar IA.");
@@ -967,8 +976,13 @@ export default function App() {
 
       setAdvisorResponse(data.answer);
     } catch (err: any) {
+      clearTimeout(timeoutId);
       console.error(err);
-      setAdvisorResponse(`Erro ao contatar o consultor de IA: ${err.message}`);
+      if (err.name === "AbortError") {
+        setAdvisorResponse("A requisição demorou muito para responder. Por favor, tente novamente em instantes.");
+      } else {
+        setAdvisorResponse(`Erro ao contatar o consultor de IA: ${err.message || "Tente novamente mais tarde."}`);
+      }
     } finally {
       setAdvisorLoading(false);
     }

@@ -119,10 +119,8 @@ export default function TransactionDetailModal({
   };
 
   const handleDelete = () => {
-    if (window.confirm(`Deseja excluir "${transaction.description}"?`)) {
-      onDeleteTransaction(transaction.id);
-      onClose();
-    }
+    onDeleteTransaction(transaction.id);
+    onClose();
   };
 
   // Formatted date

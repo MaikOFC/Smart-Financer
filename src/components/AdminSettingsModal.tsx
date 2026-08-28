@@ -177,7 +177,7 @@ export default function AdminSettingsModal({
           nodeVersion: "Node.js v20+",
           uptimeSeconds: 0,
           environment: "production",
-          aiModelIntegration: "Gemini Ativo",
+          aiModelIntegration: "Gemini 2.5 Flash Ativo",
         },
         timestamp: new Date().toISOString(),
       });
