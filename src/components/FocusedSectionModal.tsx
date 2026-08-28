@@ -406,7 +406,7 @@ export default function FocusedSectionModal({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 30 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="relative w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-4xl bg-slate-950 sm:bg-slate-900 border-0 sm:border border-slate-800 rounded-none sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col z-10"
+          className="relative w-full h-full sm:h-[88vh] sm:max-h-[850px] sm:max-w-4xl bg-slate-950 sm:bg-slate-900 border-0 sm:border border-slate-800 rounded-none sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col min-h-0 z-10"
         >
           {/* Header Superior - Mobile & Desktop */}
           <div className="p-3.5 sm:p-6 pt-[max(0.875rem,env(safe-area-inset-top,0px))] border-b border-slate-800 bg-slate-900/95 flex items-center justify-between gap-3 sticky top-0 z-20 backdrop-blur-md">
@@ -616,25 +616,25 @@ export default function FocusedSectionModal({
           <div
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
-            className="flex-1 overflow-hidden relative touch-pan-y"
+            className="flex-1 min-h-0 overflow-hidden relative touch-pan-y"
           >
             <motion.div
               animate={{ x: `-${(activeIndex * 100) / 3}%` }}
               transition={{ type: "tween", ease: [0.25, 1, 0.5, 1], duration: 0.28 }}
-              className="flex w-[300%] h-full"
+              className="flex w-[300%] h-full min-h-0"
             >
               {/* SLIDE 1: DESPESAS */}
-              <div className="w-1/3 h-full overflow-y-auto p-3 sm:p-6 pb-28 sm:pb-6">
+              <div className="w-1/3 h-full min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-6 pb-28 sm:pb-6">
                 {renderSectionContent(filteredExpenses, "expenses")}
               </div>
 
               {/* SLIDE 2: PLANEJAMENTO */}
-              <div className="w-1/3 h-full overflow-y-auto p-3 sm:p-6 pb-28 sm:pb-6">
+              <div className="w-1/3 h-full min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-6 pb-28 sm:pb-6">
                 {renderSectionContent(filteredPlanning, "planning")}
               </div>
 
               {/* SLIDE 3: PARCELAS */}
-              <div className="w-1/3 h-full overflow-y-auto p-3 sm:p-6 pb-28 sm:pb-6">
+              <div className="w-1/3 h-full min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-6 pb-28 sm:pb-6">
                 {renderSectionContent(filteredInstallments, "installments")}
               </div>
             </motion.div>
