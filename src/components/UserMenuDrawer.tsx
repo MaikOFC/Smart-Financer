@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   X,
@@ -22,8 +22,6 @@ import {
   ArrowUpCircle,
   CheckCircle2,
   Upload,
-  Maximize2,
-  Minimize2,
 } from "lucide-react";
 import { ThemeMode } from "../lib/theme";
 import { CURRENT_CLIENT_VERSION, checkServerVersion, forceReloadApp } from "../lib/updateManager";
@@ -68,62 +66,6 @@ export default function UserMenuDrawer({
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateFeedback, setUpdateFeedback] = useState<string | null>(null);
   const [updateIsLatest, setUpdateIsLatest] = useState<boolean | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  useEffect(() => {
-    const updateFsState = () => {
-      const isFs = !!(
-        document.fullscreenElement ||
-        (document as any).webkitFullscreenElement ||
-        (document as any).mozFullScreenElement ||
-        (document as any).msFullscreenElement
-      );
-      setIsFullscreen(isFs);
-    };
-
-    updateFsState();
-    document.addEventListener("fullscreenchange", updateFsState);
-    document.addEventListener("webkitfullscreenchange", updateFsState);
-    document.addEventListener("mozfullscreenchange", updateFsState);
-    document.addEventListener("MSFullscreenChange", updateFsState);
-
-    return () => {
-      document.removeEventListener("fullscreenchange", updateFsState);
-      document.removeEventListener("webkitfullscreenchange", updateFsState);
-      document.removeEventListener("mozfullscreenchange", updateFsState);
-      document.removeEventListener("MSFullscreenChange", updateFsState);
-    };
-  }, []);
-
-  const handleToggleFullscreen = async () => {
-    try {
-      if (!isFullscreen) {
-        const elem = document.documentElement as any;
-        if (elem.requestFullscreen) {
-          await elem.requestFullscreen();
-        } else if (elem.webkitRequestFullscreen) {
-          await elem.webkitRequestFullscreen();
-        } else if (elem.mozRequestFullScreen) {
-          await elem.mozRequestFullScreen();
-        } else if (elem.msRequestFullscreen) {
-          await elem.msRequestFullscreen();
-        }
-      } else {
-        const doc = document as any;
-        if (doc.exitFullscreen) {
-          await doc.exitFullscreen();
-        } else if (doc.webkitExitFullscreen) {
-          await doc.webkitExitFullscreen();
-        } else if (doc.mozCancelFullScreen) {
-          await doc.mozCancelFullScreen();
-        } else if (doc.msExitFullscreen) {
-          await doc.msExitFullscreen();
-        }
-      }
-    } catch (err) {
-      console.warn("Fullscreen toggle error:", err);
-    }
-  };
 
   // Intercepta botão voltar do celular para fechar o menu lateral
   useModalBackHandler(isOpen, onClose, "user_menu_drawer");
@@ -232,30 +174,15 @@ export default function UserMenuDrawer({
                       {isAdmin ? <Crown className="w-5 h-5" /> : <UserIcon className="w-5 h-5" />}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1.5">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-sm font-black text-slate-900 dark:text-white truncate max-w-[130px]">
-                            {user.name}
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-sm font-black text-slate-900 dark:text-white truncate">
+                          {user.name}
+                        </span>
+                        {isAdmin && (
+                          <span className="text-[9px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30 px-1.5 py-0.5 rounded shrink-0">
+                            ADM
                           </span>
-                          {isAdmin && (
-                            <span className="text-[9px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30 px-1.5 py-0.5 rounded shrink-0">
-                              ADM
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleToggleFullscreen}
-                          className={`p-1.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1 text-[10px] font-bold ${
-                            isFullscreen
-                              ? "bg-indigo-600 text-white border-indigo-500 shadow-sm"
-                              : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700/80"
-                          }`}
-                          title={isFullscreen ? "Sair da Tela Cheia" : "Entrar em Tela Cheia"}
-                        >
-                          {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-                          <span className="hidden xs:inline sm:inline">{isFullscreen ? "Sair" : "Tela Cheia"}</span>
-                        </button>
+                        )}
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 truncate mt-0.5 font-medium" title={user.email}>
                         {user.email}
@@ -498,34 +425,6 @@ export default function UserMenuDrawer({
                           Modo Padrão (Planilha)
                         </button>
                       </div>
-
-                      {/* BOTÃO DE TELA CHEIA */}
-                      <button
-                        type="button"
-                        onClick={handleToggleFullscreen}
-                        className={`mt-2 w-full flex items-center justify-between p-2.5 rounded-xl border transition-all text-left cursor-pointer ${
-                          isFullscreen
-                            ? "bg-indigo-50 dark:bg-indigo-500/15 border-indigo-200 dark:border-indigo-500/30 text-indigo-900 dark:text-indigo-200"
-                            : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/60 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className={`p-1.5 rounded-lg ${isFullscreen ? "bg-indigo-100 dark:bg-indigo-500/30 text-indigo-700 dark:text-indigo-300" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}>
-                            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold leading-tight">
-                              {isFullscreen ? "Sair da Tela Cheia" : "Modo Tela Cheia (Fullscreen)"}
-                            </p>
-                            <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                              {isFullscreen ? "Restaurar visualização com barras do navegador" : "Expandir para tela inteira e ocultar barras"}
-                            </p>
-                          </div>
-                        </div>
-                        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${isFullscreen ? "bg-indigo-200 dark:bg-indigo-500/30 text-indigo-800 dark:text-indigo-300" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}>
-                          {isFullscreen ? "ATIVO" : "ATIVAR"}
-                        </span>
-                      </button>
                     </div>
                   )}
 
