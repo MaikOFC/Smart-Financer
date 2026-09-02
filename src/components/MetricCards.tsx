@@ -5,6 +5,7 @@ import {
   DollarSign,
   Wallet,
   CreditCard,
+  Target,
   ChevronRight,
   MoreVertical,
   Plus,
@@ -41,10 +42,15 @@ export default function MetricCards({
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [budgetValueInput, setBudgetValueInput] = useState(budget ? String(budget) : "");
 
+  const safeBudget = typeof budget === "number" && !isNaN(budget) ? budget : 0;
+  const safeLeft = typeof leftExpensesTotal === "number" && !isNaN(leftExpensesTotal) ? leftExpensesTotal : 0;
+  const safeRight = typeof rightExpensesTotal === "number" && !isNaN(rightExpensesTotal) ? rightExpensesTotal : 0;
+  const safeSobra = typeof sobra === "number" && !isNaN(sobra) ? sobra : 0;
+
   // Saldo Previsto (Orçamento + Ganhos - Despesas - Parcelas)
-  const saldoPrevisto = sobra;
+  const saldoPrevisto = safeSobra;
   // Saldo em contas / Disponível
-  const saldoDisponivel = budget;
+  const saldoDisponivel = safeBudget;
 
   const handleSaveBudget = () => {
     const parsed = parseFloat(budgetValueInput.replace(",", "."));
@@ -189,10 +195,10 @@ export default function MetricCards({
             <div className="flex items-center gap-2">
               <div className="text-right">
                 <div className="text-sm sm:text-base font-black font-mono text-white">
-                  {budget.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {safeBudget.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <div className="text-[10px] text-slate-500 font-mono">
-                  {budget.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {safeBudget.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all" />
@@ -223,17 +229,17 @@ export default function MetricCards({
             <div className="flex items-center gap-2">
               <div className="text-right">
                 <div className="text-sm sm:text-base font-black font-mono text-white">
-                  {leftExpensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {safeLeft.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <div className="text-[10px] text-slate-500 font-mono">
-                  {leftExpensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {safeLeft.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all" />
             </div>
           </div>
 
-          {/* Linha 3: Cartão de Crédito / Planejado */}
+          {/* Linha 3: Metas / Planejado */}
           <div
             onClick={() => {
               if (onOpenPlanningModal) onOpenPlanningModal("planning");
@@ -242,14 +248,14 @@ export default function MetricCards({
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center text-white shrink-0 shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
-                <CreditCard className="w-5 h-5 stroke-[2.5]" />
+                <Target className="w-5 h-5 stroke-[2.5]" />
               </div>
               <div className="min-w-0">
                 <h4 className="text-sm font-bold text-white group-hover:text-orange-300 transition-colors">
-                  Cartão de crédito / Metas
+                  Metas
                 </h4>
                 <p className="text-[11px] text-slate-400 truncate">
-                  Planejamento e compras futuras
+                  Planejamento e metas futuras
                 </p>
               </div>
             </div>
@@ -257,10 +263,10 @@ export default function MetricCards({
             <div className="flex items-center gap-2">
               <div className="text-right">
                 <div className="text-sm sm:text-base font-black font-mono text-white">
-                  {rightExpensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {safeRight.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <div className="text-[10px] text-slate-500 font-mono">
-                  {rightExpensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {safeRight.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all" />
@@ -290,11 +296,11 @@ export default function MetricCards({
 
             <div className="flex items-center gap-2">
               <div className="text-right">
-                <div className={`text-sm sm:text-base font-black font-mono ${sobra >= 0 ? "text-white" : "text-rose-400"}`}>
-                  {sobra.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <div className={`text-sm sm:text-base font-black font-mono ${safeSobra >= 0 ? "text-white" : "text-rose-400"}`}>
+                  {safeSobra.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <div className="text-[10px] text-slate-500 font-mono">
-                  {sobra.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {safeSobra.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all" />

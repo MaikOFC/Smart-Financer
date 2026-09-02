@@ -267,7 +267,7 @@ export default function UserMenuDrawer({
                   <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
                     <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Salário / Entrada Base:</span>
                     <span className="font-mono font-extrabold text-emerald-600 dark:text-emerald-400 text-sm">
-                      R$ {defaultSalary.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      R$ {(typeof defaultSalary === "number" && !isNaN(defaultSalary) ? defaultSalary : 2500).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>

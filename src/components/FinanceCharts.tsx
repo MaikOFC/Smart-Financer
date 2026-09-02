@@ -45,44 +45,57 @@ export default function FinanceCharts({
   const isLeft = (sec: string) => sec === "left" || sec === "esquerda" || sec === "despesas";
   const isRight = (sec: string) => sec === "right" || sec === "direito" || sec === "direita" || sec === "planejamento";
 
+  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+  const safeBudgets = budgets || {};
+
   // 1. DADOS DO MÊS ATUAL PARA O GRÁFICO "VISÃO GERAL - GRÁFICO" (IDÊNTICO À IMAGEM)
-  const currentMonthTransactions = transactions.filter(
-    (t) => isLeft(t.tableSection) && !!t.date && t.date.startsWith(selectedMonth)
+  const currentMonthTransactions = safeTransactions.filter(
+    (t) => isLeft(t?.tableSection) && !!t?.date && t.date.startsWith(selectedMonth)
   );
-  const activeInstallments = getActiveInstallmentsForMonth(transactions, selectedMonth);
+  const activeInstallments = getActiveInstallmentsForMonth(safeTransactions, selectedMonth);
 
   const leftExpenses = currentMonthTransactions.reduce(
-    (sum, t) => (t.isDiscount ? sum - t.amount : sum + t.amount),
+    (sum, t) => {
+      const val = typeof t.amount === "number" && !isNaN(t.amount) ? t.amount : 0;
+      return t.isDiscount ? sum - val : sum + val;
+    },
     0
   );
-  const monthlyInstallments = getMonthlyInstallmentsTotal(transactions, selectedMonth);
+  const monthlyInstallments = getMonthlyInstallmentsTotal(safeTransactions, selectedMonth);
   const totalDespesas = leftExpenses + monthlyInstallments;
 
-  const currentMonthPlanning = transactions
-    .filter((t) => isRight(t.tableSection))
-    .reduce((sum, t) => sum + t.amount, 0);
+  const currentMonthPlanning = safeTransactions
+    .filter((t) => isRight(t?.tableSection))
+    .reduce((sum, t) => {
+      const val = typeof t.amount === "number" && !isNaN(t.amount) ? t.amount : 0;
+      return sum + val;
+    }, 0);
 
-  const orcamento = budgets[selectedMonth] !== undefined ? budgets[selectedMonth] : defaultSalary;
+  const orcamento = safeBudgets[selectedMonth] !== undefined ? safeBudgets[selectedMonth] : (defaultSalary ?? 2500);
+
+  const safeOrcamento = typeof orcamento === "number" && !isNaN(orcamento) ? orcamento : 0;
+  const safeTotalDespesas = typeof totalDespesas === "number" && !isNaN(totalDespesas) ? totalDespesas : 0;
+  const safePlanning = typeof currentMonthPlanning === "number" && !isNaN(currentMonthPlanning) ? currentMonthPlanning : 0;
 
   // Três barras principais: Receitas (Verde), Despesas (Vermelho), Desp. cartão/Planejado (Laranja)
   const monthlyOverviewData = [
     {
       name: "Receitas",
-      valor: orcamento,
+      valor: safeOrcamento,
       fill: "#22c55e",
-      formatted: orcamento.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      formatted: safeOrcamento.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     },
     {
       name: "Despesas",
-      valor: totalDespesas,
+      valor: safeTotalDespesas,
       fill: "#ef4444",
-      formatted: totalDespesas.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      formatted: safeTotalDespesas.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     },
     {
-      name: "Desp. cartão",
-      valor: currentMonthPlanning,
+      name: "Metas",
+      valor: safePlanning,
       fill: "#f97316",
-      formatted: currentMonthPlanning.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      formatted: safePlanning.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     },
   ];
 
@@ -91,11 +104,13 @@ export default function FinanceCharts({
   currentMonthTransactions.forEach((t) => {
     if (t.isDiscount) return;
     const cat = t.category || "Outros";
-    categoryTotals[cat] = (categoryTotals[cat] || 0) + t.amount;
+    const val = typeof t.amount === "number" && !isNaN(t.amount) ? t.amount : 0;
+    categoryTotals[cat] = (categoryTotals[cat] || 0) + val;
   });
   activeInstallments.forEach((t) => {
     const cat = t.category || "Parcelas";
-    categoryTotals[cat] = (categoryTotals[cat] || 0) + t.amount;
+    const val = typeof t.amount === "number" && !isNaN(t.amount) ? t.amount : 0;
+    categoryTotals[cat] = (categoryTotals[cat] || 0) + val;
   });
   const pieData = Object.keys(categoryTotals).map((cat) => ({
     name: cat,
@@ -105,37 +120,42 @@ export default function FinanceCharts({
   // 3. DADOS DO HISTÓRICO ANUAL
   const allMonths = Array.from(
     new Set(
-      transactions
-        .filter((t) => isLeft(t.tableSection) || t.tableSection === "bottom_left")
+      safeTransactions
+        .filter((t) => isLeft(t?.tableSection) || t?.tableSection === "bottom_left")
         .map((t) => t.date?.substring(0, 7))
         .filter(Boolean)
     )
   ).sort();
 
   const annualData = allMonths.map((m) => {
-    const monthTransactions = transactions.filter((t) => t.date && t.date.startsWith(m));
+    const monthTransactions = safeTransactions.filter((t) => t.date && t.date.startsWith(m));
     const lExp = monthTransactions
       .filter((t) => isLeft(t.tableSection))
-      .reduce((sum, t) => (t.isDiscount ? sum - t.amount : sum + t.amount), 0);
-    const mInst = getMonthlyInstallmentsTotal(transactions, m);
+      .reduce((sum, t) => {
+        const val = typeof t.amount === "number" && !isNaN(t.amount) ? t.amount : 0;
+        return t.isDiscount ? sum - val : sum + val;
+      }, 0);
+    const mInst = getMonthlyInstallmentsTotal(safeTransactions, m);
     const totExp = lExp + mInst;
-    const inc = budgets[m] !== undefined ? budgets[m] : defaultSalary;
+    const inc = safeBudgets[m] !== undefined ? safeBudgets[m] : (defaultSalary ?? 2500);
+    const safeInc = typeof inc === "number" && !isNaN(inc) ? inc : 0;
 
     const [year, month] = m.split("-");
     const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-    const monthLabel = `${monthNames[parseInt(month) - 1]}/${year.substring(2)}`;
+    const monthLabel = `${monthNames[parseInt(month) - 1] || month}/${year ? year.substring(2) : ""}`;
 
     return {
       monthKey: m,
       monthLabel,
       despesas: totExp,
-      orcamento: inc,
-      sobra: inc - totExp,
+      orcamento: safeInc,
+      sobra: safeInc - totExp,
     };
   });
 
-  const formatCurrency = (value: number) => {
-    return `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatCurrency = (value?: number | null) => {
+    const num = typeof value === "number" && !isNaN(value) ? value : 0;
+    return `R$ ${num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   // Custom Tooltip
@@ -260,7 +280,7 @@ export default function FinanceCharts({
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
-                <span>Planejado</span>
+                <span>Metas</span>
               </div>
             </div>
           </div>

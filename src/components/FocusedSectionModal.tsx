@@ -212,7 +212,7 @@ export default function FocusedSectionModal({
               {activeInstallmentsThisMonth.length} parcela{activeInstallmentsThisMonth.length > 1 ? "s" : ""} ativa{activeInstallmentsThisMonth.length > 1 ? "s" : ""} neste mês
             </p>
             <p className="text-[10px] text-rose-300/80">
-              Contas do mês: R$ {directExpensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} + Parcelas: R$ {monthlyInstallmentsTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              Contas do mês: R$ {(directExpensesTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} + Parcelas: R$ {(monthlyInstallmentsTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </p>
           </div>
         </div>
@@ -220,7 +220,7 @@ export default function FocusedSectionModal({
           onClick={() => setActiveTab("installments")}
           className="text-xs font-bold text-rose-300 hover:text-white bg-rose-500/20 hover:bg-rose-500/30 px-3 py-1.5 rounded-xl border border-rose-500/30 transition-all cursor-pointer self-start sm:self-center"
         >
-          Ver Parcelas (R$ {monthlyInstallmentsTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}) →
+          Ver Parcelas (R$ {(monthlyInstallmentsTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}) →
         </button>
       </div>
     ) : null;
@@ -339,7 +339,7 @@ export default function FocusedSectionModal({
                   >
                     {t.isDiscount ? "+ " : ""}
                     R${" "}
-                    {t.amount.toLocaleString("pt-BR", {
+                    {(typeof t.amount === "number" && !isNaN(t.amount) ? t.amount : 0).toLocaleString("pt-BR", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
@@ -347,7 +347,7 @@ export default function FocusedSectionModal({
                   {type === "installments" && (
                     <div className="text-[10px] text-slate-400 font-mono">
                       Saldo: R${" "}
-                      {remainingBalance.toLocaleString("pt-BR", {
+                      {(typeof remainingBalance === "number" && !isNaN(remainingBalance) ? remainingBalance : 0).toLocaleString("pt-BR", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}

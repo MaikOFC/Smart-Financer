@@ -14,7 +14,7 @@ interface AnimatedNumberProps {
 }
 
 export default function AnimatedNumber({
-  value,
+  value = 0,
   prefix = "",
   suffix = "",
   className = "",
@@ -23,9 +23,10 @@ export default function AnimatedNumber({
   showTrendBadge = false,
   animateOnMount = true,
 }: AnimatedNumberProps) {
-  const [displayValue, setDisplayValue] = useState(animateOnMount ? 0 : value);
+  const safeInitial = typeof value === "number" && !isNaN(value) ? value : 0;
+  const [displayValue, setDisplayValue] = useState(animateOnMount ? 0 : safeInitial);
   const [trend, setTrend] = useState<"up" | "down" | null>(null);
-  const prevValueRef = useRef(animateOnMount ? 0 : value);
+  const prevValueRef = useRef(animateOnMount ? 0 : safeInitial);
   const isFirstMountRef = useRef(true);
   const animationFrameRef = useRef<number | null>(null);
   const trendTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -34,9 +35,10 @@ export default function AnimatedNumber({
     const isFirstMount = isFirstMountRef.current;
     isFirstMountRef.current = false;
 
-    const startValue = prevValueRef.current;
-    const endValue = value;
-    prevValueRef.current = value;
+    const safeVal = typeof value === "number" && !isNaN(value) ? value : 0;
+    const startValue = typeof prevValueRef.current === "number" && !isNaN(prevValueRef.current) ? prevValueRef.current : 0;
+    const endValue = safeVal;
+    prevValueRef.current = safeVal;
 
     if (startValue !== endValue || (isFirstMount && animateOnMount && endValue !== 0)) {
       if (!isFirstMount) {
@@ -92,7 +94,8 @@ export default function AnimatedNumber({
     };
   }, [value, duration, animateOnMount]);
 
-  const formattedValue = displayValue.toLocaleString("pt-BR", {
+  const safeDisplay = typeof displayValue === "number" && !isNaN(displayValue) ? displayValue : 0;
+  const formattedValue = safeDisplay.toLocaleString("pt-BR", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });

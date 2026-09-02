@@ -1278,14 +1278,8 @@ export default function App() {
               </button>
             </div>
 
-            {/* CANTO DIREITO: Botão de Opções / Perfil Rápido */}
-            <button
-              onClick={() => setIsUserMenuOpen(true)}
-              className="p-2 text-slate-400 hover:text-white transition-all cursor-pointer flex items-center justify-center shrink-0"
-              title="Menu do Usuário"
-            >
-              <MoreVertical className="w-4 h-4" />
-            </button>
+            {/* ESPAÇADOR DIREITO PARA EQUILÍBRIO VISUAL DO SELETOR CENTRAL */}
+            <div className="w-9 shrink-0 pointer-events-none" aria-hidden="true" />
           </div>
 
           {/* LAYOUT DESKTOP (hidden md:flex) */}
@@ -1670,20 +1664,6 @@ export default function App() {
               </AnimatePresence>
             </div>
 
-            {/* BOTÃO FLUTUANTE DE AÇÃO (+) ESTILO MODERNO DO APP */}
-            <button
-              id="btn-floating-add"
-              type="button"
-              onClick={() => {
-                setAddModalSection("left");
-                setIsAddModalOpen(true);
-              }}
-              className="fixed bottom-6 right-5 z-40 w-14 h-14 bg-emerald-400 hover:bg-emerald-300 active:scale-95 text-slate-950 rounded-2xl shadow-xl shadow-emerald-500/25 flex items-center justify-center cursor-pointer transition-all border border-emerald-300/40 group"
-              title="Adicionar Novo Lançamento"
-            >
-              <Plus className="w-7 h-7 stroke-[3] group-hover:rotate-90 transition-transform" />
-            </button>
-
         {/* MODAL DE ADICIONAR TRANSAÇÃO */}
         <AddTransactionModal
           isOpen={isAddModalOpen}
@@ -1861,28 +1841,26 @@ export default function App() {
         )}
       </main>
 
-      {/* BOTÃO FLUTUANTE NA TELA INICIAL: ADICIONAR GASTO (COM O ÍCONE DE GASTOS DO MÊS) */}
-      <motion.div
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 260, damping: 20 }}
-        className="fixed bottom-6 right-6 z-40"
-      >
-        <button
-          id="btn-fab-add-expense"
+      {/* BOTÃO FLUTUANTE RIGOROSAMENTE CENTRALIZADO: ADICIONAR (+) */}
+      <div className="fixed bottom-6 inset-x-0 flex justify-center items-center z-40 pointer-events-none px-4">
+        <motion.button
+          id="btn-fab-add"
+          type="button"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          whileTap={{ scale: 0.9 }}
+          whileHover={{ scale: 1.05 }}
+          transition={{ type: "spring", stiffness: 260, damping: 20 }}
           onClick={() => {
             setAddModalSection("left");
             setIsAddModalOpen(true);
           }}
-          className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl sm:rounded-3xl bg-emerald-500 hover:bg-emerald-400 active:scale-90 text-slate-950 flex flex-col items-center justify-center font-black shadow-2xl shadow-emerald-500/35 border-2 border-emerald-300/60 cursor-pointer transition-all group"
-          title="Adicionar Novo Gasto do Mês"
+          className="pointer-events-auto w-14 h-14 sm:w-16 sm:h-16 rounded-2xl sm:rounded-3xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 flex items-center justify-center font-black shadow-2xl shadow-emerald-500/40 border-2 border-emerald-300/80 cursor-pointer transition-colors group"
+          title="Adicionar Novo Lançamento"
         >
-          <TrendingDown className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5] text-slate-950 group-hover:scale-110 transition-transform" />
-          <span className="text-[9px] font-extrabold tracking-tighter leading-none mt-0.5 sm:mt-1 text-slate-950">
-            Gasto
-          </span>
-        </button>
-      </motion.div>
+          <Plus className="w-7 h-7 sm:w-8 sm:h-8 stroke-[3] text-slate-950 group-hover:rotate-90 transition-transform" />
+        </motion.button>
+      </div>
     </div>
   );
 }

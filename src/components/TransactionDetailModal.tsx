@@ -313,7 +313,7 @@ export default function TransactionDetailModal({
                         : "text-emerald-400"
                     }`}>
                       {transaction.isDiscount ? "- " : ""}
-                      R$ {transaction.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      R$ {(typeof transaction.amount === "number" && !isNaN(transaction.amount) ? transaction.amount : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>

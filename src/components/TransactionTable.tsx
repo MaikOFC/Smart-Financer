@@ -485,7 +485,7 @@ export default function TransactionTable({
                           ) : (
                             <span className={`text-xs sm:text-xs font-black font-mono ${t.isDiscount ? "text-slate-400 font-normal" : "text-rose-400"}`}>
                               {t.isDiscount ? "- " : ""}
-                              R$ {t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              R$ {(typeof t.amount === "number" && !isNaN(t.amount) ? t.amount : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                           )}
                         </td>
@@ -568,7 +568,7 @@ export default function TransactionTable({
             <span className="font-bold text-slate-400 text-xs uppercase tracking-wider">Total Gastos do Mês:</span>
             {monthlyInstallments > 0 && (
               <p className="text-[11px] text-slate-400 font-medium font-sans">
-                (Contas: R$ {directExpensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} + Parcelas ativas: R$ {monthlyInstallments.toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
+                (Contas: R$ {(directExpensesTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} + Parcelas ativas: R$ {(monthlyInstallments || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
               </p>
             )}
           </div>
@@ -793,7 +793,7 @@ export default function TransactionTable({
                             <span className={hasSpecialLabel ? "text-slate-500 italic font-normal" : "text-amber-400 font-mono font-black"}>
                               {hasSpecialLabel
                                 ? "—"
-                                : `R$ ${t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                : `R$ ${(typeof t.amount === "number" && !isNaN(t.amount) ? t.amount : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                             </span>
                           )}
                         </td>
@@ -1012,7 +1012,7 @@ export default function TransactionTable({
                             />
                           </div>
                         ) : (
-                          `R$ ${t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                          `R$ ${(typeof t.amount === "number" && !isNaN(t.amount) ? t.amount : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                         )}
                       </td>
 
@@ -1047,7 +1047,7 @@ export default function TransactionTable({
                       <td className="py-3 px-2 font-bold font-mono hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                         {remainingCount > 0 ? (
                           <span className="text-amber-400">
-                            R$ {remainingAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            R$ {(typeof remainingAmount === "number" && !isNaN(remainingAmount) ? remainingAmount : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         ) : (
                           <span className="text-slate-500">R$ 0,00</span>
@@ -1103,7 +1103,7 @@ export default function TransactionTable({
             <span className="font-bold text-slate-400 text-xs uppercase tracking-wider">Saldo Devedor Total Restante:</span>
             <span className="text-[10px] text-slate-500 font-medium font-sans">
               Soma de todas as parcelas ativas a vencer a partir de {
-                new Date(selectedMonth + "-15").toLocaleString("pt-BR", { month: "long", year: "numeric" })
+                selectedMonth ? new Date(selectedMonth + "-15").toLocaleString("pt-BR", { month: "long", year: "numeric" }) : ""
               }
             </span>
           </div>

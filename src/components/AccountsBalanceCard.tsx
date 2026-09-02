@@ -18,18 +18,21 @@ export default function AccountsBalanceCard({
   onOpenPlanningModal,
   onOpenAddModal,
 }: AccountsBalanceCardProps) {
-  const activeInstallments = getActiveInstallmentsForMonth(transactions, selectedMonth);
+  const safeBudget = typeof budget === "number" && !isNaN(budget) ? budget : 0;
+  const activeInstallments = getActiveInstallmentsForMonth(transactions || [], selectedMonth || "");
 
   // Contas & Reservas simuladas inteligentes baseadas nas categorias ou parcelas
   const installmentAccounts = activeInstallments.slice(0, 4).map((inst) => {
     const remainingCount = getRemainingInstallments(inst.date, selectedMonth);
-    const totalRemaining = inst.amount * remainingCount;
+    const instMonthly = typeof inst.amount === "number" && !isNaN(inst.amount) ? inst.amount : 0;
+    const safeRemaining = typeof remainingCount === "number" && !isNaN(remainingCount) ? remainingCount : 0;
+    const totalRemaining = instMonthly * safeRemaining;
     return {
       id: inst.id,
-      title: inst.description,
-      subtitle: `${remainingCount}x parcelas restantes`,
+      title: inst.description || "Parcela",
+      subtitle: `${safeRemaining}x parcelas restantes`,
       amount: totalRemaining,
-      monthly: inst.amount,
+      monthly: instMonthly,
       color: "bg-purple-600",
       type: "parcela",
     };
@@ -53,39 +56,21 @@ export default function AccountsBalanceCard({
       </div>
 
       <div className="space-y-3">
-        {/* Conta Principal / Saldo Reserva */}
-        <div className="flex items-center justify-between p-2 rounded-2xl hover:bg-slate-800/40 transition-all -mx-2">
+        {/* Contas Bancárias Integradas - Em Desenvolvimento */}
+        <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/50 border border-slate-800/80">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white font-bold text-xs shadow-sm">
-              Itaú
+            <div className="w-10 h-10 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-300 shrink-0">
+              <Building2 className="w-5 h-5 text-amber-400" />
             </div>
             <div className="min-w-0">
-              <h4 className="text-sm font-bold text-white truncate">Conta Corrente / Reserva</h4>
-              <p className="text-[11px] text-slate-400 truncate">Saldo disponível mensal</p>
+              <h4 className="text-sm font-bold text-white truncate">Contas Bancárias</h4>
+              <p className="text-[11px] text-slate-400 truncate">Integração e sincronização automática</p>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-sm font-black font-mono text-white">
-              {budget.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="text-[10px] text-slate-500 font-mono">Disponível</div>
-          </div>
-        </div>
-
-        {/* Nuconta / Cartões */}
-        <div className="flex items-center justify-between p-2 rounded-2xl hover:bg-slate-800/40 transition-all -mx-2">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-purple-700 flex items-center justify-center text-white font-bold text-xs shadow-sm">
-              NU
-            </div>
-            <div className="min-w-0">
-              <h4 className="text-sm font-bold text-white truncate">Nuconta / Cartão Digital</h4>
-              <p className="text-[11px] text-slate-400 truncate">Limite & movimentação</p>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-sm font-black font-mono text-emerald-400">Ativo</div>
-            <div className="text-[10px] text-slate-500 font-mono">Em dia</div>
+          <div className="text-right shrink-0">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[11px] font-bold tracking-wide">
+              Em Desenvolvimento
+            </span>
           </div>
         </div>
 
@@ -111,10 +96,10 @@ export default function AccountsBalanceCard({
             </div>
             <div className="text-right">
               <div className="text-sm font-black font-mono text-purple-300">
-                {item.monthly.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {(item.monthly || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <div className="text-[10px] text-slate-500 font-mono">
-                Total: {item.amount.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                Total: {(item.amount || 0).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
               </div>
             </div>
           </div>
