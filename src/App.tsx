@@ -33,6 +33,9 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  Menu,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Transaction } from "./types";
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from "./initialData";
@@ -40,6 +43,7 @@ import { processImportFile } from "./utils/fileParser";
 import MetricCards from "./components/MetricCards";
 import TransactionTable from "./components/TransactionTable";
 import FinanceCharts from "./components/FinanceCharts";
+import AccountsBalanceCard from "./components/AccountsBalanceCard";
 import SpreadsheetUpload from "./components/SpreadsheetUpload";
 import AuthScreen from "./components/AuthScreen";
 import AddTransactionModal from "./components/AddTransactionModal";
@@ -1215,60 +1219,73 @@ export default function App() {
       {/* HEADER PRINCIPAL */}
       <header className="bg-slate-900/80 border-b border-slate-800/80 backdrop-blur-md sticky top-0 z-50 pt-[env(safe-area-inset-top,0px)]">
         <div className="max-w-7xl mx-auto px-3 py-2 sm:px-6 sm:py-3.5 lg:px-8">
-          {/* LAYOUT MOBILE (md:hidden) - LINHA ÚNICA COMPACTA MINIMALISTA */}
+          {/* LAYOUT MOBILE (md:hidden) - LINHA ÚNICA COMPACTA ESTILO BANCO DIGITAL */}
           <div className="flex items-center justify-between gap-2 md:hidden">
-            {/* CANTO ESQUERDO: Botão 3 Pontinhos Minimalista */}
+            {/* CANTO ESQUERDO: Botão Menu Lateral (Ícone Hambúrguer) */}
             <button
               id="btn-mobile-menu"
               onClick={() => setIsUserMenuOpen(true)}
-              className="p-2 bg-transparent hover:bg-slate-900/50 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 rounded-xl transition-all cursor-pointer flex items-center justify-center active:scale-95 shrink-0"
+              className="p-2 text-slate-300 hover:text-white rounded-xl transition-all cursor-pointer flex items-center justify-center active:scale-95 shrink-0"
               title="Menu & Opções da Conta"
             >
-              <MoreVertical className="w-5 h-5 text-slate-300" />
+              <Menu className="w-5 h-5 text-slate-200" />
             </button>
 
-            {/* SELETOR DE PERÍODO (MÊS E ANO) MINIMALISTA SEM BORDA DUPLA EXTERNA */}
+            {/* SELETOR DE PERÍODO (MÊS E ANO) CENTRALIZADO COM CHEVRONS ESTILO SCREENSHOT */}
             <div className="flex items-center gap-1">
               <button
                 onClick={handlePrevMonth}
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-900 rounded-lg transition-all cursor-pointer"
+                className="p-1 text-slate-400 hover:text-white transition-all cursor-pointer"
                 title="Mês Anterior"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
 
-              <select
-                value={currentMonthNum}
-                onChange={(e) => changeMonth(`${currentYear}-${e.target.value}`)}
-                className="bg-transparent border border-slate-800 text-xs font-semibold text-slate-200 px-2 py-1.5 rounded-lg hover:border-slate-700 focus:outline-none focus:border-slate-600 cursor-pointer"
-              >
-                {MONTHS_LIST.map((m) => (
-                  <option key={m.value} value={m.value} className="bg-slate-900 text-slate-200">
-                    {m.label}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-1">
+                <select
+                  value={currentMonthNum}
+                  onChange={(e) => changeMonth(`${currentYear}-${e.target.value}`)}
+                  className="bg-transparent text-xs font-black uppercase tracking-wider text-slate-100 py-1 cursor-pointer focus:outline-none"
+                >
+                  {MONTHS_LIST.map((m) => (
+                    <option key={m.value} value={m.value} className="bg-slate-900 text-slate-200 uppercase font-sans">
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
 
-              <select
-                value={currentYear}
-                onChange={(e) => changeMonth(`${e.target.value}-${currentMonthNum}`)}
-                className="bg-transparent border border-slate-800 text-xs font-semibold font-mono text-slate-200 px-2 py-1.5 rounded-lg hover:border-slate-700 focus:outline-none focus:border-slate-600 cursor-pointer"
-              >
-                {availableYears.map((yr) => (
-                  <option key={yr} value={yr} className="bg-slate-900 text-slate-200">
-                    {yr}
-                  </option>
-                ))}
-              </select>
+                <span className="text-xs text-slate-400 font-bold">,</span>
+
+                <select
+                  value={currentYear}
+                  onChange={(e) => changeMonth(`${e.target.value}-${currentMonthNum}`)}
+                  className="bg-transparent text-xs font-black font-mono text-slate-100 py-1 cursor-pointer focus:outline-none"
+                >
+                  {availableYears.map((yr) => (
+                    <option key={yr} value={yr} className="bg-slate-900 text-slate-200 font-sans">
+                      {yr}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               <button
                 onClick={handleNextMonth}
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-900 rounded-lg transition-all cursor-pointer"
+                className="p-1 text-slate-400 hover:text-white transition-all cursor-pointer"
                 title="Próximo Mês"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
+
+            {/* CANTO DIREITO: Botão de Opções / Perfil Rápido */}
+            <button
+              onClick={() => setIsUserMenuOpen(true)}
+              className="p-2 text-slate-400 hover:text-white transition-all cursor-pointer flex items-center justify-center shrink-0"
+              title="Menu do Usuário"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
           </div>
 
           {/* LAYOUT DESKTOP (hidden md:flex) */}
@@ -1620,6 +1637,18 @@ export default function App() {
                     defaultSalary={defaultSalary}
                   />
 
+                  {/* CAIXA ENQUADRAMENTO DE CONTAS E PARCELAS ATIVAS */}
+                  <AccountsBalanceCard
+                    transactions={transactions}
+                    selectedMonth={selectedMonth}
+                    budget={activeBudget}
+                    onOpenPlanningModal={handleOpenPlanningModal}
+                    onOpenAddModal={(sec) => {
+                      setAddModalSection(sec);
+                      setIsAddModalOpen(true);
+                    }}
+                  />
+
                   {/* RENDERIZAÇÃO DAS TABELAS CONFORME O MODO ESCOLHIDO */}
                   {viewMode === "full" && (
                     /* MODO PADRÃO - TODAS AS TABELAS EMBUTIDAS NA PÁGINA */
@@ -1640,6 +1669,20 @@ export default function App() {
                 </motion.div>
               </AnimatePresence>
             </div>
+
+            {/* BOTÃO FLUTUANTE DE AÇÃO (+) ESTILO MODERNO DO APP */}
+            <button
+              id="btn-floating-add"
+              type="button"
+              onClick={() => {
+                setAddModalSection("left");
+                setIsAddModalOpen(true);
+              }}
+              className="fixed bottom-6 right-5 z-40 w-14 h-14 bg-emerald-400 hover:bg-emerald-300 active:scale-95 text-slate-950 rounded-2xl shadow-xl shadow-emerald-500/25 flex items-center justify-center cursor-pointer transition-all border border-emerald-300/40 group"
+              title="Adicionar Novo Lançamento"
+            >
+              <Plus className="w-7 h-7 stroke-[3] group-hover:rotate-90 transition-transform" />
+            </button>
 
         {/* MODAL DE ADICIONAR TRANSAÇÃO */}
         <AddTransactionModal

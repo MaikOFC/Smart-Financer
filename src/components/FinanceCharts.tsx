@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   BarChart,
   Bar,
@@ -6,14 +6,14 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
+  LabelList,
 } from "recharts";
 import { Transaction } from "../types";
-import { PieChart as PieIcon, BarChart2 } from "lucide-react";
+import { PieChart as PieIcon, BarChart2, TrendingUp, CreditCard, ChevronRight } from "lucide-react";
 import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth } from "../utils/installmentUtils";
 
 interface FinanceChartsProps {
@@ -23,44 +23,86 @@ interface FinanceChartsProps {
   defaultSalary?: number;
 }
 
-const COLORS = [
-  "#6366f1", // indigo
-  "#38bdf8", // sky blue
+const PIE_COLORS = [
   "#10b981", // emerald
-  "#fbbf24", // amber
-  "#f43f5e", // rose
+  "#ef4444", // rose
+  "#f97316", // orange
+  "#6366f1", // indigo
+  "#38bdf8", // sky
   "#a855f7", // purple
-  "#ec4899", // pink
+  "#fbbf24", // amber
   "#64748b", // slate
 ];
 
-export default function FinanceCharts({ transactions, budgets, selectedMonth, defaultSalary = 2500 }: FinanceChartsProps) {
-  const isLeft = (sec: string) => sec === "left" || sec === "esquerda" || sec === "despesas";
+export default function FinanceCharts({
+  transactions,
+  budgets,
+  selectedMonth,
+  defaultSalary = 2500,
+}: FinanceChartsProps) {
+  const [activeTab, setActiveTab] = useState<"overview" | "categories" | "history">("overview");
 
-  // 1. DATA FOR MONTHLY CATEGORIES (Pie Chart - Gastos reais do mês + Parcelas ativas do mês)
+  const isLeft = (sec: string) => sec === "left" || sec === "esquerda" || sec === "despesas";
+  const isRight = (sec: string) => sec === "right" || sec === "direito" || sec === "direita" || sec === "planejamento";
+
+  // 1. DADOS DO MÊS ATUAL PARA O GRÁFICO "VISÃO GERAL - GRÁFICO" (IDÊNTICO À IMAGEM)
   const currentMonthTransactions = transactions.filter(
     (t) => isLeft(t.tableSection) && !!t.date && t.date.startsWith(selectedMonth)
   );
   const activeInstallments = getActiveInstallmentsForMonth(transactions, selectedMonth);
 
+  const leftExpenses = currentMonthTransactions.reduce(
+    (sum, t) => (t.isDiscount ? sum - t.amount : sum + t.amount),
+    0
+  );
+  const monthlyInstallments = getMonthlyInstallmentsTotal(transactions, selectedMonth);
+  const totalDespesas = leftExpenses + monthlyInstallments;
+
+  const currentMonthPlanning = transactions
+    .filter((t) => isRight(t.tableSection))
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const orcamento = budgets[selectedMonth] !== undefined ? budgets[selectedMonth] : defaultSalary;
+
+  // Três barras principais: Receitas (Verde), Despesas (Vermelho), Desp. cartão/Planejado (Laranja)
+  const monthlyOverviewData = [
+    {
+      name: "Receitas",
+      valor: orcamento,
+      fill: "#22c55e",
+      formatted: orcamento.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    },
+    {
+      name: "Despesas",
+      valor: totalDespesas,
+      fill: "#ef4444",
+      formatted: totalDespesas.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    },
+    {
+      name: "Desp. cartão",
+      valor: currentMonthPlanning,
+      fill: "#f97316",
+      formatted: currentMonthPlanning.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    },
+  ];
+
+  // 2. DADOS DE CATEGORIAS DO MÊS (PIE CHART)
   const categoryTotals: Record<string, number> = {};
   currentMonthTransactions.forEach((t) => {
     if (t.isDiscount) return;
     const cat = t.category || "Outros";
     categoryTotals[cat] = (categoryTotals[cat] || 0) + t.amount;
   });
-
   activeInstallments.forEach((t) => {
-    const cat = t.category || "Parcelas / Empréstimos";
+    const cat = t.category || "Parcelas";
     categoryTotals[cat] = (categoryTotals[cat] || 0) + t.amount;
   });
-
   const pieData = Object.keys(categoryTotals).map((cat) => ({
     name: cat,
     value: categoryTotals[cat],
   }));
 
-  // 2. DATA FOR ANNUAL REPORT (Bar/Area Chart comparing months - Gastos reais + Parcelas ativas)
+  // 3. DADOS DO HISTÓRICO ANUAL
   const allMonths = Array.from(
     new Set(
       transactions
@@ -72,30 +114,23 @@ export default function FinanceCharts({ transactions, budgets, selectedMonth, de
 
   const annualData = allMonths.map((m) => {
     const monthTransactions = transactions.filter((t) => t.date && t.date.startsWith(m));
-
-    const leftExpenses = monthTransactions
+    const lExp = monthTransactions
       .filter((t) => isLeft(t.tableSection))
       .reduce((sum, t) => (t.isDiscount ? sum - t.amount : sum + t.amount), 0);
+    const mInst = getMonthlyInstallmentsTotal(transactions, m);
+    const totExp = lExp + mInst;
+    const inc = budgets[m] !== undefined ? budgets[m] : defaultSalary;
 
-    const monthlyInstallments = getMonthlyInstallmentsTotal(transactions, m);
-    const totalExpenses = leftExpenses + monthlyInstallments;
-    const income = budgets[m] !== undefined ? budgets[m] : defaultSalary;
-
-    const formattedMonth = (() => {
-      const [year, month] = m.split("-");
-      const monthNames = [
-        "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", 
-        "Jul", "Ago", "Set", "Out", "Nov", "Dez"
-      ];
-      return `${monthNames[parseInt(month) - 1]} / ${year.substring(2)}`;
-    })();
+    const [year, month] = m.split("-");
+    const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const monthLabel = `${monthNames[parseInt(month) - 1]}/${year.substring(2)}`;
 
     return {
       monthKey: m,
-      monthLabel: formattedMonth,
-      despesas: totalExpenses,
-      orcamento: income,
-      sobra: income - totalExpenses,
+      monthLabel,
+      despesas: totExp,
+      orcamento: inc,
+      sobra: inc - totExp,
     };
   });
 
@@ -103,23 +138,16 @@ export default function FinanceCharts({ transactions, budgets, selectedMonth, de
     return `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  // Custom tooltips with dark theme styling matching the Bento Grid look
-  const CustomTooltip = ({ active, payload }: any) => {
+  // Custom Tooltip
+  const CustomBarTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
+      const data = payload[0].payload;
       return (
-        <div className="bg-slate-950/95 border border-slate-800 p-4 rounded-2xl shadow-xl backdrop-blur-md">
-          <p className="text-xs font-bold text-slate-400 mb-2">{payload[0].payload.monthLabel || payload[0].name}</p>
-          <div className="space-y-1.5 font-mono text-xs">
-            {payload.map((item: any, index: number) => (
-              <div key={index} className="flex justify-between items-center gap-4">
-                <span className="flex items-center gap-1.5 text-slate-300">
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color || item.fill }} />
-                  {item.name}:
-                </span>
-                <span className="font-bold text-white">{formatCurrency(item.value)}</span>
-              </div>
-            ))}
-          </div>
+        <div className="bg-slate-950/95 border border-slate-800 p-3 rounded-2xl shadow-xl backdrop-blur-md text-xs font-mono">
+          <p className="font-bold text-white mb-1">{data.name}</p>
+          <p className="text-slate-300">
+            Valor: <span className="font-bold text-white">{formatCurrency(data.valor)}</span>
+          </p>
         </div>
       );
     }
@@ -127,123 +155,193 @@ export default function FinanceCharts({ transactions, budgets, selectedMonth, de
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-      {/* 1. GRÁFICO DE PIZZA - GASTOS POR CATEGORIA */}
-      <div id="chart-pie-container" className="bg-slate-900 rounded-3xl border border-slate-800/80 p-6 flex flex-col justify-between hover:border-slate-700/80 transition-all">
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-2xl border border-indigo-500/20">
-              <PieIcon className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-white text-sm">Distribuição de Gastos</h3>
-              <p className="text-[11px] text-slate-400">Gastos reais do mês por categoria (exclui planejamento)</p>
-            </div>
-          </div>
+    <div className="space-y-4">
+      {/* CAIXA ENQUADRAMENTO ESTILO BENTO "VISÃO GERAL - GRÁFICO" */}
+      <div className="bg-slate-900 border border-slate-800/80 rounded-3xl p-4 sm:p-6 shadow-sm">
+        {/* Cabeçalho do Enquadramento */}
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-[11px] font-semibold text-emerald-400/90 tracking-wide">
+            Visão geral - gráfico
+          </span>
 
-          {pieData.length === 0 ? (
-            <div className="h-48 flex items-center justify-center text-slate-500 text-xs font-mono">
-              Sem despesas registradas para este mês.
-            </div>
-          ) : (
-            <div className="h-48 flex justify-center items-center relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={75}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col justify-center items-center pointer-events-none">
-                <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Total</span>
-                <span className="text-sm font-black font-mono text-white">
-                  R$ {pieData.reduce((sum, item) => sum + item.value, 0).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
-                </span>
-              </div>
-            </div>
-          )}
+          {/* Abas discretas no canto superior direito para alternar visualizações */}
+          <div className="flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setActiveTab("overview")}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                activeTab === "overview"
+                  ? "bg-slate-800 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              Mês
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("categories")}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                activeTab === "categories"
+                  ? "bg-slate-800 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              Categorias
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("history")}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                activeTab === "history"
+                  ? "bg-slate-800 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              Histórico
+            </button>
+          </div>
         </div>
 
-        {/* Legendas customizadas */}
-        {pieData.length > 0 && (
-          <div className="mt-4 grid grid-cols-2 gap-2 text-xs border-t border-slate-800/80 pt-3">
-            {pieData.slice(0, 6).map((item, index) => (
-              <div key={item.name} className="flex items-center gap-1.5 min-w-0">
-                <span
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                />
-                <span className="text-slate-400 truncate text-[11px]">{item.name}:</span>
-                <span className="font-bold font-mono text-slate-200 text-[11px]">
-                  R$ {item.value.toFixed(0)}
-                </span>
+        {/* 1. VISUALIZAÇÃO PRINCIPAL: BARRAS EM PÍLULA VERTICAL (ESTILO REFERÊNCIA) */}
+        {activeTab === "overview" && (
+          <div>
+            <div className="h-64 w-full pt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={monthlyOverviewData}
+                  margin={{ top: 25, right: 15, left: -20, bottom: 5 }}
+                  barSize={36}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#242d3a" />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 500 }}
+                    stroke="#242d3a"
+                    tickLine={false}
+                    axisLine={{ stroke: "#242d3a" }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: "#64748b" }}
+                    stroke="#242d3a"
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(val) => `${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`}
+                  />
+                  <Tooltip content={<CustomBarTooltip />} cursor={{ fill: "rgba(255, 255, 255, 0.03)" }} />
+                  <Bar
+                    dataKey="valor"
+                    radius={[18, 18, 18, 18]}
+                  >
+                    {monthlyOverviewData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                    <LabelList
+                      dataKey="formatted"
+                      position="top"
+                      fill="#f1f5f9"
+                      fontSize={11}
+                      fontWeight={700}
+                      offset={8}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Legenda inferior sutil */}
+            <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <span>Receitas (Orçamento)</span>
               </div>
-            ))}
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                <span>Despesas</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+                <span>Planejado</span>
+              </div>
+            </div>
           </div>
         )}
-      </div>
 
-      {/* 2. GRÁFICO DE BARRAS - HISTÓRICO DE DESPESAS VS ORÇAMENTO (ANUAL) */}
-      <div id="chart-annual-container" className="lg:col-span-2 bg-slate-900 rounded-3xl border border-slate-800/80 p-6 flex flex-col justify-between hover:border-slate-700/80 transition-all">
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20">
-              <BarChart2 className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-white text-sm">Relatório Anual e Histórico</h3>
-              <p className="text-[11px] text-slate-400">Comparação mensal entre Orçamento, Despesas Reais e Sobras</p>
-            </div>
+        {/* 2. VISUALIZAÇÃO: CATEGORIAS (PIZZA) */}
+        {activeTab === "categories" && (
+          <div>
+            {pieData.length === 0 ? (
+              <div className="h-60 flex items-center justify-center text-slate-500 text-xs font-mono">
+                Sem despesas registradas para este mês.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                <div className="h-56 relative flex justify-center items-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={75}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`pie-cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomBarTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col justify-center items-center pointer-events-none">
+                    <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider">Total</span>
+                    <span className="text-xs font-black font-mono text-white">
+                      R$ {totalDespesas.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {pieData.map((item, index) => (
+                    <div
+                      key={item.name}
+                      className="flex items-center justify-between p-2 rounded-xl bg-slate-950/40 border border-slate-800/60 text-xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
+                        />
+                        <span className="text-slate-300 font-medium truncate">{item.name}</span>
+                      </div>
+                      <span className="font-bold font-mono text-white shrink-0">
+                        R$ {item.value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+        )}
 
-          <div className="h-56">
+        {/* 3. VISUALIZAÇÃO: HISTÓRICO ANUAL */}
+        {activeTab === "history" && (
+          <div className="h-60 w-full pt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={annualData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
-                <XAxis dataKey="monthLabel" tick={{ fontSize: 9, fill: "#94a3b8" }} stroke="#334155" />
-                <YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} stroke="#334155" tickFormatter={(val) => `R$${val}`} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend iconSize={8} wrapperStyle={{ fontSize: "11px", pt: 10, color: "#94a3b8" }} />
-                <Bar name="Orçamento" dataKey="orcamento" fill="#10b981" radius={[4, 4, 0, 0]} />
-                <Bar name="Despesas Reais" dataKey="despesas" fill="#f43f5e" radius={[4, 4, 0, 0]} />
-                <Bar name="Sobra/Economia" dataKey="sobra" fill="#6366f1" radius={[4, 4, 0, 0]} />
+              <BarChart data={annualData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#242d3a" />
+                <XAxis dataKey="monthLabel" tick={{ fontSize: 10, fill: "#94a3b8" }} stroke="#242d3a" />
+                <YAxis tick={{ fontSize: 9, fill: "#64748b" }} stroke="#242d3a" tickFormatter={(v) => `R$${v}`} />
+                <Tooltip content={<CustomBarTooltip />} />
+                <Bar name="Orçamento" dataKey="orcamento" fill="#22c55e" radius={[6, 6, 0, 0]} />
+                <Bar name="Despesas Reais" dataKey="despesas" fill="#ef4444" radius={[6, 6, 0, 0]} />
+                <Bar name="Sobra Líquida" dataKey="sobra" fill="#6366f1" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-
-        {/* Informações Rápidas de Acumulado */}
-        <div className="mt-4 grid grid-cols-3 gap-4 border-t border-slate-800/80 pt-4 text-center font-mono">
-          <div>
-            <span className="text-[10px] text-slate-500 uppercase font-semibold">Total Orçado</span>
-            <p className="text-xs sm:text-sm font-bold text-slate-200">
-              {formatCurrency(annualData.reduce((sum, item) => sum + item.orcamento, 0))}
-            </p>
-          </div>
-          <div>
-            <span className="text-[10px] text-rose-400 uppercase font-semibold">Gastos Reais</span>
-            <p className="text-xs sm:text-sm font-bold text-rose-400">
-              {formatCurrency(annualData.reduce((sum, item) => sum + item.despesas, 0))}
-            </p>
-          </div>
-          <div>
-            <span className="text-[10px] text-indigo-400 uppercase font-semibold">Total Sobra</span>
-            <p className="text-xs sm:text-sm font-bold text-indigo-400">
-              {formatCurrency(annualData.reduce((sum, item) => sum + item.sobra, 0))}
-            </p>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

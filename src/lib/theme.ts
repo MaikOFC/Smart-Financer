@@ -47,7 +47,7 @@ export function applyTheme(mode: ThemeMode): ResolvedTheme {
 
   // Atualizar a meta tag theme-color para a barra de status do celular
   const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-  const targetColor = resolved === "dark" ? "#020617" : "#f8fafc";
+  const targetColor = resolved === "dark" ? "#0c1015" : "#f8fafc";
   if (metaThemeColor) {
     metaThemeColor.setAttribute("content", targetColor);
   }

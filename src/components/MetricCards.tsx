@@ -1,5 +1,16 @@
-import React from "react";
-import { TrendingUp, TrendingDown, DollarSign, Wallet, ExternalLink } from "lucide-react";
+import React, { useState } from "react";
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Wallet,
+  CreditCard,
+  ChevronRight,
+  MoreVertical,
+  Plus,
+  Layers,
+  Sparkles,
+} from "lucide-react";
 import AnimatedNumber from "./AnimatedNumber";
 
 interface MetricCardsProps {
@@ -12,6 +23,7 @@ interface MetricCardsProps {
   viewMode?: "compact" | "full";
   onOpenExpensesModal?: () => void;
   onOpenPlanningModal?: (tab?: "planning" | "installments") => void;
+  onOpenAddModal?: (section: "left" | "right" | "bottom_left") => void;
 }
 
 export default function MetricCards({
@@ -24,134 +36,271 @@ export default function MetricCards({
   viewMode = "compact",
   onOpenExpensesModal,
   onOpenPlanningModal,
+  onOpenAddModal,
 }: MetricCardsProps) {
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [budgetValueInput, setBudgetValueInput] = useState(budget ? String(budget) : "");
+
+  // Saldo Previsto (Orçamento + Ganhos - Despesas - Parcelas)
+  const saldoPrevisto = sobra;
+  // Saldo em contas / Disponível
+  const saldoDisponivel = budget;
+
+  const handleSaveBudget = () => {
+    const parsed = parseFloat(budgetValueInput.replace(",", "."));
+    if (!isNaN(parsed) && parsed >= 0) {
+      setBudget(parsed);
+    }
+    setIsEditingBudget(false);
+  };
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      {/* Orçamento Mensal */}
-      <div id="card-budget" className="bg-slate-900 border border-slate-800/80 p-6 rounded-3xl transition-all hover:border-slate-700 hover:shadow-lg hover:shadow-indigo-500/5">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Orçamento / Entrada</span>
-          <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20">
-            <DollarSign className="w-5 h-5" />
-          </div>
-        </div>
-        <div className="flex items-baseline gap-1.5 mb-2">
-          <span className="text-sm font-bold text-emerald-400 font-mono">R$</span>
-          <input
-            id="input-budget-value"
-            type="number"
-            step="0.01"
-            value={budget || ""}
-            onChange={(e) => setBudget(parseFloat(e.target.value) || 0)}
-            className="text-2xl font-black font-mono text-white bg-transparent border-b border-transparent hover:border-slate-700 focus:border-indigo-500 focus:outline-none w-full transition-all"
-            placeholder="0,00"
-          />
-        </div>
-        <p className="text-xs text-slate-500">Defina o orçamento para o mês ativo</p>
-      </div>
-
-      {/* Gastos Mensais - INTERATIVO */}
-      <div
-        id="card-left-expenses"
-        onClick={() => {
-          if (onOpenExpensesModal) onOpenExpensesModal();
-        }}
-        className={`bg-slate-900 border border-slate-800/80 p-6 rounded-3xl transition-all hover:border-rose-500/40 hover:shadow-xl hover:shadow-rose-500/10 ${
-          onOpenExpensesModal ? "cursor-pointer group relative overflow-hidden" : ""
-        }`}
-        title="Clique para abrir e gerenciar os Gastos do Mês"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest group-hover:text-rose-300 transition-colors">
-              Gastos do Mês
-            </span>
-            {onOpenExpensesModal && (
-              <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-rose-400 transition-colors" />
-            )}
-          </div>
-          <div className="p-2.5 bg-rose-500/10 text-rose-400 rounded-2xl border border-rose-500/20 group-hover:scale-105 transition-transform">
-            <TrendingDown className="w-5 h-5" />
-          </div>
-        </div>
-        <div className="flex items-baseline gap-1.5 mb-2">
-          <span className="text-sm font-bold text-rose-400 font-mono">R$</span>
-          <span className="text-2xl font-black font-mono text-white tracking-tight group-hover:text-rose-200 transition-colors">
-            <AnimatedNumber value={leftExpensesTotal} duration={1000} />
+    <div className="space-y-4">
+      {/* 1. DUAS PÍLULAS SUPERIORES DE ENQUADRAMENTO (SALDO EM CONTAS / SALDO PREVISTO) */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        {/* Pílula 1: Saldo em contas / Entrada */}
+        <div
+          onClick={() => setIsEditingBudget(true)}
+          className="bg-slate-900 border border-slate-800/80 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-center transition-all hover:border-slate-700 shadow-sm cursor-pointer group"
+          title="Clique para ajustar o Orçamento"
+        >
+          <span className="text-[11px] sm:text-xs text-slate-400 font-medium truncate">
+            Saldo em contas
           </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-slate-500">Despesas e parcelas ativas do mês</p>
-          {viewMode === "compact" && (
-            <span className="text-[10px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full">
-              Ver lista ↗
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-xs sm:text-sm font-semibold text-slate-400 font-mono">R$</span>
+            <span className="text-base sm:text-2xl font-black font-mono text-white tracking-tight truncate">
+              <AnimatedNumber value={saldoDisponivel} duration={800} />
             </span>
-          )}
-        </div>
-      </div>
-
-      {/* Sobra (Orçamento - Gastos Mensais) */}
-      <div id="card-sobra" className="bg-slate-900 border border-slate-800/80 p-6 rounded-3xl transition-all hover:border-slate-700 hover:shadow-lg hover:shadow-emerald-500/5">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sobra / Economia</span>
-          <div className={`p-2.5 rounded-2xl border ${sobra >= 0 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border-rose-500/20"}`}>
-            <Wallet className="w-5 h-5" />
           </div>
         </div>
-        <div className="flex items-baseline gap-1.5 mb-2">
-          <span className="text-sm font-bold text-slate-500 font-mono">R$</span>
-          <span className={`text-2xl font-black font-mono tracking-tight ${sobra >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-            <AnimatedNumber value={sobra} duration={1000} />
+
+        {/* Pílula 2: Saldo previsto (Sobra) */}
+        <div
+          onClick={() => {
+            if (onOpenExpensesModal) onOpenExpensesModal();
+          }}
+          className="bg-slate-900 border border-slate-800/80 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-center transition-all hover:border-slate-700 shadow-sm cursor-pointer group"
+          title="Clique para ver o resumo detalhado das despesas"
+        >
+          <span className="text-[11px] sm:text-xs text-slate-400 font-medium truncate">
+            Saldo previsto
           </span>
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="text-xs sm:text-sm font-semibold text-slate-400 font-mono">R$</span>
+            <span
+              className={`text-base sm:text-2xl font-black font-mono tracking-tight truncate ${
+                saldoPrevisto >= 0 ? "text-emerald-400" : "text-rose-400"
+              }`}
+            >
+              <AnimatedNumber value={saldoPrevisto} duration={800} />
+            </span>
+          </div>
         </div>
-        <p className="text-xs text-slate-500">Orçamento menos gastos e parcelas do mês</p>
       </div>
 
-      {/* Planejamento & Recebíveis - INTERATIVO */}
-      <div
-        id="card-others-summary"
-        onClick={() => {
-          if (onOpenPlanningModal) onOpenPlanningModal("planning");
-        }}
-        className={`bg-slate-900 border border-slate-800/80 p-6 rounded-3xl transition-all hover:border-indigo-500/40 hover:shadow-xl hover:shadow-indigo-500/10 ${
-          onOpenPlanningModal ? "cursor-pointer group relative overflow-hidden" : ""
-        }`}
-        title="Clique para abrir e gerenciar Planejamento & Parcelas"
-      >
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest group-hover:text-indigo-300 transition-colors">
-              Planejado & Parcelas
-            </span>
-            {onOpenPlanningModal && (
-              <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-indigo-400 transition-colors" />
-            )}
+      {/* MODAL / INPUT OVERLAY PARA EDITAR ORÇAMENTO SE CLICADO NA PÍLULA */}
+      {isEditingBudget && (
+        <div className="p-4 bg-slate-900 border border-emerald-500/30 rounded-2xl sm:rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white shrink-0">
+              <DollarSign className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-white">Editar Orçamento Mensal</p>
+              <p className="text-[10px] text-slate-400">Digite o valor líquido total de entrada para este mês</p>
+            </div>
           </div>
-          <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-2xl border border-indigo-500/20 group-hover:scale-105 transition-transform">
-            <TrendingUp className="w-5 h-5" />
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-40">
+              <span className="absolute left-3 top-2 text-xs font-mono font-bold text-slate-400">R$</span>
+              <input
+                type="number"
+                step="0.01"
+                autoFocus
+                value={budgetValueInput}
+                onChange={(e) => setBudgetValueInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveBudget();
+                  if (e.key === "Escape") setIsEditingBudget(false);
+                }}
+                className="w-full bg-slate-950 border border-slate-700 text-white font-mono text-sm font-bold pl-9 pr-3 py-1.5 rounded-xl focus:border-emerald-500 focus:outline-none"
+                placeholder="0.00"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleSaveBudget}
+              className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow cursor-pointer transition-colors"
+            >
+              Salvar
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsEditingBudget(false)}
+              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-xl cursor-pointer"
+            >
+              Cancelar
+            </button>
           </div>
         </div>
-        <div className="text-slate-300 text-sm space-y-2 pt-1 font-mono">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-500" title="Compras futuras e planejamentos">Planejado:</span>
-            <span className="font-bold text-amber-400 group-hover:text-amber-300">
-              R$ <AnimatedNumber value={rightExpensesTotal} duration={1000} />
-            </span>
+      )}
+
+      {/* 2. CAIXA PRINCIPAL / ENQUADRAMENTO "VISÃO GERAL" (ESTILO DO DESIGN DE REFERÊNCIA) */}
+      <div className="bg-slate-900 border border-slate-800/80 rounded-3xl p-4 sm:p-6 shadow-sm">
+        {/* Título de seção sutil estilo bento */}
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-[11px] font-semibold text-emerald-400/90 tracking-wide">
+            Visão geral
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              if (onOpenExpensesModal) onOpenExpensesModal();
+            }}
+            className="p-1 text-slate-500 hover:text-slate-300 cursor-pointer rounded-lg hover:bg-slate-800/60"
+            title="Mais opções de visão geral"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Linhas de Itens com Círculos Coloridos e Chevrons */}
+        <div className="space-y-4">
+          {/* Linha 1: Receitas (Orçamento) */}
+          <div
+            onClick={() => setIsEditingBudget(true)}
+            className="flex items-center justify-between group cursor-pointer hover:bg-slate-800/40 p-2 rounded-2xl transition-all -mx-2"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white shrink-0 shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform">
+                <TrendingUp className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors">
+                  Receitas
+                </h4>
+                <p className="text-[11px] text-slate-400 truncate">
+                  Orçamento de entradas
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="text-right">
+                <div className="text-sm sm:text-base font-black font-mono text-white">
+                  {budget.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono">
+                  {budget.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all" />
+            </div>
           </div>
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-500" title="Soma dos saldos devedores restantes de todas as parcelas ativas">Saldo Parcelas:</span>
-            <span className="font-bold text-amber-400 group-hover:text-amber-300">
-              R$ <AnimatedNumber value={bottomIncomesTotal} duration={1000} />
-            </span>
+
+          {/* Linha 2: Despesas (Gastos do Mês) */}
+          <div
+            onClick={() => {
+              if (onOpenExpensesModal) onOpenExpensesModal();
+            }}
+            className="flex items-center justify-between group cursor-pointer hover:bg-slate-800/40 p-2 rounded-2xl transition-all -mx-2"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-full bg-rose-500 flex items-center justify-center text-white shrink-0 shadow-md shadow-rose-500/20 group-hover:scale-105 transition-transform">
+                <TrendingDown className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-sm font-bold text-white group-hover:text-rose-300 transition-colors">
+                  Despesas
+                </h4>
+                <p className="text-[11px] text-slate-400 truncate">
+                  Contas do mês e saídas
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="text-right">
+                <div className="text-sm sm:text-base font-black font-mono text-white">
+                  {leftExpensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono">
+                  {leftExpensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all" />
+            </div>
+          </div>
+
+          {/* Linha 3: Cartão de Crédito / Planejado */}
+          <div
+            onClick={() => {
+              if (onOpenPlanningModal) onOpenPlanningModal("planning");
+            }}
+            className="flex items-center justify-between group cursor-pointer hover:bg-slate-800/40 p-2 rounded-2xl transition-all -mx-2"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center text-white shrink-0 shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
+                <CreditCard className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-sm font-bold text-white group-hover:text-orange-300 transition-colors">
+                  Cartão de crédito / Metas
+                </h4>
+                <p className="text-[11px] text-slate-400 truncate">
+                  Planejamento e compras futuras
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="text-right">
+                <div className="text-sm sm:text-base font-black font-mono text-white">
+                  {rightExpensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono">
+                  {rightExpensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all" />
+            </div>
+          </div>
+
+          {/* Linha 4: Saldo do mês (Sobra Líquida) */}
+          <div
+            onClick={() => {
+              if (onOpenExpensesModal) onOpenExpensesModal();
+            }}
+            className="flex items-center justify-between group cursor-pointer hover:bg-slate-800/40 p-2 rounded-2xl transition-all -mx-2"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
+                <DollarSign className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors">
+                  Saldo do mês
+                </h4>
+                <p className="text-[11px] text-slate-400 truncate">
+                  Sobra / Economia acumulada
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="text-right">
+                <div className={`text-sm sm:text-base font-black font-mono ${sobra >= 0 ? "text-white" : "text-rose-400"}`}>
+                  {sobra.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono">
+                  {sobra.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all" />
+            </div>
           </div>
         </div>
-        {viewMode === "compact" && (
-          <div className="mt-2 pt-2 border-t border-slate-800/80 flex justify-end">
-            <span className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full">
-              Ver metas ↗
-            </span>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -14,19 +14,45 @@
   background: transparent !important;
 }
 
-/* TEMA ESCURO (PADRÃO / DARK) */
+/* TEMA ESCURO (PADRÃO / DARK) - Cores inspiradas no design moderno de app financeiro */
 html.dark {
   color-scheme: dark;
-  background-color: #020617 !important;
+  background-color: #0c1015 !important;
 }
 
 html.dark body {
-  background-color: #020617 !important;
-  color: #f8fafc;
+  background-color: #0c1015 !important;
+  color: #f1f5f9;
 }
 
 html.dark #root {
-  background-color: #020617 !important;
+  background-color: #0c1015 !important;
+}
+
+/* Customizações refinadas de caixas e enquadramentos escuros */
+html.dark .bg-slate-950,
+html.dark [class*="bg-slate-950"] {
+  background-color: #0c1015 !important;
+}
+
+html.dark .bg-slate-900,
+html.dark [class*="bg-slate-900"] {
+  background-color: #171d26 !important;
+}
+
+html.dark .bg-slate-800,
+html.dark [class*="bg-slate-800"] {
+  background-color: #222a36 !important;
+}
+
+html.dark .border-slate-800,
+html.dark [class*="border-slate-800"] {
+  border-color: #242c38 !important;
+}
+
+html.dark .border-slate-700,
+html.dark [class*="border-slate-700"] {
+  border-color: #2f3a4a !important;
 }
 
 /* TEMA CLARO (LIGHT MODE) */
