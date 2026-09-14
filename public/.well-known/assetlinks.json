@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.onrender.smart_financer.twa",
+        "sha256_cert_fingerprints": ["FC:F9:3A:09:E3:CE:1F:60:04:46:29:FF:6B:F2:3E:46:9D:C7:7A:FF:00:9E:5F:A1:52:23:AD:32:00:9D:02:68"]
+      }
+    }]

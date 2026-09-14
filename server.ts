@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
@@ -744,6 +745,15 @@ async function startServer() {
     res.sendFile(manifestPath);
   });
 
+  // Digital Asset Links for Android Trusted Web Activity (TWA)
+  app.get("/.well-known/assetlinks.json", (req, res) => {
+    const distPath = path.join(process.cwd(), "dist", ".well-known", "assetlinks.json");
+    const publicPath = path.join(process.cwd(), "public", ".well-known", "assetlinks.json");
+    const filePath = fs.existsSync(distPath) ? distPath : publicPath;
+    res.setHeader("Content-Type", "application/json");
+    res.sendFile(filePath);
+  });
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -752,7 +762,7 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, { dotfiles: "allow" }));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
