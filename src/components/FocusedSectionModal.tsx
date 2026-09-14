@@ -177,7 +177,27 @@ export default function FocusedSectionModal({
       return [...list].sort((a, b) => a.amount - b.amount);
     }
 
-    return list;
+    // Padrão: Na aba de despesas, 1º destaques, 2º gastos do mês, 3º parcelas, 4º descontos/ganhos
+    if (tabType === "expenses") {
+      return [...list].sort((a, b) => {
+        const getTier = (item: Transaction) => {
+          if (item.isDiscount) return 4;
+          if (item.isOrangeHighlight) return 1;
+          if (!isBottomSec(item.tableSection)) return 2;
+          return 3;
+        };
+        const tierA = getTier(a);
+        const tierB = getTier(b);
+        if (tierA !== tierB) return tierA - tierB;
+        return b.amount - a.amount;
+      });
+    }
+
+    return [...list].sort((a, b) => {
+      if (a.isDiscount && !b.isDiscount) return 1;
+      if (!a.isDiscount && b.isDiscount) return -1;
+      return b.amount - a.amount;
+    });
   };
 
   const filteredExpenses = filterAndSortList(currentMonthExpenses, "expenses");
@@ -268,10 +288,10 @@ export default function FocusedSectionModal({
               key={t.id}
               onClick={() => setSelectedTransactionForDetail(t)}
               className={`p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-slate-800/50 active:bg-slate-800/70 transition-all cursor-pointer group ${
-                isInst && type === "expenses"
-                  ? "border-l-4 border-purple-500 bg-purple-500/5"
-                  : t.isOrangeHighlight
+                t.isOrangeHighlight
                   ? "border-l-4 border-amber-500 bg-amber-500/5"
+                  : isInst && type === "expenses"
+                  ? "border-l-4 border-purple-500 bg-purple-500/5"
                   : t.isDiscount
                   ? "border-l-4 border-emerald-500 bg-emerald-500/5"
                   : type === "planning"
@@ -284,7 +304,9 @@ export default function FocusedSectionModal({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-sm font-bold text-white transition-colors ${
-                    isInst && type === "expenses"
+                    t.isOrangeHighlight
+                      ? "group-hover:text-amber-300"
+                      : isInst && type === "expenses"
                       ? "group-hover:text-purple-400"
                       : type === "planning"
                       ? "group-hover:text-amber-400"
@@ -294,6 +316,12 @@ export default function FocusedSectionModal({
                   }`}>
                     {t.description}
                   </span>
+                  {t.isOrangeHighlight && (
+                    <span className="text-[9px] bg-amber-500/15 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold flex items-center gap-1">
+                      <Star className="w-3 h-3 fill-current text-amber-400" />
+                      Destaque
+                    </span>
+                  )}
                   {isInst && type === "expenses" && (
                     <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-1">
                       <Layers className="w-3 h-3 text-purple-400" />
@@ -330,6 +358,8 @@ export default function FocusedSectionModal({
                     className={`text-sm sm:text-base font-black font-mono ${
                       t.isDiscount
                         ? "text-emerald-400"
+                        : t.isOrangeHighlight && type === "expenses"
+                        ? "text-amber-300"
                         : type === "planning"
                         ? "text-amber-400"
                         : isInst && type === "expenses"

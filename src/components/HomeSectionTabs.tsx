@@ -14,6 +14,7 @@ import {
   Tag,
   DollarSign,
   ChevronRight,
+  Star,
 } from "lucide-react";
 import { Transaction } from "../types";
 import TransactionDetailModal from "./TransactionDetailModal";
@@ -91,12 +92,47 @@ export default function HomeSectionTabs({
     return sum + t.amount * rem;
   }, 0);
 
-  // Sempre ordenar do maior valor para o menor (preço decrescente)
-  const sortListByPriceDesc = (rawList: Transaction[]) => {
-    return [...rawList].sort((a, b) => b.amount - a.amount);
+  // Ordenação da aba de Despesas do Mês:
+  // 1º: Gastos marcados com destaque
+  // 2º: Gastos do mês (contas/despesas diretas)
+  // 3º: Parcelas ativas
+  // 4º: Descontos / Ganhos (por último, lá embaixo)
+  const getExpenseTier = (t: Transaction) => {
+    if (t.isDiscount) return 4;
+    if (t.isOrangeHighlight) return 1;
+    const isInst = isBottomSec(t.tableSection);
+    if (!isInst) return 2;
+    return 3;
   };
 
-  const filteredExpenses = sortListByPriceDesc(currentMonthExpenses);
+  const sortExpensesList = (rawList: Transaction[]) => {
+    return [...rawList].sort((a, b) => {
+      const tierA = getExpenseTier(a);
+      const tierB = getExpenseTier(b);
+      if (tierA !== tierB) {
+        return tierA - tierB;
+      }
+      // Dentro de cada grupo: do maior valor para o menor
+      if (b.amount !== a.amount) {
+        return b.amount - a.amount;
+      }
+      return a.description.localeCompare(b.description);
+    });
+  };
+
+  // Sempre ordenar do maior valor para o menor (preço decrescente), mantendo descontos por último se houver
+  const sortListByPriceDesc = (rawList: Transaction[]) => {
+    return [...rawList].sort((a, b) => {
+      if (a.isDiscount && !b.isDiscount) return 1;
+      if (!a.isDiscount && b.isDiscount) return -1;
+      if (b.amount !== a.amount) {
+        return b.amount - a.amount;
+      }
+      return a.description.localeCompare(b.description);
+    });
+  };
+
+  const filteredExpenses = sortExpensesList(currentMonthExpenses);
   const filteredPlanning = sortListByPriceDesc(currentMonthPlanning);
   const filteredInstallments = sortListByPriceDesc(allInstallments);
 
@@ -205,10 +241,10 @@ export default function HomeSectionTabs({
                   key={t.id}
                   onClick={() => setSelectedTransactionForDetail(t)}
                   className={`p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-slate-800/50 active:bg-slate-800/70 transition-all cursor-pointer group ${
-                    isInst && activeTab === "expenses"
-                      ? "border-l-4 border-purple-500 bg-purple-500/5"
-                      : t.isOrangeHighlight
+                    t.isOrangeHighlight
                       ? "border-l-4 border-amber-500 bg-amber-500/5"
+                      : isInst && activeTab === "expenses"
+                      ? "border-l-4 border-purple-500 bg-purple-500/5"
                       : t.isDiscount
                       ? "border-l-4 border-emerald-500 bg-emerald-500/5"
                       : activeTab === "planning"
@@ -221,7 +257,9 @@ export default function HomeSectionTabs({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`text-sm font-bold text-white transition-colors ${
-                        isInst && activeTab === "expenses"
+                        t.isOrangeHighlight
+                          ? "group-hover:text-amber-300"
+                          : isInst && activeTab === "expenses"
                           ? "group-hover:text-purple-400"
                           : activeTab === "planning"
                           ? "group-hover:text-orange-400"
@@ -231,6 +269,12 @@ export default function HomeSectionTabs({
                       }`}>
                         {t.description}
                       </span>
+                      {t.isOrangeHighlight && (
+                        <span className="text-[9px] bg-amber-500/15 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-current text-amber-400" />
+                          Destaque
+                        </span>
+                      )}
                       {isInst && activeTab === "expenses" && (
                         <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-1">
                           <Layers className="w-3 h-3 text-purple-400" />
@@ -267,6 +311,8 @@ export default function HomeSectionTabs({
                         className={`text-sm sm:text-base font-black font-mono ${
                           t.isDiscount
                             ? "text-emerald-400"
+                            : t.isOrangeHighlight && activeTab === "expenses"
+                            ? "text-amber-300"
                             : activeTab === "planning"
                             ? "text-orange-400"
                             : isInst && activeTab === "expenses"
