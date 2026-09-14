@@ -726,6 +726,24 @@ Dê conselhos práticos de economia com base nas categorias onde ele mais gasta,
 
 // Vite middleware and static asset serving
 async function startServer() {
+  // Explicit Service Worker and Manifest routes with correct MIME types and headers for PWABuilder & PWA
+  app.get("/sw.js", (req, res) => {
+    const swPath = process.env.NODE_ENV === "production"
+      ? path.join(process.cwd(), "dist", "sw.js")
+      : path.join(process.cwd(), "public", "sw.js");
+    res.setHeader("Content-Type", "application/javascript");
+    res.setHeader("Service-Worker-Allowed", "/");
+    res.sendFile(swPath);
+  });
+
+  app.get("/manifest.json", (req, res) => {
+    const manifestPath = process.env.NODE_ENV === "production"
+      ? path.join(process.cwd(), "dist", "manifest.json")
+      : path.join(process.cwd(), "public", "manifest.json");
+    res.setHeader("Content-Type", "application/manifest+json");
+    res.sendFile(manifestPath);
+  });
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

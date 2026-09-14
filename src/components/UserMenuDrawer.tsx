@@ -26,6 +26,7 @@ import {
 import { ThemeMode } from "../lib/theme";
 import { CURRENT_CLIENT_VERSION, checkServerVersion, forceReloadApp } from "../lib/updateManager";
 import { useModalBackHandler } from "../hooks/useBackNavigation";
+import { PWAInstallButton } from "./PWAInstallButton";
 
 interface UserMenuDrawerProps {
   isOpen: boolean;
@@ -267,6 +268,9 @@ export default function UserMenuDrawer({
                     className="hidden"
                     id="drawer-direct-file-input"
                   />
+
+                  {/* INSTALAÇÃO DO APLICATIVO (PWA / APK) */}
+                  <PWAInstallButton variant="full" />
 
                   {/* IMPORTAÇÃO DIRETA DE PLANILHA / EXTRATOS */}
                   <button
