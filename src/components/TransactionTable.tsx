@@ -18,7 +18,13 @@ import {
 } from "lucide-react";
 import TransactionDetailModal from "./TransactionDetailModal";
 import AnimatedNumber from "./AnimatedNumber";
-import { getMonthlyInstallmentsTotal, isInstallmentActiveInMonth, getRemainingInstallments } from "../utils/installmentUtils";
+import {
+  getMonthlyInstallmentsTotal,
+  isInstallmentActiveInMonth,
+  getRemainingInstallments,
+  getInstallmentCurrentNumber,
+  getInstallmentMeta,
+} from "../utils/installmentUtils";
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -156,8 +162,10 @@ export default function TransactionTable({
   // Unified Left Table: Contains both direct monthly expenses and active installments
   const rawLeftTransactions = [...rawDirectLeftTransactions, ...activeInstallmentsThisMonth];
 
+  const [bottomTableFilter, setBottomTableFilter] = useState<"active" | "all">("active");
   const rawRightTransactions = transactions.filter((t) => isRightSec(t.tableSection));
   const bottomTransactions = transactions.filter((t) => isBottomSec(t.tableSection));
+  const displayedBottomTransactions = bottomTableFilter === "active" ? activeInstallmentsThisMonth : bottomTransactions;
 
   // Check if there are transactions in other months
   const allLeftOtherMonths = transactions.filter((t) => isLeftSec(t.tableSection) && !t.date?.startsWith(selectedMonth));
@@ -437,7 +445,14 @@ export default function TransactionTable({
                               {isInst && (
                                 <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-1">
                                   <Layers className="w-3 h-3 text-purple-400" />
-                                  Parcela ({getRemainingInstallments(t.date, selectedMonth)}x)
+                                  {(() => {
+                                    const cur = getInstallmentCurrentNumber(t, selectedMonth);
+                                    const meta = getInstallmentMeta(t);
+                                    const rem = getRemainingInstallments(t, selectedMonth);
+                                    return cur > 0 && meta.totalInstallments > 1
+                                      ? `Parcela ${cur}/${meta.totalInstallments} (${rem}x rest.)`
+                                      : `Parcela (${rem}x)`;
+                                  })()}
                                 </span>
                               )}
                               {t.isDiscount && (
@@ -905,8 +920,35 @@ export default function TransactionTable({
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Acompanhamento centralizado de todas as compras parceladas e devedores cadastrados em Gastos do Mês
+              {bottomTableFilter === "active"
+                ? `Exibindo apenas as parcelas ativas no mês selecionado (${activeInstallmentsThisMonth.length})`
+                : `Exibindo todas as parcelas cadastradas no sistema (${bottomTransactions.length})`}
             </p>
+          </div>
+
+          <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-[11px] font-bold self-start sm:self-center">
+            <button
+              type="button"
+              onClick={() => setBottomTableFilter("active")}
+              className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                bottomTableFilter === "active"
+                  ? "bg-purple-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              Ativas no Mês ({activeInstallmentsThisMonth.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setBottomTableFilter("all")}
+              className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                bottomTableFilter === "all"
+                  ? "bg-purple-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              Todas ({bottomTransactions.length})
+            </button>
           </div>
         </div>
 
@@ -923,31 +965,20 @@ export default function TransactionTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
-              {bottomTransactions.length === 0 ? (
+              {displayedBottomTransactions.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-500 text-xs font-mono">
-                    Nenhuma parcela registrada.
+                    {bottomTableFilter === "active"
+                      ? "Nenhuma parcela ativa para o mês selecionado."
+                      : "Nenhuma parcela registrada."}
                   </td>
                 </tr>
               ) : (
-                bottomTransactions.map((t) => {
+                displayedBottomTransactions.map((t) => {
                   const isEditing = editingId === t.id;
-
-                  // Dynamic calculation of remaining installments based on selected month
-                  const getRemainingInstallments = (endDateStr: string) => {
-                    try {
-                      const [selYear, selMonth] = selectedMonth.split("-").map(Number);
-                      const [endYear, endMonth] = endDateStr.substring(0, 7).split("-").map(Number);
-                      if (!selYear || !selMonth || !endYear || !endMonth) return 0;
-
-                      const monthsDifference = (endYear - selYear) * 12 + (endMonth - selMonth);
-                      return monthsDifference < 0 ? 0 : monthsDifference + 1;
-                    } catch {
-                      return 0;
-                    }
-                  };
-
-                  const remainingCount = getRemainingInstallments(t.date);
+                  const remainingCount = getRemainingInstallments(t, selectedMonth);
+                  const currentNum = getInstallmentCurrentNumber(t, selectedMonth);
+                  const meta = getInstallmentMeta(t);
                   const remainingAmount = t.amount * remainingCount;
 
                   const formatDateString = (ds: string) => {
@@ -992,7 +1023,7 @@ export default function TransactionTable({
                             <span className="font-semibold text-white group-hover:text-emerald-300 transition-colors">{t.description}</span>
                             {remainingCount > 0 ? (
                               <span className="inline-block sm:hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/25">
-                                {remainingCount}x
+                                {currentNum > 0 && meta.totalInstallments > 1 ? `${currentNum}/${meta.totalInstallments}` : `${remainingCount}x`}
                               </span>
                             ) : null}
                           </div>
@@ -1033,9 +1064,16 @@ export default function TransactionTable({
                       {/* Parcelas Restantes (Escondido no mobile, visível no modal) */}
                       <td className="py-3 px-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                         {remainingCount > 0 ? (
-                          <span className="inline-block px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/25 rounded-full font-bold font-mono text-[10px]">
-                            {remainingCount}x restantes
-                          </span>
+                          <div className="flex flex-col items-center gap-0.5">
+                            {currentNum > 0 && meta.totalInstallments > 1 && (
+                              <span className="text-[10px] font-bold text-purple-300">
+                                Parcela {currentNum} de {meta.totalInstallments}
+                              </span>
+                            )}
+                            <span className="inline-block px-2.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/25 rounded-full font-bold font-mono text-[10px]">
+                              {remainingCount}x restantes
+                            </span>
+                          </div>
                         ) : (
                           <span className="inline-block px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 rounded-full font-bold font-sans text-[10px]">
                             ✓ Quitada!

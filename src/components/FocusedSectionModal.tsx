@@ -22,7 +22,13 @@ import { Transaction } from "../types";
 import TransactionDetailModal from "./TransactionDetailModal";
 import AnimatedNumber from "./AnimatedNumber";
 import { useModalBackHandler } from "../hooks/useBackNavigation";
-import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth } from "../utils/installmentUtils";
+import {
+  getMonthlyInstallmentsTotal,
+  getActiveInstallmentsForMonth,
+  getRemainingInstallments,
+  getInstallmentCurrentNumber,
+  getInstallmentMeta,
+} from "../utils/installmentUtils";
 
 interface FocusedSectionModalProps {
   isOpen: boolean;
@@ -124,13 +130,16 @@ export default function FocusedSectionModal({
     (t) => isRightSec(t.tableSection)
   );
 
+  const [showAllInstallments, setShowAllInstallments] = useState(false);
   const allInstallments = transactions.filter((t) => isBottomSec(t.tableSection));
+  const displayedInstallments = showAllInstallments ? allInstallments : activeInstallmentsThisMonth;
 
   // Compute Totals
   const directExpensesTotal = currentMonthDirectExpenses.reduce((sum, t) => (t.isDiscount ? sum - t.amount : sum + t.amount), 0);
   const monthlyInstallmentsTotal = getMonthlyInstallmentsTotal(transactions, selectedMonth);
   const expensesTotal = directExpensesTotal + monthlyInstallmentsTotal;
   const planningTotal = currentMonthPlanning.reduce((sum, t) => sum + t.amount, 0);
+  const installmentsTotal = displayedInstallments.reduce((sum, t) => sum + t.amount * getRemainingInstallments(t, selectedMonth), 0);
 
   // Formatted Month Label
   const getMonthLabel = (mKey: string) => {
@@ -202,20 +211,7 @@ export default function FocusedSectionModal({
 
   const filteredExpenses = filterAndSortList(currentMonthExpenses, "expenses");
   const filteredPlanning = filterAndSortList(currentMonthPlanning, "planning");
-  const filteredInstallments = filterAndSortList(allInstallments, "installments");
-
-  // Installment dynamic calculation
-  const getRemainingInstallments = (endDateStr: string) => {
-    try {
-      const [selYear, selMonth] = selectedMonth.split("-").map(Number);
-      const [endYear, endMonth] = endDateStr.substring(0, 7).split("-").map(Number);
-      if (!selYear || !selMonth || !endYear || !endMonth) return 0;
-      const monthsDifference = (endYear - selYear) * 12 + (endMonth - selMonth);
-      return monthsDifference < 0 ? 0 : monthsDifference + 1;
-    } catch {
-      return 0;
-    }
-  };
+  const filteredInstallments = filterAndSortList(displayedInstallments, "installments");
 
   const activeIndex = TABS.indexOf(activeTab);
 
@@ -280,7 +276,10 @@ export default function FocusedSectionModal({
         <div className="divide-y divide-slate-800/80 bg-slate-900/60 rounded-2xl border border-slate-800/80 overflow-hidden shadow-sm">
           {list.map((t) => {
           const isInst = isBottomSec(t.tableSection);
-          const remainingCount = isInst ? getRemainingInstallments(t.date) : 0;
+          const remainingCount = isInst ? getRemainingInstallments(t, selectedMonth) : 0;
+          const currentNum = isInst ? getInstallmentCurrentNumber(t, selectedMonth) : 0;
+          const meta = isInst ? getInstallmentMeta(t) : null;
+          const isFinished = isInst && remainingCount === 0;
           const remainingBalance = t.amount * remainingCount;
 
           return (
@@ -297,7 +296,9 @@ export default function FocusedSectionModal({
                   : type === "planning"
                   ? "border-l-4 border-amber-500/40 hover:border-amber-500"
                   : type === "installments"
-                  ? "border-l-4 border-purple-500/40 hover:border-purple-500"
+                  ? isFinished
+                    ? "border-l-4 border-slate-600 bg-slate-900/40 opacity-60"
+                    : "border-l-4 border-purple-500/40 hover:border-purple-500"
                   : "border-l-4 border-rose-500/40 hover:border-rose-500"
               }`}
             >
@@ -325,7 +326,7 @@ export default function FocusedSectionModal({
                   {isInst && type === "expenses" && (
                     <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-1">
                       <Layers className="w-3 h-3 text-purple-400" />
-                      Parcela ({remainingCount}x rest.)
+                      {currentNum > 0 && meta.totalInstallments > 1 ? `Parcela ${currentNum}/${meta.totalInstallments}` : "Parcela"} ({remainingCount}x rest.)
                     </span>
                   )}
                   {t.isDiscount && (
@@ -346,7 +347,18 @@ export default function FocusedSectionModal({
                   </span>
                   {type === "installments" && (
                     <span className="text-[10px] text-slate-400 font-mono">
-                      Restam: {remainingCount}x
+                      {remainingCount > 0 ? (
+                        <>
+                          {currentNum > 0 && meta.totalInstallments > 1 && (
+                            <span className="text-purple-300 font-bold mr-1.5">
+                              Parcela {currentNum} de {meta.totalInstallments}
+                            </span>
+                          )}
+                          (Restam: {remainingCount}x)
+                        </>
+                      ) : (
+                        <span className="text-emerald-400 font-bold">✓ Quitada</span>
+                      )}
                     </span>
                   )}
                 </div>
@@ -496,7 +508,7 @@ export default function FocusedSectionModal({
                       ? expensesTotal
                       : activeTab === "planning"
                       ? planningTotal
-                      : allInstallments.reduce((sum, t) => sum + t.amount * getRemainingInstallments(t.date), 0)
+                      : installmentsTotal
                   }
                   duration={1000}
                 />
@@ -569,7 +581,7 @@ export default function FocusedSectionModal({
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
-                <span>Parcelas ({allInstallments.length})</span>
+                <span>Parcelas ({activeInstallmentsThisMonth.length})</span>
               </button>
             </div>
 
@@ -588,7 +600,7 @@ export default function FocusedSectionModal({
                       ? expensesTotal
                       : activeTab === "planning"
                       ? planningTotal
-                      : allInstallments.reduce((sum, t) => sum + t.amount * getRemainingInstallments(t.date), 0)
+                      : installmentsTotal
                   }
                   duration={1000}
                 />
@@ -609,6 +621,33 @@ export default function FocusedSectionModal({
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              {/* Installments active vs all toggle */}
+              {activeTab === "installments" && (
+                <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setShowAllInstallments(false)}
+                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                      !showAllInstallments
+                        ? "bg-purple-600 text-white shadow-sm"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    Ativas ({activeInstallmentsThisMonth.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAllInstallments(true)}
+                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                      showAllInstallments
+                        ? "bg-purple-600 text-white shadow-sm"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    Todas ({allInstallments.length})
+                  </button>
+                </div>
+              )}
               {/* Category Filter */}
               {activeTab !== "installments" && categories.length > 0 && (
                 <select

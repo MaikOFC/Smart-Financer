@@ -19,7 +19,14 @@ import {
 import { Transaction } from "../types";
 import TransactionDetailModal from "./TransactionDetailModal";
 import AnimatedNumber from "./AnimatedNumber";
-import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth } from "../utils/installmentUtils";
+import {
+  getMonthlyInstallmentsTotal,
+  getActiveInstallmentsForMonth,
+  getRemainingInstallments,
+  getInstallmentCurrentNumber,
+  getInstallmentMeta,
+  isInstallmentActiveInMonth,
+} from "../utils/installmentUtils";
 
 export type HomeSectionTab = "expenses" | "planning" | "installments";
 
@@ -66,7 +73,9 @@ export default function HomeSectionTabs({
     (t) => isRightSec(t.tableSection)
   );
 
+  const [showAllInstallments, setShowAllInstallments] = useState(false);
   const allInstallments = transactions.filter((t) => isBottomSec(t.tableSection));
+  const displayedInstallments = showAllInstallments ? allInstallments : activeInstallmentsThisMonth;
 
   // Compute Totals
   const directExpensesTotal = currentMonthDirectExpenses.reduce((sum, t) => (t.isDiscount ? sum - t.amount : sum + t.amount), 0);
@@ -74,21 +83,10 @@ export default function HomeSectionTabs({
   const expensesTotal = directExpensesTotal + monthlyInstallmentsTotal;
   const planningTotal = currentMonthPlanning.reduce((sum, t) => sum + t.amount, 0);
 
-  // Remaining installments calculation
-  const getRemainingInstallments = (endDateStr: string) => {
-    try {
-      const [selYear, selMonth] = selectedMonth.split("-").map(Number);
-      const [endYear, endMonth] = endDateStr.substring(0, 7).split("-").map(Number);
-      if (!selYear || !selMonth || !endYear || !endMonth) return 0;
-      const monthsDifference = (endYear - selYear) * 12 + (endMonth - selMonth);
-      return monthsDifference < 0 ? 0 : monthsDifference + 1;
-    } catch {
-      return 0;
-    }
-  };
-
-  const installmentsDebtTotal = allInstallments.reduce((sum, t) => {
-    const rem = getRemainingInstallments(t.date);
+  // Remaining installments debt:
+  // Se estiver mostrando apenas ativas do mês, calcula a dívida das parcelas ativas no mês.
+  const installmentsDebtTotal = displayedInstallments.reduce((sum, t) => {
+    const rem = getRemainingInstallments(t, selectedMonth);
     return sum + t.amount * rem;
   }, 0);
 
@@ -134,7 +132,7 @@ export default function HomeSectionTabs({
 
   const filteredExpenses = sortExpensesList(currentMonthExpenses);
   const filteredPlanning = sortListByPriceDesc(currentMonthPlanning);
-  const filteredInstallments = sortListByPriceDesc(allInstallments);
+  const filteredInstallments = sortListByPriceDesc(displayedInstallments);
 
   const currentList =
     activeTab === "expenses"
@@ -148,34 +146,77 @@ export default function HomeSectionTabs({
       {/* CARD PRINCIPAL DO CONTEÚDO ATIVO NA TELA INICIAL */}
       <div className="bg-slate-900/90 backdrop-blur-md rounded-3xl border border-slate-800/80 p-4 sm:p-6 shadow-xl space-y-4">
         {/* CABEÇALHO DO CONTEÚDO: TÍTULO E VALOR TOTAL */}
-        <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
-          <h3 className="text-base sm:text-lg font-black text-white">
-            {activeTab === "expenses" && "Despesas do Mês"}
-            {activeTab === "planning" && "Metas & Planejamento"}
-            {activeTab === "installments" && "Parcelas Ativas & Financiamentos"}
-          </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+          <div>
+            <h3 className="text-base sm:text-lg font-black text-white">
+              {activeTab === "expenses" && "Despesas do Mês"}
+              {activeTab === "planning" && "Metas & Planejamento"}
+              {activeTab === "installments" && "Parcelas & Financiamentos"}
+            </h3>
+            {activeTab === "installments" && (
+              <p className="text-xs text-slate-400 mt-0.5">
+                {showAllInstallments
+                  ? "Exibindo todas as parcelas cadastradas (histórico completo)"
+                  : `Exibindo apenas as parcelas com vencimento ativo neste mês`}
+              </p>
+            )}
+          </div>
 
-          {/* TOTAL */}
-          <div className="text-right">
-            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400 block">Total</span>
-            <div className={`text-base sm:text-lg font-black font-mono ${
-              activeTab === "expenses"
-                ? "text-rose-400"
-                : activeTab === "planning"
-                ? "text-orange-400"
-                : "text-purple-300"
-            }`}>
-              R${" "}
-              <AnimatedNumber
-                value={
-                  activeTab === "expenses"
-                    ? expensesTotal
-                    : activeTab === "planning"
-                    ? planningTotal
-                    : installmentsDebtTotal
-                }
-                decimals={2}
-              />
+          <div className="flex items-center gap-3 self-end sm:self-center">
+            {/* SUB-FILTRO DE PARCELAS */}
+            {activeTab === "installments" && (
+              <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-[11px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setShowAllInstallments(false)}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    !showAllInstallments
+                      ? "bg-purple-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                  title="Mostrar apenas parcelas deste mês"
+                >
+                  Ativas ({activeInstallmentsThisMonth.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAllInstallments(true)}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    showAllInstallments
+                      ? "bg-purple-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                  title="Mostrar todas as parcelas cadastradas"
+                >
+                  Todas ({allInstallments.length})
+                </button>
+              </div>
+            )}
+
+            {/* TOTAL */}
+            <div className="text-right">
+              <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400 block">
+                {activeTab === "installments" ? (showAllInstallments ? "Total Restante Geral" : "Dívida Restante no Mês") : "Total"}
+              </span>
+              <div className={`text-base sm:text-lg font-black font-mono ${
+                activeTab === "expenses"
+                  ? "text-rose-400"
+                  : activeTab === "planning"
+                  ? "text-orange-400"
+                  : "text-purple-300"
+              }`}>
+                R${" "}
+                <AnimatedNumber
+                  value={
+                    activeTab === "expenses"
+                      ? expensesTotal
+                      : activeTab === "planning"
+                      ? planningTotal
+                      : installmentsDebtTotal
+                  }
+                  decimals={2}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -233,7 +274,10 @@ export default function HomeSectionTabs({
           <div className="divide-y divide-slate-800/80 bg-slate-950/50 rounded-2xl border border-slate-800/80 overflow-hidden shadow-inner">
             {currentList.map((t) => {
               const isInst = isBottomSec(t.tableSection);
-              const remainingCount = isInst ? getRemainingInstallments(t.date) : 0;
+              const remainingCount = isInst ? getRemainingInstallments(t, selectedMonth) : 0;
+              const currentNum = isInst ? getInstallmentCurrentNumber(t, selectedMonth) : 0;
+              const meta = isInst ? getInstallmentMeta(t) : null;
+              const isFinished = isInst && remainingCount === 0;
               const remainingBalance = t.amount * remainingCount;
 
               return (
@@ -250,7 +294,9 @@ export default function HomeSectionTabs({
                       : activeTab === "planning"
                       ? "border-l-4 border-orange-500/50 hover:border-orange-500"
                       : activeTab === "installments"
-                      ? "border-l-4 border-purple-500/50 hover:border-purple-500"
+                      ? isFinished
+                        ? "border-l-4 border-slate-600 bg-slate-900/40 opacity-60"
+                        : "border-l-4 border-purple-500/50 hover:border-purple-500"
                       : "border-l-4 border-rose-500/50 hover:border-rose-500"
                   }`}
                 >
@@ -278,7 +324,7 @@ export default function HomeSectionTabs({
                       {isInst && activeTab === "expenses" && (
                         <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-1">
                           <Layers className="w-3 h-3 text-purple-400" />
-                          Parcela ({remainingCount}x rest.)
+                          {currentNum > 0 && meta ? `Parcela ${currentNum}/${meta.totalInstallments}` : "Parcela"} ({remainingCount}x rest.)
                         </span>
                       )}
                       {t.isDiscount && (
@@ -299,7 +345,18 @@ export default function HomeSectionTabs({
                       </span>
                       {activeTab === "installments" && (
                         <span className="text-[10px] text-slate-400 font-mono">
-                          Restam: {remainingCount}x
+                          {remainingCount > 0 ? (
+                            <>
+                              {currentNum > 0 && meta && (
+                                <span className="text-purple-300 font-bold mr-1.5">
+                                  Parcela {currentNum} de {meta.totalInstallments}
+                                </span>
+                              )}
+                              (Restam: {remainingCount}x)
+                            </>
+                          ) : (
+                            <span className="text-emerald-400 font-bold">✓ Quitada</span>
+                          )}
                         </span>
                       )}
                     </div>

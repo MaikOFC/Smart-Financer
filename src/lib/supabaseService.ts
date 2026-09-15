@@ -86,6 +86,20 @@ export function mapFromSupabase(row: any): Transaction {
     tableSection = "left";
   }
 
+  const rawNote = row.note ?? row["observação"] ?? row.observacao ?? row.nota ?? "";
+  let parsedStartDate: string | undefined = row.start_date ?? row.data_inicio ?? undefined;
+  let parsedTotalInstallments: number | undefined = row.total_installments ?? row.total_parcelas ?? undefined;
+  let cleanedNote = rawNote;
+
+  if (rawNote) {
+    const metaMatch = rawNote.match(/\[meta:start=([0-9]{4}-[0-9]{2}),total=([0-9]+)\]/i);
+    if (metaMatch) {
+      if (!parsedStartDate) parsedStartDate = metaMatch[1];
+      if (!parsedTotalInstallments) parsedTotalInstallments = parseInt(metaMatch[2], 10);
+      cleanedNote = rawNote.replace(/\[meta:[^\]]+\]\s*/g, "").trim();
+    }
+  }
+
   return {
     id: String(row.id),
     description,
@@ -96,12 +110,27 @@ export function mapFromSupabase(row: any): Transaction {
     category: row.category ?? row.categoria ?? "Outros",
     isOrangeHighlight: !!(row.is_orange_highlight ?? row.destaque ?? row.highlight),
     isDiscount: !!(row.is_discount ?? row.desconto),
-    note: row.note ?? row["observação"] ?? row.observacao ?? row.nota ?? "",
+    note: cleanedNote,
+    startDate: parsedStartDate,
+    totalInstallments: parsedTotalInstallments,
   };
 }
 
 // Convert a React camelCase Transaction to Supabase snake_case
 export function mapToSupabase(t: Omit<Transaction, "id"> & { id?: string }, userId: string): any {
+  let noteToSave = t.note ? t.note.trim() : "";
+
+  // Se for parcela (bottom_left) e tiver startDate/totalInstallments, codifica no campo note de forma segura
+  if (t.tableSection === "bottom_left") {
+    const startM = t.startDate ? t.startDate.substring(0, 7) : "";
+    const totalInst = t.totalInstallments && t.totalInstallments > 0 ? t.totalInstallments : undefined;
+
+    if (startM && totalInst && !noteToSave.includes("[meta:")) {
+      const metaTag = `[meta:start=${startM},total=${totalInst}]`;
+      noteToSave = noteToSave ? `${metaTag} ${noteToSave}` : metaTag;
+    }
+  }
+
   const mapped: any = {
     user_id: userId,
     description: t.description,
@@ -112,7 +141,7 @@ export function mapToSupabase(t: Omit<Transaction, "id"> & { id?: string }, user
     category: t.category || "Outros",
     is_orange_highlight: !!t.isOrangeHighlight,
     is_discount: !!t.isDiscount,
-    note: t.note || null,
+    note: noteToSave || null,
   };
   if (t.id && !t.id.startsWith("manual-")) {
     mapped.id = t.id;

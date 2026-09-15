@@ -53,7 +53,7 @@ import UserMenuDrawer from "./components/UserMenuDrawer";
 import FocusedSectionModal from "./components/FocusedSectionModal";
 import HomeSectionTabs, { HomeSectionTab } from "./components/HomeSectionTabs";
 import BottomNavigationDock, { AppNavTab } from "./components/BottomNavigationDock";
-import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth } from "./utils/installmentUtils";
+import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth, getRemainingInstallments } from "./utils/installmentUtils";
 import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "./lib/admin";
 import { ThemeMode, getStoredThemeMode, saveThemeMode, applyTheme } from "./lib/theme";
 import { checkServerVersion, forceReloadApp, CURRENT_CLIENT_VERSION } from "./lib/updateManager";
@@ -633,25 +633,13 @@ export default function App() {
     .filter((t) => isRightSec(t.tableSection))
     .reduce((acc, t) => acc + t.amount, 0);
 
-  // Helper to calculate remaining installments from selected month to end date
-  const getRemainingInstallments = (endDateStr: string) => {
-    try {
-      const [selYear, selMonth] = selectedMonth.split("-").map(Number);
-      const [endYear, endMonth] = endDateStr.substring(0, 7).split("-").map(Number);
-      if (!selYear || !selMonth || !endYear || !endMonth) return 0;
+  // Active installments for selected month
+  const activeInstallmentsThisMonth = getActiveInstallmentsForMonth(transactions, selectedMonth);
 
-      const monthsDifference = (endYear - selYear) * 12 + (endMonth - selMonth);
-      return monthsDifference < 0 ? 0 : monthsDifference + 1;
-    } catch {
-      return 0;
-    }
-  };
-
-  // Bottom left total remaining balance (sum of each installment value * remaining installments)
-  const bottomIncomesTotal = transactions
-    .filter((t) => t.tableSection === "bottom_left")
+  // Bottom left total remaining balance (sum of each active installment value * remaining installments in selected month)
+  const bottomIncomesTotal = activeInstallmentsThisMonth
     .reduce((acc, t) => {
-      const remainingCount = getRemainingInstallments(t.date);
+      const remainingCount = getRemainingInstallments(t, selectedMonth);
       return acc + (t.amount * remainingCount);
     }, 0);
 
@@ -661,9 +649,9 @@ export default function App() {
   // Contagens para a barra de abas inferior
   const homeExpensesCount =
     currentMonthTransactions.filter((t) => isLeftSec(t.tableSection)).length +
-    getActiveInstallmentsForMonth(transactions, selectedMonth).length;
+    activeInstallmentsThisMonth.length;
   const homePlanningCount = transactions.filter((t) => isRightSec(t.tableSection)).length;
-  const homeInstallmentsCount = transactions.filter((t) => isBottomSec(t.tableSection)).length;
+  const homeInstallmentsCount = activeInstallmentsThisMonth.length;
 
   // Add a new transaction (called from the AddTransactionModal)
   const handleAddTransaction = async (newTransaction: Omit<Transaction, "id">) => {

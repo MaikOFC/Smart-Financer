@@ -20,6 +20,13 @@ import {
 } from "lucide-react";
 import { Transaction } from "../types";
 import { useModalBackHandler } from "../hooks/useBackNavigation";
+import {
+  getInstallmentMeta,
+  getRemainingInstallments,
+  getInstallmentCurrentNumber,
+  stripMetaFromNote,
+  isInstallmentActiveInMonth,
+} from "../utils/installmentUtils";
 
 interface TransactionDetailModalProps {
   transaction: Transaction | null;
@@ -59,7 +66,7 @@ export default function TransactionDetailModal({
       setEditAmountStr(transaction.amount !== undefined ? String(transaction.amount) : "0");
       setEditCategory(transaction.category || "Outros");
       setEditDate(transaction.date || "");
-      setEditNote(transaction.note || "");
+      setEditNote(stripMetaFromNote(transaction.note));
       setEditIsHighlight(!!transaction.isOrangeHighlight);
       setEditIsDiscount(!!transaction.isDiscount);
       setIsEditing(false);
@@ -69,10 +76,17 @@ export default function TransactionDetailModal({
 
   if (!isOpen || !transaction) return null;
 
+  const isInst = transaction.tableSection === "bottom_left";
+  const instMeta = isInst ? getInstallmentMeta(transaction) : null;
+  const remainingCount = isInst ? getRemainingInstallments(transaction, selectedMonth) : 0;
+  const currentNumber = isInst ? getInstallmentCurrentNumber(transaction, selectedMonth) : 0;
+  const isActiveThisMonth = isInst ? isInstallmentActiveInMonth(transaction, selectedMonth) : false;
+  const cleanUserNote = stripMetaFromNote(transaction.note);
+
   const getSectionLabel = (sec: string) => {
     if (sec === "left" || sec === "despesas") return { label: "Despesa Mensal", color: "text-rose-400 bg-rose-500/10 border-rose-500/20" };
     if (sec === "right" || sec === "planejamento") return { label: "Planejamento Futuro", color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20" };
-    return { label: "Parcela / Recebível", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" };
+    return { label: "Parcela / Empréstimo", color: "text-purple-400 bg-purple-500/10 border-purple-500/20" };
   };
 
   const sectionInfo = getSectionLabel(transaction.tableSection);
@@ -86,12 +100,18 @@ export default function TransactionDetailModal({
 
     const parsedAmount = parseFloat(editAmountStr) || 0;
 
+    let finalNote = editNote.trim();
+    if (isInst && instMeta) {
+      const metaTag = `[meta:start=${instMeta.startDate},total=${instMeta.totalInstallments}]`;
+      finalNote = finalNote ? `${finalNote} ${metaTag}` : metaTag;
+    }
+
     onUpdateTransaction(transaction.id, {
       description: trimmed,
       amount: parsedAmount,
       category: editCategory,
       date: editDate,
-      note: editNote,
+      note: finalNote,
       isOrangeHighlight: editIsHighlight,
       isDiscount: editIsDiscount,
     });
@@ -369,15 +389,76 @@ export default function TransactionDetailModal({
                   </div>
                 </div>
 
+                {/* PAINEL DE DETALHES DE PARCELAMENTO */}
+                {isInst && instMeta && (
+                  <div className="p-4 bg-purple-950/20 border border-purple-500/20 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-purple-400" />
+                        <span className="text-xs font-bold text-purple-200">
+                          Controle de Parcelas
+                        </span>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        isActiveThisMonth
+                          ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
+                          : remainingCount === 0
+                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                          : "bg-slate-800 text-slate-400 border-slate-700"
+                      }`}>
+                        {isActiveThisMonth
+                          ? `Ativa em ${selectedMonth}`
+                          : remainingCount === 0
+                          ? "Quitada"
+                          : "Fora deste mês"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+                      <div className="p-2 bg-slate-900/60 rounded-xl border border-slate-800/80">
+                        <p className="text-[10px] text-slate-400">Progresso</p>
+                        <p className="font-mono font-bold text-purple-300 mt-0.5">
+                          {currentNumber > 0 ? `${currentNumber}/${instMeta.totalInstallments}` : remainingCount === 0 ? "Concluído" : "A iniciar"}
+                        </p>
+                      </div>
+                      <div className="p-2 bg-slate-900/60 rounded-xl border border-slate-800/80">
+                        <p className="text-[10px] text-slate-400">Restam</p>
+                        <p className="font-mono font-bold text-white mt-0.5">
+                          {remainingCount}x
+                        </p>
+                      </div>
+                      <div className="p-2 bg-slate-900/60 rounded-xl border border-slate-800/80">
+                        <p className="text-[10px] text-slate-400">Início</p>
+                        <p className="font-mono font-bold text-slate-300 mt-0.5">
+                          {instMeta.startDate}
+                        </p>
+                      </div>
+                      <div className="p-2 bg-slate-900/60 rounded-xl border border-slate-800/80">
+                        <p className="text-[10px] text-slate-400">Término</p>
+                        <p className="font-mono font-bold text-slate-300 mt-0.5">
+                          {instMeta.endDate}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-purple-500/10">
+                      <span className="text-slate-400">Saldo a liquidar:</span>
+                      <span className="font-mono font-bold text-purple-300">
+                        R$ {(transaction.amount * remainingCount).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 {/* NOTAS OU OBSERVAÇÕES */}
-                {transaction.note ? (
+                {cleanUserNote ? (
                   <div className="p-3.5 bg-slate-950/40 border border-slate-800/80 rounded-xl space-y-1">
                     <div className="flex items-center gap-2 text-slate-400">
                       <FileText className="w-3.5 h-3.5 text-indigo-400" />
                       <span className="text-[10px] font-bold uppercase">Observações / Detalhes</span>
                     </div>
                     <p className="text-xs text-slate-300 font-medium whitespace-pre-wrap leading-relaxed pt-0.5">
-                      {transaction.note}
+                      {cleanUserNote}
                     </p>
                   </div>
                 ) : (
