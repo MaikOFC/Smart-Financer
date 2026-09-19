@@ -22,6 +22,7 @@ import {
   ArrowUpCircle,
   CheckCircle2,
   Upload,
+  Share2,
 } from "lucide-react";
 import { ThemeMode } from "../lib/theme";
 import { CURRENT_CLIENT_VERSION, checkServerVersion, forceReloadApp } from "../lib/updateManager";
@@ -44,6 +45,7 @@ interface UserMenuDrawerProps {
   themeMode?: ThemeMode;
   onSetThemeMode?: (mode: ThemeMode) => void;
   onDirectImportFile?: (file: File) => void;
+  onSimulateNubank?: () => void;
 }
 
 export default function UserMenuDrawer({
@@ -62,6 +64,7 @@ export default function UserMenuDrawer({
   themeMode = "system",
   onSetThemeMode,
   onDirectImportFile,
+  onSimulateNubank,
 }: UserMenuDrawerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
@@ -343,6 +346,38 @@ export default function UserMenuDrawer({
                         </div>
                       </div>
                       <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:text-slate-600 dark:group-hover:text-slate-300" />
+                    </button>
+                  )}
+
+                  {/* COMPARTILHAMENTO DE COMPROVANTE (NUBANK / PIX) */}
+                  {onSimulateNubank && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onSimulateNubank();
+                      }}
+                      className="w-full flex items-center justify-between p-3 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/20 dark:hover:bg-purple-900/30 border border-purple-200 dark:border-purple-800/40 hover:border-purple-400 dark:hover:border-purple-600 transition-all text-left group cursor-pointer"
+                      title="Testar leitura de comprovante compartilhado pelo Nubank ou outros bancos"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 rounded-lg group-hover:bg-purple-200 dark:group-hover:bg-purple-500/30 transition-colors">
+                          <Share2 className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs font-bold text-purple-900 dark:text-purple-200 group-hover:text-purple-700 dark:group-hover:text-white">
+                              Comprovante Nubank / Pix
+                            </p>
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200">
+                              Novo
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-purple-700/80 dark:text-purple-300/70">
+                            Testar importação de comprovante compartilhado
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-purple-400 group-hover:text-purple-600 dark:text-purple-400 dark:group-hover:text-purple-200" />
                     </button>
                   )}
 

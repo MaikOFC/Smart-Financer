@@ -53,6 +53,8 @@ import UserMenuDrawer from "./components/UserMenuDrawer";
 import FocusedSectionModal from "./components/FocusedSectionModal";
 import HomeSectionTabs, { HomeSectionTab } from "./components/HomeSectionTabs";
 import BottomNavigationDock, { AppNavTab } from "./components/BottomNavigationDock";
+import SharedReceiptModal from "./components/SharedReceiptModal";
+import { getPendingSharedPayloads, SharedPayloadItem } from "./utils/shareTargetStorage";
 import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth, getRemainingInstallments } from "./utils/installmentUtils";
 import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "./lib/admin";
 import { ThemeMode, getStoredThemeMode, saveThemeMode, applyTheme } from "./lib/theme";
@@ -129,6 +131,55 @@ export default function App() {
   // Add Transaction Modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addModalSection, setAddModalSection] = useState<"left" | "right" | "bottom_left">("left");
+
+  // Shared Receipt state (Web Share Target / PWA / Nubank / Bancos)
+  const [sharedPayload, setSharedPayload] = useState<SharedPayloadItem | null>(null);
+  const [isSharedModalOpen, setIsSharedModalOpen] = useState(false);
+
+  // Auto-detect receipts shared to SmartFin via Android Share menu (PWA / APK)
+  useEffect(() => {
+    const checkShares = async () => {
+      try {
+        const items = await getPendingSharedPayloads();
+        if (items && items.length > 0) {
+          setSharedPayload(items[0]);
+          setIsSharedModalOpen(true);
+        }
+      } catch (err) {
+        console.warn("Erro ao ler comprovantes compartilhados:", err);
+      }
+    };
+
+    checkShares();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        checkShares();
+      }
+    };
+
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", checkShares);
+
+    return () => {
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", checkShares);
+    };
+  }, []);
+
+  const handleSimulateNubankReceipt = () => {
+    const today = new Date().toISOString().split("T")[0];
+    const sampleItem: SharedPayloadItem = {
+      id: "simulated_" + Date.now(),
+      timestamp: Date.now(),
+      title: "Comprovante de transferência Pix",
+      text: `Comprovante de transferência Pix realizada com sucesso.\nValor: R$ 145,90\nPara: Restaurante e Pizzaria Bella Itália\nData: ${today}\nInstituição: Nu Pagamentos S.A. (Nubank)\nID da Transação: E182361202609151230456`,
+      url: "",
+      files: [],
+    };
+    setSharedPayload(sampleItem);
+    setIsSharedModalOpen(true);
+  };
 
   // Admin / Settings Modal state
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
@@ -1704,6 +1755,21 @@ export default function App() {
           existingTransactions={transactions}
         />
 
+        {/* MODAL DE COMPROVANTE BANCÁRIO COMPARTILHADO (NUBANK / PIX / SHARE TARGET) */}
+        <SharedReceiptModal
+          isOpen={isSharedModalOpen}
+          payload={sharedPayload}
+          onClose={() => {
+            setIsSharedModalOpen(false);
+            setSharedPayload(null);
+          }}
+          onAddTransaction={(tx) => {
+            handleAddTransaction(tx);
+          }}
+          selectedMonth={selectedMonth}
+          categories={categories}
+        />
+
         {/* MODAL DE ADMINISTRAÇÃO E CONFIGURAÇÕES */}
         <AdminSettingsModal
           isOpen={isAdminModalOpen}
@@ -1757,6 +1823,7 @@ export default function App() {
           themeMode={themeMode}
           onSetThemeMode={handleSetThemeMode}
           onDirectImportFile={handleDirectFileImport}
+          onSimulateNubank={handleSimulateNubankReceipt}
         />
 
         {/* MODAL DE SEÇÃO FOCADA (GASTOS DO MÊS / PLANEJAMENTO / PARCELAS) */}

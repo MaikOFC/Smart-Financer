@@ -17,7 +17,8 @@ import {
   getUserBudgets,
   setUserBudget,
   getUserDefaultSalary,
-  setUserDefaultSalary
+  setUserDefaultSalary,
+  resetUserToDemoData
 } from "./src/serverDb";
 
 dotenv.config();
@@ -26,6 +27,17 @@ const app = express();
 const PORT = 3000;
 const SERVER_VERSION = "2.4.0";
 const SERVER_BUILD_TIME = new Date().toISOString();
+
+// Enable CORS and headers for Vercel / Cloud / Mobile Web
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 // Increase body limit for image uploads
 app.use(express.json({ limit: "20mb" }));
@@ -261,38 +273,7 @@ app.post("/api/budgets", authMiddleware, (req: any, res) => {
 // Redefinir dados para o modelo original (semente)
 app.post("/api/auth/reset", authMiddleware, (req: any, res) => {
   try {
-    // Import dynamically from initialData to prevent any ESM vs CommonJS issue
-    const { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } = require("./src/initialData");
-    const crypto = require("crypto");
-    const fs = require("fs");
-    const path = require("path");
-    const DB_FILE = path.join(process.cwd(), "database.json");
-
-    const content = fs.readFileSync(DB_FILE, "utf-8");
-    const db = JSON.parse(content);
-
-    // Filter out existing user transactions and budgets
-    db.transactions = db.transactions.filter((t: any) => t.userId !== req.user.id);
-    db.budgets = db.budgets.filter((b: any) => b.userId !== req.user.id);
-
-    // Re-seed
-    const userTransactions = INITIAL_TRANSACTIONS.map((t: any) => ({
-      ...t,
-      id: `${t.id}-${crypto.randomUUID().substring(0, 8)}`,
-      userId: req.user.id,
-    }));
-    db.transactions.push(...userTransactions);
-
-    Object.entries(INITIAL_BUDGETS).forEach(([month, amount]) => {
-      db.budgets.push({
-        userId: req.user.id,
-        month,
-        amount,
-      });
-    });
-
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), "utf-8");
-
+    resetUserToDemoData(req.user.id);
     res.json({ success: true, message: "Dados redefinidos com sucesso para o modelo original." });
   } catch (error: any) {
     console.error("Erro ao resetar dados:", error);
@@ -673,6 +654,112 @@ Por favor, analise a planilha de entrada e retorne um array JSON válido de tran
   }
 });
 
+// API Endpoint to parse single bank receipts (Nubank, Pix, boletos, etc.) from image/PDF/text
+app.post("/api/parse-receipt", async (req, res) => {
+  try {
+    const { fileBase64, mimeType, text } = req.body;
+
+    if (!fileBase64 && !text) {
+      return res.status(400).json({ error: "Nenhum dado de comprovante (arquivo ou texto) fornecido." });
+    }
+
+    const prompt = `Você é um assistente especialista em ler comprovantes bancários brasileiros (Nubank, Itaú, Bradesco, Inter, Santander, Caixa, C6 Bank, PicPay, Mercado Pago, etc.) a partir de imagens, PDFs ou textos compartilhados.
+Extraia com alta precisão os dados deste comprovante financeiro:
+- description: Descrição limpa e objetiva do gasto (ex: 'Pix - Fulano de Tal', 'Supermercado X', 'Fatura Nubank', 'Boleto Condomínio').
+- amount: Valor numérico em reais (número positivo float, ex: 154.20).
+- date: Data do pagamento no formato 'YYYY-MM-DD'. Se não encontrar ano, use o ano corrente 2026.
+- category: Apenas uma entre: 'Alimentação', 'Transporte', 'Moradia', 'Saúde', 'Lazer', 'Tecnologia', 'Família', 'Outros'.
+- tableSection: 'left' para despesas normais, ou 'bottom_left' se for compra parcelada / empréstimo.
+- bank: Nome do banco emissor (ex: 'Nubank', 'Inter', 'Itaú', 'Bradesco', etc.).
+- note: Informação complementar (ex: 'Chave Pix: fulano@email.com' ou 'Autenticação: ABC123').
+- isInstallment: true se for pagamento ou compra explicitamente parcelada, false caso contrário.
+- installmentCount: número total de parcelas se for parcelado (ex: 3), ou 1 caso contrário.`;
+
+    const receiptSchemaConfig = {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          description: { type: Type.STRING },
+          amount: { type: Type.NUMBER },
+          date: { type: Type.STRING },
+          category: { type: Type.STRING },
+          tableSection: { type: Type.STRING },
+          bank: { type: Type.STRING },
+          note: { type: Type.STRING },
+          isInstallment: { type: Type.BOOLEAN },
+          installmentCount: { type: Type.NUMBER },
+        },
+        required: ["description", "amount", "date", "category", "tableSection"],
+      },
+    };
+
+    if (ai) {
+      try {
+        let response;
+        if (fileBase64 && mimeType) {
+          const filePart = {
+            inlineData: {
+              mimeType: mimeType.includes("pdf") ? "application/pdf" : mimeType,
+              data: fileBase64,
+            },
+          };
+          response = await callGeminiWithFallback(ai, {
+            contents: [filePart, { text: `${prompt}\n\nTexto adicional acompanhante: ${text || "Nenhum"}` }],
+            config: receiptSchemaConfig,
+          });
+        } else if (text) {
+          response = await callGeminiWithFallback(ai, {
+            contents: `Texto do comprovante:\n\n${text}\n\n${prompt}`,
+            config: receiptSchemaConfig,
+          });
+        }
+
+        if (response && response.text) {
+          const parsed = JSON.parse(response.text.trim());
+          return res.json({ receipt: parsed });
+        }
+      } catch (aiErr: any) {
+        console.warn("[ReceiptAI] Erro ao analisar comprovante com Gemini:", aiErr);
+      }
+    }
+
+    // Heuristic fallback se IA falhar ou não estiver disponível
+    const rawText = text || "";
+    const amountMatch = rawText.match(/R\$\s*([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})/i) || rawText.match(/([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})/);
+    const amount = amountMatch ? parseFloat(amountMatch[1].replace(/\./g, "").replace(",", ".")) : 0;
+    const dateMatch = rawText.match(/(\d{2})[\/\.-](\d{2})[\/\.-](\d{4})/);
+    const date = dateMatch ? `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}` : new Date().toISOString().split("T")[0];
+
+    return res.json({
+      receipt: {
+        description: "Comprovante Bancário",
+        amount,
+        date,
+        category: "Outros",
+        tableSection: "left",
+        bank: rawText.toLowerCase().includes("nubank") ? "Nubank" : undefined,
+        note: rawText.substring(0, 100),
+        isInstallment: false,
+        installmentCount: 1,
+      },
+    });
+  } catch (err: any) {
+    console.error("Erro no endpoint /api/parse-receipt:", err);
+    res.status(500).json({ error: "Falha ao analisar comprovante.", details: err.message });
+  }
+});
+
+// Fallback do Share Target no servidor caso o Service Worker não intercepte a primeira requisição
+app.post("/share-target", (req, res) => {
+  res.redirect("/?shared_target=1");
+});
+
+app.get("/share-target", (req, res) => {
+  const query = req.url.includes("?") ? req.url.split("?")[1] : "";
+  res.redirect(`/?shared_target=1${query ? `&${query}` : ""}`);
+});
+
 // API Endpoint for AI financial consultant advisor
 app.post("/api/ask-advisor", async (req, res) => {
   try {
@@ -773,4 +860,12 @@ async function startServer() {
   });
 }
 
-startServer();
+// Export Express app for Vercel Serverless Functions
+export { app };
+export default app;
+
+// In standalone environments (Render, Cloud Run, Docker), start the HTTP server
+if (!process.env.VERCEL) {
+  startServer();
+}
+
