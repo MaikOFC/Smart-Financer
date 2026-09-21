@@ -1,5 +1,5 @@
 // SmartFinancer Service Worker for PWA, APK & Share Target Support
-const CACHE_NAME = 'smartfinancer-v4';
+const CACHE_NAME = 'smartfinancer-v5';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
