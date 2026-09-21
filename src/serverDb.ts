@@ -4,12 +4,7 @@ import crypto from "crypto";
 import { Transaction } from "./types";
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from "./initialData";
 
-// In Vercel serverless environment, local filesystem is read-only except /tmp
-const DB_FILE = process.env.VERCEL
-  ? path.join("/tmp", "database.json")
-  : (process.env.DB_FILE || path.join(process.cwd(), "database.json"));
-
-let inMemoryDb: DbSchema | null = null;
+const DB_FILE = path.join(process.cwd(), "database.json");
 
 export interface User {
   id: string;
@@ -35,62 +30,35 @@ export interface DbSchema {
 
 // Ensure database file exists and is initialized
 function initDb(): DbSchema {
-  if (inMemoryDb) {
-    return inMemoryDb;
-  }
-
-  // 1. If DB_FILE exists in target path (/tmp or cwd)
-  if (fs.existsSync(DB_FILE)) {
-    try {
-      const content = fs.readFileSync(DB_FILE, "utf-8");
-      inMemoryDb = JSON.parse(content);
-      return inMemoryDb!;
-    } catch (e) {
-      console.warn("Aviso ao ler banco de dados JSON de DB_FILE:", e);
-    }
-  }
-
-  // 2. If running on Vercel, attempt to copy seed from bundled database.json in root cwd
-  if (process.env.VERCEL) {
-    const bundledPath = path.join(process.cwd(), "database.json");
-    if (fs.existsSync(bundledPath)) {
-      try {
-        const content = fs.readFileSync(bundledPath, "utf-8");
-        inMemoryDb = JSON.parse(content);
-        try {
-          fs.writeFileSync(DB_FILE, content, "utf-8");
-        } catch (_) {}
-        return inMemoryDb!;
-      } catch (_) {}
-    }
-  }
-
-  // 3. Fallback default schema
-  const defaultData: DbSchema = {
-    users: [],
-    sessions: [],
-    transactions: [],
-    budgets: [],
-  };
-
-  try {
+  if (!fs.existsSync(DB_FILE)) {
+    const defaultData: DbSchema = {
+      users: [],
+      sessions: [],
+      transactions: [],
+      budgets: [],
+    };
     fs.writeFileSync(DB_FILE, JSON.stringify(defaultData, null, 2), "utf-8");
-  } catch (e) {
-    console.warn("Aviso: Não foi possível gravar arquivo DB em disco (usando memória):", e);
+    return defaultData;
   }
-
-  inMemoryDb = defaultData;
-  return inMemoryDb;
+  try {
+    const content = fs.readFileSync(DB_FILE, "utf-8");
+    return JSON.parse(content);
+  } catch (e) {
+    console.error("Erro ao ler banco de dados JSON. Criando um novo...", e);
+    const defaultData: DbSchema = {
+      users: [],
+      sessions: [],
+      transactions: [],
+      budgets: [],
+    };
+    fs.writeFileSync(DB_FILE, JSON.stringify(defaultData, null, 2), "utf-8");
+    return defaultData;
+  }
 }
 
 // Save database
 function saveDb(data: DbSchema) {
-  inMemoryDb = data;
-  try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf-8");
-  } catch (e) {
-    console.warn("Aviso ao salvar DB em disco (mantido em memória):", e);
-  }
+  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf-8");
 }
 
 // Hash password with SHA-256
@@ -343,28 +311,4 @@ export function setUserDefaultSalary(userId: string, salary: number, applyFromMo
   saveDb(db);
   return updatedBudgetsMap;
 }
-
-export function resetUserToDemoData(userId: string) {
-  const db = initDb();
-  db.transactions = db.transactions.filter((t) => t.userId !== userId);
-  db.budgets = db.budgets.filter((b) => b.userId !== userId);
-
-  const userTransactions = INITIAL_TRANSACTIONS.map((t) => ({
-    ...t,
-    id: `${t.id}-${crypto.randomUUID().substring(0, 8)}`,
-    userId,
-  }));
-  db.transactions.push(...userTransactions);
-
-  Object.entries(INITIAL_BUDGETS).forEach(([month, amount]) => {
-    db.budgets.push({
-      userId,
-      month,
-      amount,
-    });
-  });
-
-  saveDb(db);
-}
-
 

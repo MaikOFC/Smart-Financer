@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { 
@@ -16,8 +17,7 @@ import {
   getUserBudgets,
   setUserBudget,
   getUserDefaultSalary,
-  setUserDefaultSalary,
-  resetUserToDemoData
+  setUserDefaultSalary
 } from "./src/serverDb";
 
 dotenv.config();
@@ -26,25 +26,6 @@ const app = express();
 const PORT = 3000;
 const SERVER_VERSION = "2.4.0";
 const SERVER_BUILD_TIME = new Date().toISOString();
-
-// Enable CORS and headers for Vercel / Cloud / Mobile Web
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept");
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-  next();
-});
-
-// Normalize URL prefix for Vercel / Serverless routing (ensures both /auth/login and /api/auth/login work)
-app.use((req, res, next) => {
-  if (req.url && !req.url.startsWith("/api") && !req.url.startsWith("/.well-known")) {
-    req.url = "/api" + (req.url.startsWith("/") ? req.url : "/" + req.url);
-  }
-  next();
-});
 
 // Increase body limit for image uploads
 app.use(express.json({ limit: "20mb" }));
@@ -280,7 +261,38 @@ app.post("/api/budgets", authMiddleware, (req: any, res) => {
 // Redefinir dados para o modelo original (semente)
 app.post("/api/auth/reset", authMiddleware, (req: any, res) => {
   try {
-    resetUserToDemoData(req.user.id);
+    // Import dynamically from initialData to prevent any ESM vs CommonJS issue
+    const { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } = require("./src/initialData");
+    const crypto = require("crypto");
+    const fs = require("fs");
+    const path = require("path");
+    const DB_FILE = path.join(process.cwd(), "database.json");
+
+    const content = fs.readFileSync(DB_FILE, "utf-8");
+    const db = JSON.parse(content);
+
+    // Filter out existing user transactions and budgets
+    db.transactions = db.transactions.filter((t: any) => t.userId !== req.user.id);
+    db.budgets = db.budgets.filter((b: any) => b.userId !== req.user.id);
+
+    // Re-seed
+    const userTransactions = INITIAL_TRANSACTIONS.map((t: any) => ({
+      ...t,
+      id: `${t.id}-${crypto.randomUUID().substring(0, 8)}`,
+      userId: req.user.id,
+    }));
+    db.transactions.push(...userTransactions);
+
+    Object.entries(INITIAL_BUDGETS).forEach(([month, amount]) => {
+      db.budgets.push({
+        userId: req.user.id,
+        month,
+        amount,
+      });
+    });
+
+    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), "utf-8");
+
     res.json({ success: true, message: "Dados redefinidos com sucesso para o modelo original." });
   } catch (error: any) {
     console.error("Erro ao resetar dados:", error);
@@ -849,7 +861,6 @@ async function startServer() {
   });
 
   if (process.env.NODE_ENV !== "production") {
-    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -868,20 +879,4 @@ async function startServer() {
   });
 }
 
-// Global JSON error handler
-app.use((err: any, req: any, res: any, next: any) => {
-  console.error("Erro interno no Express:", err);
-  res.status(err.status || 500).json({
-    error: err.message || "Erro interno do servidor.",
-  });
-});
-
-// Export Express app for Vercel Serverless Functions
-export { app };
-export default app;
-
-// In standalone environments (Render, Cloud Run, Docker), start the HTTP server
-if (!process.env.VERCEL) {
-  startServer();
-}
-
+startServer();

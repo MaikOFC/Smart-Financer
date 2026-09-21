@@ -73,16 +73,7 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
           body: JSON.stringify(body),
         });
 
-        const text = await response.text();
-        let data: any = {};
-        try {
-          data = JSON.parse(text);
-        } catch (_) {
-          if (!response.ok) {
-            throw new Error(`Servidor inacessível (${response.status}). A rota ${endpoint} não respondeu corretamente.`);
-          }
-        }
-
+        const data = await response.json();
         if (!response.ok || data.error) {
           throw new Error(data.error || "Algo deu errado. Verifique suas credenciais.");
         }
