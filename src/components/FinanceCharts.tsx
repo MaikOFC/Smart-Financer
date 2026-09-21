@@ -299,64 +299,51 @@ export default function FinanceCharts({
     return null;
   };
 
-  const getHeaderTitle = () => {
-    switch (activeTab) {
-      case "history":
-        return `Visão geral - gráfico histórico geral do ano (${historyYear})`;
-      case "categories":
-        return "Visão geral - gastos por categoria (barras)";
-      default:
-        return "Visão geral - gastos do mês (pizza)";
-    }
-  };
-
   return (
     <div className="space-y-4">
       {/* CAIXA ENQUADRAMENTO ESTILO BENTO "VISÃO GERAL - GRÁFICO" */}
       <div className="bg-slate-900 border border-slate-800/80 rounded-3xl p-4 sm:p-6 shadow-sm">
-        {/* Cabeçalho do Enquadramento */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-4">
-          <span className="text-[11px] font-semibold text-emerald-400/90 tracking-wide">
-            {getHeaderTitle()}
-          </span>
-
-          {/* Abas discretas no canto superior direito para alternar visualizações */}
-          <div className="flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800 self-start sm:self-auto">
+        {/* Abas centralizadas para alternar visualizações (somente ícones proporcionais) */}
+        <div className="flex items-center justify-center mb-5">
+          <div className="flex items-center gap-1.5 bg-slate-950/80 p-1.5 rounded-2xl border border-slate-800/80 shadow-inner">
             <button
               type="button"
               onClick={() => setActiveTab("overview")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              title="Gastos do Mês"
+              aria-label="Gastos do Mês"
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                 activeTab === "overview"
-                  ? "bg-slate-800 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-slate-800 text-rose-400 shadow-sm border border-slate-700/60"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/60"
               }`}
             >
-              <PieIcon className="w-3.5 h-3.5 text-rose-400" />
-              <span>Gastos do Mês</span>
+              <PieIcon className="w-5 h-5" />
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("categories")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              title="Categorias"
+              aria-label="Categorias"
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                 activeTab === "categories"
-                  ? "bg-slate-800 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-slate-800 text-sky-400 shadow-sm border border-slate-700/60"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/60"
               }`}
             >
-              <BarChart2 className="w-3.5 h-3.5 text-sky-400" />
-              <span>Categorias</span>
+              <BarChart2 className="w-5 h-5" />
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("history")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              title="Histórico do Ano"
+              aria-label="Histórico do Ano"
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                 activeTab === "history"
-                  ? "bg-slate-800 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-slate-800 text-emerald-400 shadow-sm border border-slate-700/60"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/60"
               }`}
             >
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Histórico do Ano</span>
+              <TrendingUp className="w-5 h-5" />
             </button>
           </div>
         </div>
