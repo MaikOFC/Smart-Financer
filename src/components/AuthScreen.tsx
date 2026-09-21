@@ -129,10 +129,18 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
             type="button"
             onClick={handleDemoLogin}
             disabled={loading}
-            className="p-4 bg-emerald-500/10 text-emerald-400 rounded-3xl border border-emerald-500/25 mb-3 shadow-lg shadow-emerald-500/5 hover:bg-emerald-500/20 hover:border-emerald-400 hover:scale-105 active:scale-95 transition-all cursor-pointer group relative"
+            className="w-16 h-16 p-2 bg-emerald-500/10 rounded-3xl border border-emerald-500/25 mb-3 shadow-lg shadow-emerald-500/5 hover:bg-emerald-500/20 hover:border-emerald-400 hover:scale-105 active:scale-95 transition-all cursor-pointer group relative flex items-center justify-center overflow-hidden"
             title="SmartFinancer"
           >
-            <Wallet className="w-9 h-9 group-hover:rotate-6 transition-transform" />
+            <img
+              src="/logo.png"
+              alt="SmartFinancer Logo"
+              className="w-11 h-11 object-contain group-hover:scale-110 transition-transform drop-shadow-sm"
+              onError={(e) => {
+                // fallback se imagem falhar
+                (e.target as HTMLElement).style.display = 'none';
+              }}
+            />
           </button>
           <h1 className="text-2xl font-black text-white tracking-tight font-sans flex items-center gap-1.5 justify-center">
             Smart<span className="text-emerald-400">Financer</span>

@@ -1337,8 +1337,8 @@ export default function App() {
           <div className="hidden md:flex justify-between items-center gap-3.5">
             {/* LOGO & TITULO */}
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 shadow-sm">
-                <Wallet className="w-6 h-6" />
+              <div className="w-10 h-10 p-1.5 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 shadow-sm flex items-center justify-center overflow-hidden">
+                <img src="/logo.png" alt="SmartFinancer" className="w-full h-full object-contain" />
               </div>
               <div>
                 <h1 className="text-lg font-black tracking-tight flex items-center gap-1.5 text-white">
