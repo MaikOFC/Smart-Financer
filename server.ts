@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { 
@@ -35,6 +34,14 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept");
   if (req.method === "OPTIONS") {
     return res.sendStatus(204);
+  }
+  next();
+});
+
+// Normalize URL prefix for Vercel / Serverless routing (ensures both /auth/login and /api/auth/login work)
+app.use((req, res, next) => {
+  if (req.url && !req.url.startsWith("/api") && !req.url.startsWith("/.well-known")) {
+    req.url = "/api" + (req.url.startsWith("/") ? req.url : "/" + req.url);
   }
   next();
 });
@@ -842,6 +849,7 @@ async function startServer() {
   });
 
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -859,6 +867,14 @@ async function startServer() {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
+
+// Global JSON error handler
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("Erro interno no Express:", err);
+  res.status(err.status || 500).json({
+    error: err.message || "Erro interno do servidor.",
+  });
+});
 
 // Export Express app for Vercel Serverless Functions
 export { app };

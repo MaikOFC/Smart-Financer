@@ -515,12 +515,12 @@ export default function App() {
             handleLogout();
             return;
           }
-          const tData = await tRes.json();
+          const tData = tRes.ok ? await tRes.json() : { transactions: [] };
           
           const bRes = await fetch("/api/budgets", {
             headers: { "Authorization": `Bearer ${token}` },
           });
-          const bData = await bRes.json();
+          const bData = bRes.ok ? await bRes.json() : { budgets: {} };
 
           if (user.defaultSalary) {
             setDefaultSalary(user.defaultSalary);
@@ -1190,12 +1190,12 @@ export default function App() {
           const tRes = await fetch("/api/transactions", {
             headers: { "Authorization": `Bearer ${token}` },
           });
-          const tData = await tRes.json();
+          const tData = tRes.ok ? await tRes.json() : { transactions: [] };
           
           const bRes = await fetch("/api/budgets", {
             headers: { "Authorization": `Bearer ${token}` },
           });
-          const bData = await bRes.json();
+          const bData = bRes.ok ? await bRes.json() : { budgets: {} };
 
           setTransactions(tData.transactions || []);
           setBudgets(bData.budgets || {});
