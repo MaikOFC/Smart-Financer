@@ -12,6 +12,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Sector,
   LabelList,
   ReferenceLine,
 } from "recharts";
@@ -47,6 +48,7 @@ export default function FinanceCharts({
 }: FinanceChartsProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "categories" | "history">("overview");
   const [isPieHovered, setIsPieHovered] = useState(false);
+  const [activePieIndex, setActivePieIndex] = useState<number | null>(null);
 
   const isLeft = (sec: string) => sec === "left" || sec === "esquerda" || sec === "despesas";
 
@@ -233,6 +235,38 @@ export default function FinanceCharts({
     return null;
   };
 
+  // Destaque personalizado do setor clicado/selecionado (borda com formato exato da fatia, sem caixa preta quadrada)
+  const renderActiveShape = (props: any) => {
+    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+    const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+    const strokeColor = isDark ? "#ffffff" : "#0f172a";
+
+    return (
+      <g style={{ outline: "none" }}>
+        <Sector
+          cx={cx}
+          cy={cy}
+          innerRadius={Math.max(10, innerRadius - 2)}
+          outerRadius={outerRadius + 6}
+          startAngle={startAngle}
+          endAngle={endAngle}
+          fill={fill}
+          stroke={strokeColor}
+          strokeWidth={3}
+          strokeLinejoin="round"
+          className="transition-all duration-200 outline-none"
+          style={{
+            outline: "none",
+            filter: isDark
+              ? "drop-shadow(0 4px 14px rgba(0, 0, 0, 0.6))"
+              : "drop-shadow(0 4px 10px rgba(0, 0, 0, 0.25))",
+            cursor: "pointer",
+          }}
+        />
+      </g>
+    );
+  };
+
   // Custom Tooltip para o Gráfico em Barras de Categorias
   const CustomCategoryBarTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -365,7 +399,7 @@ export default function FinanceCharts({
                 <div className="md:col-span-6 h-60 relative flex justify-center items-center">
                   <div className="w-full h-full relative z-10">
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
+                      <PieChart style={{ outline: "none" }}>
                         <Pie
                           data={monthlyPieData}
                           cx="50%"
@@ -374,11 +408,30 @@ export default function FinanceCharts({
                           outerRadius={82}
                           paddingAngle={3}
                           dataKey="valor"
-                          onMouseEnter={() => setIsPieHovered(true)}
-                          onMouseLeave={() => setIsPieHovered(false)}
+                          activeIndex={activePieIndex !== null ? activePieIndex : undefined}
+                          activeShape={renderActiveShape}
+                          onClick={(_, index) => {
+                            setActivePieIndex((prev) => (prev === index ? null : index));
+                            setIsPieHovered(true);
+                          }}
+                          onMouseEnter={(_, index) => {
+                            setIsPieHovered(true);
+                            setActivePieIndex(index);
+                          }}
+                          onMouseLeave={() => {
+                            setIsPieHovered(false);
+                            setActivePieIndex(null);
+                          }}
+                          style={{ outline: "none", cursor: "pointer" }}
                         >
                           {monthlyPieData.map((entry, index) => (
-                            <Cell key={`month-pie-${index}`} fill={entry.fill} />
+                            <Cell
+                              key={`month-pie-${index}`}
+                              fill={entry.fill}
+                              stroke="#0f172a"
+                              strokeWidth={2}
+                              style={{ outline: "none", cursor: "pointer" }}
+                            />
                           ))}
                         </Pie>
                         <Tooltip
@@ -390,7 +443,7 @@ export default function FinanceCharts({
                   </div>
                   <div
                     className={`absolute inset-0 flex flex-col justify-center items-center pointer-events-none z-0 transition-opacity duration-200 ${
-                      isPieHovered ? "opacity-0" : "opacity-100"
+                      isPieHovered || activePieIndex !== null ? "opacity-0" : "opacity-100"
                     }`}
                   >
                     <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
