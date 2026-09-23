@@ -217,34 +217,9 @@ export default function FocusedSectionModal({
 
   // Render content helper for each slide
   const renderSectionContent = (list: Transaction[], type: "expenses" | "planning" | "installments") => {
-    const installmentsBanner = type === "expenses" && activeInstallmentsThisMonth.length > 0 ? (
-      <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-rose-500/20 text-rose-300 rounded-xl shrink-0">
-            <Layers className="w-4 h-4" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-rose-200">
-              {activeInstallmentsThisMonth.length} parcela{activeInstallmentsThisMonth.length > 1 ? "s" : ""} ativa{activeInstallmentsThisMonth.length > 1 ? "s" : ""} neste mês
-            </p>
-            <p className="text-[10px] text-rose-300/80">
-              Contas do mês: R$ {(directExpensesTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} + Parcelas: R$ {(monthlyInstallmentsTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => setActiveTab("installments")}
-          className="text-xs font-bold text-rose-300 hover:text-white bg-rose-500/20 hover:bg-rose-500/30 px-3 py-1.5 rounded-xl border border-rose-500/30 transition-all cursor-pointer self-start sm:self-center"
-        >
-          Ver Parcelas (R$ {(monthlyInstallmentsTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}) →
-        </button>
-      </div>
-    ) : null;
-
     if (list.length === 0) {
       return (
         <div className="space-y-4">
-          {installmentsBanner}
           <div className="py-16 text-center text-slate-400">
             <p className="text-sm font-medium">Nenhum registro encontrado nesta categoria.</p>
             <button
@@ -272,7 +247,6 @@ export default function FocusedSectionModal({
 
     return (
       <div className="space-y-3">
-        {installmentsBanner}
         <div className="divide-y divide-slate-800/80 bg-slate-900/60 rounded-2xl border border-slate-800/80 overflow-hidden shadow-sm">
           {list.map((t) => {
           const isInst = isBottomSec(t.tableSection);

@@ -46,6 +46,7 @@ export default function FinanceCharts({
   defaultSalary = 2500,
 }: FinanceChartsProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "categories" | "history">("overview");
+  const [isPieHovered, setIsPieHovered] = useState(false);
 
   const isLeft = (sec: string) => sec === "left" || sec === "esquerda" || sec === "despesas";
 
@@ -213,7 +214,7 @@ export default function FinanceCharts({
       const totalBase = Math.max(safeOrcamento, safeTotalDespesas);
       const pct = totalBase > 0 ? ((data.valor / totalBase) * 100).toFixed(1) : "0";
       return (
-        <div className="bg-slate-950/95 border border-slate-800 p-3 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-mono min-w-[180px] space-y-1">
+        <div className="bg-slate-950/98 border border-slate-700/80 p-3 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-mono min-w-[180px] space-y-1 relative z-50">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: data.fill }} />
             <span className="font-bold text-white">{data.name}</span>
@@ -362,25 +363,36 @@ export default function FinanceCharts({
               <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                 {/* Donut / Pizza de Gastos do Mês */}
                 <div className="md:col-span-6 h-60 relative flex justify-center items-center">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={monthlyPieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={55}
-                        outerRadius={82}
-                        paddingAngle={3}
-                        dataKey="valor"
-                      >
-                        {monthlyPieData.map((entry, index) => (
-                          <Cell key={`month-pie-${index}`} fill={entry.fill} />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<CustomMonthPieTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col justify-center items-center pointer-events-none">
+                  <div className="w-full h-full relative z-10">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={monthlyPieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={55}
+                          outerRadius={82}
+                          paddingAngle={3}
+                          dataKey="valor"
+                          onMouseEnter={() => setIsPieHovered(true)}
+                          onMouseLeave={() => setIsPieHovered(false)}
+                        >
+                          {monthlyPieData.map((entry, index) => (
+                            <Cell key={`month-pie-${index}`} fill={entry.fill} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          content={<CustomMonthPieTooltip />}
+                          wrapperStyle={{ zIndex: 100, pointerEvents: "none" }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div
+                    className={`absolute inset-0 flex flex-col justify-center items-center pointer-events-none z-0 transition-opacity duration-200 ${
+                      isPieHovered ? "opacity-0" : "opacity-100"
+                    }`}
+                  >
                     <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                       Gastos do Mês
                     </span>

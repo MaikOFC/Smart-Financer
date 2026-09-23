@@ -145,104 +145,42 @@ export default function HomeSectionTabs({
     <section id="home-section-viewer" className="space-y-4">
       {/* CARD PRINCIPAL DO CONTEÚDO ATIVO NA TELA INICIAL */}
       <div className="bg-slate-900/90 backdrop-blur-md rounded-3xl border border-slate-800/80 p-4 sm:p-6 shadow-xl space-y-4">
-        {/* CABEÇALHO DO CONTEÚDO: TÍTULO E VALOR TOTAL */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
-          <div>
-            <h3 className="text-base sm:text-lg font-black text-white">
+        {/* CABEÇALHO DO CONTEÚDO: TÍTULO E VALOR TOTAL ALINHADOS */}
+        <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base sm:text-lg font-black text-white truncate">
               {activeTab === "expenses" && "Despesas do Mês"}
               {activeTab === "planning" && "Metas & Planejamento"}
-              {activeTab === "installments" && "Parcelas & Financiamentos"}
+              {activeTab === "installments" && "Parcelas"}
             </h3>
-            {activeTab === "installments" && (
-              <p className="text-xs text-slate-400 mt-0.5">
-                {showAllInstallments
-                  ? "Exibindo todas as parcelas cadastradas (histórico completo)"
-                  : `Exibindo apenas as parcelas com vencimento ativo neste mês`}
-              </p>
-            )}
           </div>
 
-          <div className="flex items-center gap-3 self-end sm:self-center">
-            {/* SUB-FILTRO DE PARCELAS */}
-            {activeTab === "installments" && (
-              <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-[11px] font-bold">
-                <button
-                  type="button"
-                  onClick={() => setShowAllInstallments(false)}
-                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                    !showAllInstallments
-                      ? "bg-purple-600 text-white shadow-sm"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                  title="Mostrar apenas parcelas deste mês"
-                >
-                  Ativas ({activeInstallmentsThisMonth.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAllInstallments(true)}
-                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                    showAllInstallments
-                      ? "bg-purple-600 text-white shadow-sm"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                  title="Mostrar todas as parcelas cadastradas"
-                >
-                  Todas ({allInstallments.length})
-                </button>
-              </div>
-            )}
-
-            {/* TOTAL */}
-            <div className="text-right">
-              <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400 block">
-                {activeTab === "installments" ? (showAllInstallments ? "Total Restante Geral" : "Dívida Restante no Mês") : "Total"}
-              </span>
-              <div className={`text-base sm:text-lg font-black font-mono ${
-                activeTab === "expenses"
-                  ? "text-rose-400"
-                  : activeTab === "planning"
-                  ? "text-orange-400"
-                  : "text-purple-300"
-              }`}>
-                R${" "}
-                <AnimatedNumber
-                  value={
-                    activeTab === "expenses"
-                      ? expensesTotal
-                      : activeTab === "planning"
-                      ? planningTotal
-                      : installmentsDebtTotal
-                  }
-                  decimals={2}
-                />
-              </div>
+          {/* TOTAL */}
+          <div className="text-right shrink-0">
+            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400 block leading-tight">
+              {activeTab === "installments" ? (showAllInstallments ? "Total Restante Geral" : "Dívida Restante no Mês") : "Total"}
+            </span>
+            <div className={`text-base sm:text-lg font-black font-mono leading-tight ${
+              activeTab === "expenses"
+                ? "text-rose-400"
+                : activeTab === "planning"
+                ? "text-orange-400"
+                : "text-purple-300"
+            }`}>
+              R${" "}
+              <AnimatedNumber
+                value={
+                  activeTab === "expenses"
+                    ? expensesTotal
+                    : activeTab === "planning"
+                    ? planningTotal
+                    : installmentsDebtTotal
+                }
+                decimals={2}
+              />
             </div>
           </div>
         </div>
-
-        {/* BANNER DE PARCELAS ATIVAS QUANDO NA ABA DE DESPESAS */}
-        {activeTab === "expenses" && activeInstallmentsThisMonth.length > 0 && (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-rose-500/20 text-rose-300 rounded-xl shrink-0">
-                <Layers className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-rose-200">
-                  {activeInstallmentsThisMonth.length} parcela{activeInstallmentsThisMonth.length > 1 ? "s" : ""} ativa{activeInstallmentsThisMonth.length > 1 ? "s" : ""} neste mês
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => onTabChange("installments")}
-              className="text-xs font-bold text-rose-300 hover:text-white bg-rose-500/20 hover:bg-rose-500/30 px-3 py-1.5 rounded-xl border border-rose-500/30 transition-all cursor-pointer self-start sm:self-center"
-            >
-              Ver Parcelas (R$ {(monthlyInstallmentsTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}) →
-            </button>
-          </div>
-        )}
 
         {/* LISTAGEM DOS ITENS */}
         {currentList.length === 0 ? (
@@ -423,6 +361,41 @@ export default function HomeSectionTabs({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* FILTRO DE PARCELAS NO FINAL DA CAIXA DE PARCELAS */}
+        {activeTab === "installments" && (
+          <div className="pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <span className="text-xs text-slate-400 font-medium text-center sm:text-left">
+              Visualizar parcelas cadastradas:
+            </span>
+            <div className="flex items-center bg-slate-950 p-1 rounded-2xl border border-slate-800 text-xs font-bold shadow-inner">
+              <button
+                type="button"
+                onClick={() => setShowAllInstallments(false)}
+                className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  !showAllInstallments
+                    ? "bg-purple-600 text-white shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+                title="Mostrar apenas parcelas com vencimento ativo neste mês"
+              >
+                Ativas ({activeInstallmentsThisMonth.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAllInstallments(true)}
+                className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  showAllInstallments
+                    ? "bg-purple-600 text-white shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+                title="Mostrar todas as parcelas cadastradas (ativas e quitadas)"
+              >
+                Todas ({allInstallments.length})
+              </button>
+            </div>
           </div>
         )}
       </div>

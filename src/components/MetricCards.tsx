@@ -81,17 +81,30 @@ export default function MetricCards({
           </div>
         </div>
 
-        {/* Pílula 2: Saldo previsto (Sobra) */}
+        {/* Pílula 2: Saldo previsto / Sobra */}
         <div
           onClick={() => {
             if (onOpenExpensesModal) onOpenExpensesModal();
           }}
-          className="bg-slate-900 border border-slate-800/80 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-center transition-all hover:border-slate-700 shadow-sm cursor-pointer group"
+          className={`border rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-center transition-all shadow-sm cursor-pointer group relative overflow-hidden ${
+            saldoPrevisto >= 0
+              ? "bg-gradient-to-br from-emerald-950/40 via-emerald-900/15 to-slate-900 border-emerald-500/25 hover:border-emerald-500/45 hover:shadow-emerald-950/20"
+              : "bg-gradient-to-br from-rose-950/40 via-rose-900/15 to-slate-900 border-rose-500/25 hover:border-rose-500/45 hover:shadow-rose-950/20"
+          }`}
           title="Clique para ver o resumo detalhado das despesas"
         >
-          <span className="text-[11px] sm:text-xs text-slate-400 font-medium truncate">
-            Saldo previsto
-          </span>
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[11px] sm:text-xs text-slate-400 font-medium truncate">
+              Sobra prevista
+            </span>
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                saldoPrevisto >= 0
+                  ? "bg-emerald-400 shadow-sm shadow-emerald-400/50"
+                  : "bg-rose-400 shadow-sm shadow-rose-400/50"
+              }`}
+            />
+          </div>
           <div className="mt-1 flex items-baseline gap-1">
             <span className="text-xs sm:text-sm font-semibold text-slate-400 font-mono">R$</span>
             <span
@@ -278,14 +291,26 @@ export default function MetricCards({
             onClick={() => {
               if (onOpenExpensesModal) onOpenExpensesModal();
             }}
-            className="flex items-center justify-between group cursor-pointer hover:bg-slate-800/40 p-2 rounded-2xl transition-all -mx-2"
+            className={`flex items-center justify-between group cursor-pointer p-2 rounded-2xl transition-all -mx-2 ${
+              safeSobra >= 0 ? "hover:bg-emerald-950/20" : "hover:bg-rose-950/20"
+            }`}
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform border ${
+                  safeSobra >= 0
+                    ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400 shadow-sm shadow-emerald-500/10"
+                    : "bg-rose-500/15 border-rose-500/30 text-rose-400 shadow-sm shadow-rose-500/10"
+                }`}
+              >
                 <DollarSign className="w-5 h-5 stroke-[2.5]" />
               </div>
               <div className="min-w-0">
-                <h4 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors">
+                <h4
+                  className={`text-sm font-bold transition-colors ${
+                    safeSobra >= 0 ? "text-white group-hover:text-emerald-300" : "text-white group-hover:text-rose-300"
+                  }`}
+                >
                   Saldo do mês
                 </h4>
                 <p className="text-[11px] text-slate-400 truncate">

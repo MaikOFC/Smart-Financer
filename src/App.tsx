@@ -18,6 +18,8 @@ import {
   Database,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Settings,
   Crown,
   Lock,
@@ -127,6 +129,7 @@ export default function App() {
   const [advisorQuery, setAdvisorQuery] = useState("");
   const [advisorResponse, setAdvisorResponse] = useState<string | null>(null);
   const [advisorLoading, setAdvisorLoading] = useState(false);
+  const [isAiConsultantOpen, setIsAiConsultantOpen] = useState(false);
 
   // Add Transaction Modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -1815,8 +1818,11 @@ export default function App() {
           }}
           onLogout={handleLogout}
           onScrollToAi={() => {
-            const el = document.getElementById("ai-consultant-section");
-            el?.scrollIntoView({ behavior: "smooth" });
+            setIsAiConsultantOpen(true);
+            setTimeout(() => {
+              const el = document.getElementById("ai-consultant-section");
+              el?.scrollIntoView({ behavior: "smooth" });
+            }, 100);
           }}
           viewMode={viewMode}
           onSetViewMode={handleSetViewMode}
@@ -1844,93 +1850,133 @@ export default function App() {
           defaultSalary={defaultSalary}
         />
 
-        {/* CONSULTOR DE IA FINANCEIRO */}
-        <div id="ai-consultant-section" className="mt-8 sm:mt-12 bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl hover:border-slate-700/60 transition-all">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-2xl border border-indigo-500/20">
-              <BrainCircuit className="w-7 h-7" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white">Consultor Financeiro de IA</h3>
-              <p className="text-xs text-slate-400 font-medium">Faça perguntas sobre seus gastos para obter conselhos personalizados de economia</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-4 md:col-span-1">
-              <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Perguntas Sugeridas:</p>
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => handleAskAdvisor("Faça uma análise geral das minhas despesas deste mês e aponte as 3 maiores fontes de gastos.")}
-                  className="text-left text-xs bg-slate-950/40 hover:bg-slate-950 hover:border-slate-700 p-3 rounded-xl border border-slate-800/80 transition-all text-slate-300"
-                >
-                  🔍 Onde estou gastando mais?
-                </button>
-                <button
-                  onClick={() => handleAskAdvisor("Com base nas minhas tabelas e na sobra de R$ " + sobra.toFixed(2) + ", dê 4 sugestões práticas de economia de gastos.")}
-                  className="text-left text-xs bg-slate-950/40 hover:bg-slate-950 hover:border-slate-700 p-3 rounded-xl border border-slate-800/80 transition-all text-slate-300"
-                >
-                  💡 Dicas para aumentar a sobra do mês
-                </button>
-                <button
-                  onClick={() => handleAskAdvisor("Analise minhas compras especiais da tabela direita. O que você recomenda em termos de planejamento financeiro de eletrônicos?")}
-                  className="text-left text-xs bg-slate-950/40 hover:bg-slate-950 hover:border-slate-700 p-3 rounded-xl border border-slate-800/80 transition-all text-slate-300"
-                >
-                  ⚙️ Analisar compras especiais (Direita)
-                </button>
+        {/* CONSULTOR DE IA FINANCEIRO (BOTÃO EXPANSÍVEL NO PRÓPRIO BLOCO) */}
+        <div id="ai-consultant-section" className="mt-8 sm:mt-12 bg-slate-900 border border-slate-800 rounded-3xl shadow-xl transition-all overflow-hidden hover:border-slate-700/60">
+          {/* BOTÃO PARA ABRIR / RECOLHER O BLOCO */}
+          <button
+            type="button"
+            onClick={() => setIsAiConsultantOpen((prev) => !prev)}
+            className="w-full p-3.5 sm:p-4 flex items-center justify-between gap-4 text-left hover:bg-slate-800/40 transition-colors cursor-pointer group"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="p-2 sm:p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20 group-hover:bg-indigo-500/20 group-hover:text-indigo-300 transition-all shrink-0">
+                <BrainCircuit className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-sm sm:text-base font-bold text-white group-hover:text-indigo-200 transition-colors">
+                  Consultor Financeiro de IA
+                </h3>
               </div>
             </div>
 
-            <div className="md:col-span-2 flex flex-col justify-between">
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <input
-                    id="input-ai-query"
-                    type="text"
-                    value={advisorQuery}
-                    onChange={(e) => setAdvisorQuery(e.target.value)}
-                    placeholder="Digite sua própria pergunta sobre suas finanças..."
-                    className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs sm:text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 w-full"
-                  />
-                  <button
-                    id="btn-ask-ai"
-                    onClick={() => handleAskAdvisor()}
-                    disabled={advisorLoading || !advisorQuery.trim()}
-                    className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:opacity-50 text-white font-bold text-xs sm:text-sm px-6 py-3 rounded-xl transition-all shadow-lg shadow-indigo-600/10 flex-shrink-0 border border-indigo-500/20"
-                  >
-                    Perguntar
-                  </button>
-                </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="p-2 rounded-xl bg-slate-800/80 text-slate-400 group-hover:text-white group-hover:bg-slate-700/80 transition-all">
+                {isAiConsultantOpen ? (
+                  <ChevronUp className="w-5 h-5" />
+                ) : (
+                  <ChevronDown className="w-5 h-5" />
+                )}
+              </div>
+            </div>
+          </button>
 
-                <AnimatePresence mode="wait">
-                  {advisorLoading && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      className="p-5 bg-slate-950/40 border border-slate-800/80 rounded-2xl flex items-center justify-center gap-3"
-                    >
-                      <RefreshCw className="w-5 h-5 animate-spin text-indigo-400" />
-                      <span className="text-xs text-indigo-300 font-mono">A IA Gemini está analisando suas tabelas financeiras...</span>
-                    </motion.div>
-                  )}
-
-                  {advisorResponse && !advisorLoading && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="p-5 bg-slate-950 border border-slate-800/80 rounded-2xl max-h-64 overflow-y-auto text-xs sm:text-sm leading-relaxed text-slate-300"
-                    >
-                      <div className="font-bold text-indigo-400 mb-2 flex items-center gap-1 text-xs uppercase tracking-wider font-sans">
-                        <Sparkles className="w-4 h-4 text-indigo-400 animate-pulse" /> Resposta do Assessor Financeiro de IA:
+          {/* ÁREA EXPANDIDA DA CONSULTA */}
+          <AnimatePresence>
+            {isAiConsultantOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="overflow-hidden border-t border-slate-800/80"
+              >
+                <div className="p-5 sm:p-8 pt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* PERGUNTAS SUGERIDAS */}
+                    <div className="space-y-4 md:col-span-1">
+                      <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Perguntas Sugeridas:</p>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={() => handleAskAdvisor("Faça uma análise geral das minhas despesas deste mês e aponte as 3 maiores fontes de gastos.")}
+                          className="text-left text-xs bg-slate-950/40 hover:bg-slate-950 hover:border-slate-700 p-3 rounded-xl border border-slate-800/80 transition-all text-slate-300 cursor-pointer"
+                        >
+                          🔍 Onde estou gastando mais?
+                        </button>
+                        <button
+                          onClick={() => handleAskAdvisor("Com base nas minhas tabelas e na sobra de R$ " + sobra.toFixed(2) + ", dê 4 sugestões práticas de economia de gastos.")}
+                          className="text-left text-xs bg-slate-950/40 hover:bg-slate-950 hover:border-slate-700 p-3 rounded-xl border border-slate-800/80 transition-all text-slate-300 cursor-pointer"
+                        >
+                          💡 Dicas para aumentar a sobra do mês
+                        </button>
+                        <button
+                          onClick={() => handleAskAdvisor("Analise minhas compras especiais da tabela direita. O que você recomenda em termos de planejamento financeiro de eletrônicos?")}
+                          className="text-left text-xs bg-slate-950/40 hover:bg-slate-950 hover:border-slate-700 p-3 rounded-xl border border-slate-800/80 transition-all text-slate-300 cursor-pointer"
+                        >
+                          ⚙️ Analisar compras especiais (Direita)
+                        </button>
                       </div>
-                      <p className="whitespace-pre-line font-sans text-slate-300">{advisorResponse}</p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-          </div>
+                    </div>
+
+                    {/* CAMPO DE PERGUNTA E RESPOSTA */}
+                    <div className="md:col-span-2 flex flex-col justify-between">
+                      <div className="space-y-3">
+                        <div className="flex gap-2">
+                          <input
+                            id="input-ai-query"
+                            type="text"
+                            value={advisorQuery}
+                            onChange={(e) => setAdvisorQuery(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !advisorLoading && advisorQuery.trim()) {
+                                handleAskAdvisor();
+                              }
+                            }}
+                            placeholder="Digite sua própria pergunta sobre suas finanças..."
+                            className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs sm:text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 w-full"
+                          />
+                          <button
+                            id="btn-ask-ai"
+                            onClick={() => handleAskAdvisor()}
+                            disabled={advisorLoading || !advisorQuery.trim()}
+                            className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:opacity-50 text-white font-bold text-xs sm:text-sm px-6 py-3 rounded-xl transition-all shadow-lg shadow-indigo-600/10 flex-shrink-0 border border-indigo-500/20 cursor-pointer disabled:cursor-not-allowed"
+                          >
+                            Perguntar
+                          </button>
+                        </div>
+
+                        <AnimatePresence mode="wait">
+                          {advisorLoading && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0 }}
+                              className="p-5 bg-slate-950/40 border border-slate-800/80 rounded-2xl flex items-center justify-center gap-3"
+                            >
+                              <RefreshCw className="w-5 h-5 animate-spin text-indigo-400" />
+                              <span className="text-xs text-indigo-300 font-mono">A IA Gemini está analisando suas tabelas financeiras...</span>
+                            </motion.div>
+                          )}
+
+                          {advisorResponse && !advisorLoading && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="p-5 bg-slate-950 border border-slate-800/80 rounded-2xl max-h-64 overflow-y-auto text-xs sm:text-sm leading-relaxed text-slate-300"
+                            >
+                              <div className="font-bold text-indigo-400 mb-2 flex items-center gap-1 text-xs uppercase tracking-wider font-sans">
+                                <Sparkles className="w-4 h-4 text-indigo-400 animate-pulse" /> Resposta do Assessor Financeiro de IA:
+                              </div>
+                              <p className="whitespace-pre-line font-sans text-slate-300">{advisorResponse}</p>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
           </>
         )}
