@@ -1,24 +1,56 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+html,
+body,
+#root {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 /* Ocultar barra de rolagem nativa mantendo o scroll por toque/mouse */
 * {
   -ms-overflow-style: none !important;  /* IE and Edge */
   scrollbar-width: none !important;  /* Firefox */
 }
 
-/* Remover caixa de foco preta/quadrada dos setores e elementos SVG nos gráficos */
+/* Remover caixa de foco preta/quadrada dos setores, barras e elementos SVG nos gráficos */
 .recharts-wrapper,
+.recharts-wrapper *,
 .recharts-surface,
+.recharts-layer,
 .recharts-pie,
 .recharts-sector,
 .recharts-pie-sector,
-.recharts-pie path,
+.recharts-bar,
+.recharts-bar-rectangle,
+.recharts-bar-rectangles,
+.recharts-rectangle,
+.recharts-curve,
+.recharts-dot,
 svg,
+svg *,
 svg path,
-svg * {
+svg rect,
+svg g {
   outline: none !important;
+  box-shadow: none !important;
   -webkit-tap-highlight-color: transparent !important;
+}
+
+.recharts-wrapper *:focus,
+.recharts-wrapper *:focus-visible,
+.recharts-wrapper *:active,
+svg *:focus,
+svg *:focus-visible,
+svg *:active {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 *::-webkit-scrollbar {

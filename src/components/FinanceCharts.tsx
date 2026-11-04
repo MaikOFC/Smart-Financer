@@ -49,6 +49,7 @@ export default function FinanceCharts({
   const [activeTab, setActiveTab] = useState<"overview" | "categories" | "history">("overview");
   const [isPieHovered, setIsPieHovered] = useState(false);
   const [activePieIndex, setActivePieIndex] = useState<number | null>(null);
+  const [activeBarIndex, setActiveBarIndex] = useState<number | null>(null);
 
   const isLeft = (sec: string) => sec === "left" || sec === "esquerda" || sec === "despesas";
 
@@ -235,35 +236,123 @@ export default function FinanceCharts({
     return null;
   };
 
-  // Destaque personalizado do setor clicado/selecionado (borda com formato exato da fatia, sem caixa preta quadrada)
+  // Destaque personalizado do setor clicado/selecionado (contorno suave e arredondado que segue exatamente a curvatura do arco)
   const renderActiveShape = (props: any) => {
     const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
     const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
-    const strokeColor = isDark ? "#ffffff" : "#0f172a";
+    const strokeColor = "#ffffff";
 
     return (
-      <g style={{ outline: "none" }}>
+      <g style={{ outline: "none" }} className="outline-none">
+        {/* Contorno suave externo arredondado seguindo exatamente a curvatura do arco */}
         <Sector
           cx={cx}
           cy={cy}
-          innerRadius={Math.max(10, innerRadius - 2)}
-          outerRadius={outerRadius + 6}
+          innerRadius={Math.max(6, innerRadius - 4)}
+          outerRadius={outerRadius + 8}
+          startAngle={startAngle}
+          endAngle={endAngle}
+          fill={fill}
+          fillOpacity={0.25}
+          stroke={fill}
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          cornerRadius={8}
+          style={{ pointerEvents: "none", outline: "none" }}
+        />
+        {/* Arco principal ativo com cantos arredondados, borda elegante e sombra suave */}
+        <Sector
+          cx={cx}
+          cy={cy}
+          innerRadius={Math.max(10, innerRadius - 1)}
+          outerRadius={outerRadius + 5}
           startAngle={startAngle}
           endAngle={endAngle}
           fill={fill}
           stroke={strokeColor}
-          strokeWidth={3}
+          strokeWidth={2.5}
           strokeLinejoin="round"
+          strokeLinecap="round"
+          cornerRadius={6}
           className="transition-all duration-200 outline-none"
           style={{
             outline: "none",
             filter: isDark
-              ? "drop-shadow(0 4px 14px rgba(0, 0, 0, 0.6))"
-              : "drop-shadow(0 4px 10px rgba(0, 0, 0, 0.25))",
+              ? "drop-shadow(0 4px 16px rgba(0, 0, 0, 0.65))"
+              : "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25))",
             cursor: "pointer",
           }}
         />
       </g>
+    );
+  };
+
+  // Destaque personalizado da barra clicada/selecionada (contorno suave e arredondado que segue exatamente a barra)
+  const renderBarShape = (props: any) => {
+    const { x, y, width, height, fill, index, isActive } = props;
+    if (width === undefined || height === undefined || height <= 0) return null;
+    const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+    const isSelected = activeBarIndex === index || isActive;
+    const r = Math.min(8, width / 2);
+
+    if (isSelected) {
+      return (
+        <g style={{ outline: "none" }} className="outline-none">
+          {/* Contorno suave externo arredondado seguindo exatamente a silhueta da barra */}
+          <rect
+            x={x - 3}
+            y={Math.max(0, y - 3)}
+            width={width + 6}
+            height={height + 3}
+            rx={r + 2}
+            ry={r + 2}
+            fill={fill}
+            fillOpacity={0.25}
+            stroke={fill}
+            strokeWidth={1.5}
+            strokeLinejoin="round"
+            style={{ pointerEvents: "none", outline: "none" }}
+          />
+          {/* Barra ativa com cantos arredondados, borda elegante e sombra projetada */}
+          <rect
+            x={x}
+            y={y}
+            width={width}
+            height={height}
+            rx={r}
+            ry={r}
+            fill={fill}
+            stroke="#ffffff"
+            strokeWidth={2.5}
+            strokeLinejoin="round"
+            style={{
+              outline: "none",
+              filter: isDark
+                ? "drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6))"
+                : "drop-shadow(0 4px 10px rgba(0, 0, 0, 0.25))",
+              cursor: "pointer",
+            }}
+          />
+        </g>
+      );
+    }
+
+    const isDimmed = activeBarIndex !== null && activeBarIndex !== index;
+    return (
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        rx={r}
+        ry={r}
+        fill={fill}
+        fillOpacity={isDimmed ? 0.45 : 1}
+        stroke="none"
+        className="transition-all duration-200 outline-none"
+        style={{ outline: "none", cursor: "pointer" }}
+      />
     );
   };
 
@@ -407,6 +496,7 @@ export default function FinanceCharts({
                           innerRadius={55}
                           outerRadius={82}
                           paddingAngle={3}
+                          cornerRadius={4}
                           dataKey="valor"
                           activeIndex={activePieIndex !== null ? activePieIndex : undefined}
                           activeShape={renderActiveShape}
@@ -428,8 +518,8 @@ export default function FinanceCharts({
                             <Cell
                               key={`month-pie-${index}`}
                               fill={entry.fill}
-                              stroke="#0f172a"
-                              strokeWidth={2}
+                              fillOpacity={activePieIndex !== null && activePieIndex !== index ? 0.45 : 1}
+                              stroke="none"
                               style={{ outline: "none", cursor: "pointer" }}
                             />
                           ))}
@@ -463,7 +553,14 @@ export default function FinanceCharts({
                 {/* Resumo e Indicadores do Mês (Sem Metas) */}
                 <div className="md:col-span-6 space-y-2.5">
                   {/* Card: Gastos Totais */}
-                  <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+                  <div
+                    onClick={() => setActivePieIndex((prev) => (prev === 0 ? null : 0))}
+                    className={`p-3 rounded-2xl border transition-all cursor-pointer space-y-1 ${
+                      activePieIndex === 0
+                        ? "bg-slate-900 border-rose-500/60 ring-2 ring-rose-500/40 shadow-md scale-[1.01]"
+                        : "bg-slate-950/60 border-slate-800/80 hover:bg-slate-900/40"
+                    }`}
+                  >
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />
@@ -482,31 +579,48 @@ export default function FinanceCharts({
                   </div>
 
                   {/* Card: Quanto Sobrou */}
-                  <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                            sobraMes >= 0 ? "bg-emerald-500" : "bg-rose-500"
-                          }`}
-                        />
-                        <span className="text-slate-300 font-medium">Quanto Sobrou (Saldo Livre)</span>
-                      </div>
-                      <span
-                        className={`font-bold font-mono text-sm ${
-                          sobraMes >= 0 ? "text-emerald-400" : "text-rose-400"
+                  {(() => {
+                    const sobraPieIndex = monthlyPieData.findIndex((d) => d.name === "Quanto Sobrou");
+                    const isSobraSelected = sobraPieIndex !== -1 && activePieIndex === sobraPieIndex;
+                    return (
+                      <div
+                        onClick={() => {
+                          if (sobraPieIndex !== -1) {
+                            setActivePieIndex((prev) => (prev === sobraPieIndex ? null : sobraPieIndex));
+                          }
+                        }}
+                        className={`p-3 rounded-2xl border transition-all cursor-pointer space-y-1 ${
+                          isSobraSelected
+                            ? "bg-slate-900 border-emerald-500/60 ring-2 ring-emerald-500/40 shadow-md scale-[1.01]"
+                            : "bg-slate-950/60 border-slate-800/80 hover:bg-slate-900/40"
                         }`}
                       >
-                        {formatCurrency(sobraMes)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/50 pl-4.5">
-                      <span>Status mensal:</span>
-                      <span className={sobraMes >= 0 ? "text-emerald-400 font-medium" : "text-rose-400 font-medium"}>
-                        {sobraMes >= 0 ? "Superávit disponível" : "Atenção: Gastos superaram a receita"}
-                      </span>
-                    </div>
-                  </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                                sobraMes >= 0 ? "bg-emerald-500" : "bg-rose-500"
+                              }`}
+                            />
+                            <span className="text-slate-300 font-medium">Quanto Sobrou (Saldo Livre)</span>
+                          </div>
+                          <span
+                            className={`font-bold font-mono text-sm ${
+                              sobraMes >= 0 ? "text-emerald-400" : "text-rose-400"
+                            }`}
+                          >
+                            {formatCurrency(sobraMes)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/50 pl-4.5">
+                          <span>Status mensal:</span>
+                          <span className={sobraMes >= 0 ? "text-emerald-400 font-medium" : "text-rose-400 font-medium"}>
+                            {sobraMes >= 0 ? "Superávit disponível" : "Atenção: Gastos superaram a receita"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Card: Receita Base */}
                   <div className="p-3 rounded-2xl bg-slate-950/40 border border-slate-800/60 flex items-center justify-between text-xs">
@@ -543,6 +657,7 @@ export default function FinanceCharts({
                       data={categoryBarData}
                       margin={{ top: 25, right: 15, left: -20, bottom: 20 }}
                       barSize={Math.max(20, Math.min(42, Math.floor(360 / categoryBarData.length)))}
+                      style={{ outline: "none" }}
                     >
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
                       <XAxis
@@ -560,11 +675,25 @@ export default function FinanceCharts({
                         axisLine={false}
                         tickFormatter={(val) => formatShortCurrency(val)}
                       />
-                      <Tooltip content={<CustomCategoryBarTooltip />} cursor={{ fill: "rgba(255, 255, 255, 0.04)" }} />
-                      <Bar dataKey="valor" radius={[8, 8, 0, 0]}>
-                        {categoryBarData.map((entry, index) => (
-                          <Cell key={`cat-cell-${index}`} fill={entry.fill} />
-                        ))}
+                      <Tooltip
+                        content={<CustomCategoryBarTooltip />}
+                        cursor={false}
+                        wrapperStyle={{ zIndex: 100, pointerEvents: "none" }}
+                      />
+                      <Bar
+                        dataKey="valor"
+                        shape={renderBarShape}
+                        onClick={(_, index) => {
+                          setActiveBarIndex((prev) => (prev === index ? null : index));
+                        }}
+                        onMouseEnter={(_, index) => {
+                          setActiveBarIndex(index);
+                        }}
+                        onMouseLeave={() => {
+                          setActiveBarIndex(null);
+                        }}
+                        style={{ outline: "none", cursor: "pointer" }}
+                      >
                         <LabelList
                           dataKey="shortFormatted"
                           position="top"
@@ -584,10 +713,15 @@ export default function FinanceCharts({
                     Detalhamento das despesas por categoria ({categoryBarData.length})
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {categoryBarData.map((item) => (
+                    {categoryBarData.map((item, index) => (
                       <div
                         key={item.name}
-                        className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 flex flex-col gap-1.5"
+                        onClick={() => setActiveBarIndex((prev) => (prev === index ? null : index))}
+                        className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                          activeBarIndex === index
+                            ? "bg-slate-800/90 border-slate-600 ring-2 ring-sky-500/50 shadow-lg scale-[1.01]"
+                            : "bg-slate-950/60 border-slate-800/80 hover:bg-slate-900/60"
+                        } flex flex-col gap-1.5`}
                       >
                         <div className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-2 min-w-0">

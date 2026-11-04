@@ -45,7 +45,6 @@ import { processImportFile } from "./utils/fileParser";
 import MetricCards from "./components/MetricCards";
 import TransactionTable from "./components/TransactionTable";
 import FinanceCharts from "./components/FinanceCharts";
-import AccountsBalanceCard from "./components/AccountsBalanceCard";
 import SpreadsheetUpload from "./components/SpreadsheetUpload";
 import AuthScreen from "./components/AuthScreen";
 import AddTransactionModal from "./components/AddTransactionModal";
@@ -1676,6 +1675,8 @@ export default function App() {
                         bottomIncomesTotal={bottomIncomesTotal}
                         sobra={sobra}
                         viewMode={viewMode}
+                        monthlyInstallmentsTotal={monthlyInstallmentsTotal}
+                        directExpensesTotal={directLeftExpensesTotal}
                         onOpenExpensesModal={handleOpenExpensesModal}
                         onOpenPlanningModal={handleOpenPlanningModal}
                       />
@@ -1703,18 +1704,6 @@ export default function App() {
                         budgets={budgets}
                         selectedMonth={selectedMonth}
                         defaultSalary={defaultSalary}
-                      />
-
-                      {/* CAIXA ENQUADRAMENTO DE CONTAS E PARCELAS ATIVAS */}
-                      <AccountsBalanceCard
-                        transactions={transactions}
-                        selectedMonth={selectedMonth}
-                        budget={activeBudget}
-                        onOpenPlanningModal={handleOpenPlanningModal}
-                        onOpenAddModal={(sec) => {
-                          setAddModalSection(sec);
-                          setIsAddModalOpen(true);
-                        }}
                       />
                     </div>
                   ) : (
