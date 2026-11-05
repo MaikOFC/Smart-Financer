@@ -55,10 +55,12 @@ import FocusedSectionModal from "./components/FocusedSectionModal";
 import HomeSectionTabs, { HomeSectionTab } from "./components/HomeSectionTabs";
 import BottomNavigationDock, { AppNavTab } from "./components/BottomNavigationDock";
 import SharedReceiptModal from "./components/SharedReceiptModal";
+import TestFeaturesModal from "./components/TestFeaturesModal";
 import { getPendingSharedPayloads, SharedPayloadItem } from "./utils/shareTargetStorage";
 import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth, getRemainingInstallments } from "./utils/installmentUtils";
 import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "./lib/admin";
 import { ThemeMode, getStoredThemeMode, saveThemeMode, applyTheme } from "./lib/theme";
+import { applyAppFont, getStoredFontKey } from "./lib/fontManager";
 import { checkServerVersion, forceReloadApp, CURRENT_CLIENT_VERSION } from "./lib/updateManager";
 import {
   isSupabaseConfigured,
@@ -197,6 +199,14 @@ export default function App() {
 
   // Mobile & Global User Menu Drawer (3 pontinhos)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  // Modal de Funções de teste (troca de fonte Outfit / Plus Jakarta e modo de visualização)
+  const [isTestFeaturesOpen, setIsTestFeaturesOpen] = useState(false);
+
+  // Inicialização e persistência da fonte do app
+  useEffect(() => {
+    applyAppFont(getStoredFontKey());
+  }, []);
 
   // Modo de Visualização: "compact" (Modo 1: Focado/Cards Interativos) vs "full" (Modo 2: Padrão/Planilha Aberta)
   const [viewMode, setViewMode] = useState<"compact" | "full">(() => {
@@ -1819,6 +1829,15 @@ export default function App() {
           onSetThemeMode={handleSetThemeMode}
           onDirectImportFile={handleDirectFileImport}
           onSimulateNubank={handleSimulateNubankReceipt}
+          onOpenTestFeatures={() => setIsTestFeaturesOpen(true)}
+        />
+
+        {/* MODAL DE FUNÇÕES DE TESTE (FONTE OUTFIT VS JAKARTA & MODO DE VISUALIZAÇÃO) */}
+        <TestFeaturesModal
+          isOpen={isTestFeaturesOpen}
+          onClose={() => setIsTestFeaturesOpen(false)}
+          viewMode={viewMode}
+          onSetViewMode={handleSetViewMode}
         />
 
         {/* MODAL DE SEÇÃO FOCADA (GASTOS DO MÊS / PLANEJAMENTO / PARCELAS) */}
