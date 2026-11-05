@@ -21,13 +21,11 @@ import {
   CheckCircle2,
   Share2,
   FlaskConical,
-  Type,
 } from "lucide-react";
 import { ThemeMode } from "../lib/theme";
 import { CURRENT_CLIENT_VERSION, checkServerVersion, forceReloadApp } from "../lib/updateManager";
 import { useModalBackHandler } from "../hooks/useBackNavigation";
 import { PWAInstallButton } from "./PWAInstallButton";
-import { AppFontKey, getStoredFontKey, saveAppFont } from "../lib/fontManager";
 
 interface UserMenuDrawerProps {
   isOpen: boolean;
@@ -71,16 +69,6 @@ export default function UserMenuDrawer({
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateFeedback, setUpdateFeedback] = useState<string | null>(null);
   const [updateIsLatest, setUpdateIsLatest] = useState<boolean | null>(null);
-  const [currentFont, setCurrentFont] = useState<AppFontKey>(() => getStoredFontKey());
-
-  useEffect(() => {
-    setCurrentFont(getStoredFontKey());
-  }, [isOpen]);
-
-  const handleFontChange = (font: AppFontKey) => {
-    setCurrentFont(font);
-    saveAppFont(font);
-  };
 
   // Intercepta botão voltar do celular para fechar o menu lateral
   useModalBackHandler(isOpen, onClose, "user_menu_drawer");
@@ -412,119 +400,6 @@ export default function UserMenuDrawer({
                     </div>
                   )}
 
-                  {/* SEÇÃO: (Funções de teste) - MODO DE VISUALIZAÇÃO E FONTE DO APP */}
-                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800/80 space-y-3">
-                    <div className="flex items-center justify-between px-2">
-                      <div className="flex items-center gap-1.5">
-                        <FlaskConical className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 stroke-[2.2]" />
-                        <p className="text-[10px] font-black text-slate-700 dark:text-emerald-300 uppercase tracking-wider">
-                          (Funções de teste)
-                        </p>
-                      </div>
-                      <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30">
-                        Beta
-                      </span>
-                    </div>
-
-                    {/* BLOCO DO PRINT DO USUÁRIO: MODO DE VISUALIZAÇÃO */}
-                    {onSetViewMode && (
-                      <div className="space-y-1.5">
-                        <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2">
-                          MODO DE VISUALIZAÇÃO
-                        </p>
-                        <div className="bg-[#0b1017] p-1.5 rounded-2xl border border-slate-800 shadow-inner">
-                          <div className="grid grid-cols-2 gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => onSetViewMode("compact")}
-                              className={`py-2.5 px-2 text-[11px] font-bold rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
-                                viewMode === "compact"
-                                  ? "bg-[#062c20] border border-emerald-500/80 text-emerald-400 font-extrabold shadow-sm"
-                                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent"
-                              }`}
-                            >
-                              <span>Modo Focado (Cards)</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onSetViewMode("full")}
-                              className={`py-2.5 px-2 text-[11px] font-bold rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
-                                viewMode === "full"
-                                  ? "bg-[#062c20] border border-emerald-500/80 text-emerald-400 font-extrabold shadow-sm"
-                                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent"
-                              }`}
-                            >
-                              <span>Modo Padrão (Planilha)</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* SELETOR DE FONTE TIPOGRÁFICA DO APP */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between px-2">
-                        <div className="flex items-center gap-1.5">
-                          <Type className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 stroke-[2.2]" />
-                          <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                            Fonte do Aplicativo
-                          </p>
-                        </div>
-                        <span className="text-[9px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                          {currentFont === "outfit" ? "Outfit (Ativa)" : currentFont === "plus-jakarta-sans" ? "Plus Jakarta" : "Inter"}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 dark:bg-slate-950/80 rounded-xl border border-slate-200 dark:border-slate-800/80">
-                        {/* Botão Outfit (Nova Fonte) */}
-                        <button
-                          type="button"
-                          onClick={() => handleFontChange("outfit")}
-                          style={{ fontFamily: "'Outfit', sans-serif" }}
-                          className={`py-2 px-1 text-center rounded-lg transition-all cursor-pointer ${
-                            currentFont === "outfit"
-                              ? "bg-white text-emerald-700 shadow-sm border border-emerald-300 dark:bg-[#062c20] dark:text-emerald-400 dark:border-emerald-500/80 font-black"
-                              : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
-                          }`}
-                          title="Outfit: Nova fonte geométrica e moderna"
-                        >
-                          <span className="text-xs font-black block">Outfit</span>
-                          <span className="text-[8px] font-medium opacity-75 block">Nova Fonte</span>
-                        </button>
-
-                        {/* Botão Plus Jakarta Sans (Fonte Anterior) */}
-                        <button
-                          type="button"
-                          onClick={() => handleFontChange("plus-jakarta-sans")}
-                          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-                          className={`py-2 px-1 text-center rounded-lg transition-all cursor-pointer ${
-                            currentFont === "plus-jakarta-sans"
-                              ? "bg-white text-emerald-700 shadow-sm border border-emerald-300 dark:bg-[#062c20] dark:text-emerald-400 dark:border-emerald-500/80 font-black"
-                              : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
-                          }`}
-                          title="Plus Jakarta Sans: Fonte sofisticada e elegante"
-                        >
-                          <span className="text-xs font-black block">Plus Jakarta</span>
-                          <span className="text-[8px] font-medium opacity-75 block">Fonte Anterior</span>
-                        </button>
-                      </div>
-
-                      {/* Botão para abrir o comparador completo lado a lado */}
-                      {onOpenTestFeatures && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onClose();
-                            onOpenTestFeatures();
-                          }}
-                          className="w-full mt-1.5 py-1.5 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 dark:text-emerald-400 text-[10px] font-bold border border-emerald-200 dark:border-emerald-500/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                        >
-                          <Sparkles className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                          <span>Abrir Comparador Lado a Lado</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
 
                   {/* ATUALIZAÇÕES DO APLICATIVO / OTA UPDATE */}
                   <div className="pt-3 border-t border-slate-200 dark:border-slate-800/80 space-y-2">
