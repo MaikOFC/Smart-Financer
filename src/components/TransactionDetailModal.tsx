@@ -13,6 +13,7 @@ import {
   DollarSign,
   AlertCircle,
   Percent,
+  TrendingUp,
   Layers,
   ChevronRight,
   Clock,
@@ -175,7 +176,7 @@ export default function TransactionDetailModal({
             transaction.isOrangeHighlight
               ? "bg-gradient-to-r from-amber-500 to-orange-500"
               : transaction.isDiscount
-              ? "bg-gradient-to-r from-slate-600 to-slate-400"
+              ? "bg-gradient-to-r from-emerald-500 to-teal-400"
               : "bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500"
           }`} />
 
@@ -201,9 +202,9 @@ export default function TransactionDetailModal({
                 </span>
               )}
               {transaction.isDiscount && (
-                <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1">
-                  <Percent className="w-3 h-3" />
-                  Desconto / Abatimento
+                <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" />
+                  Ganho / Entrada Extra
                 </span>
               )}
             </div>
@@ -327,12 +328,12 @@ export default function TransactionDetailModal({
                     </span>
                     <span className={`text-2xl font-black font-mono tracking-tight ${
                       transaction.isDiscount
-                        ? "text-slate-400"
+                        ? "text-emerald-400"
                         : transaction.isOrangeHighlight
                         ? "text-amber-400"
-                        : "text-emerald-400"
+                        : "text-rose-400"
                     }`}>
-                      {transaction.isDiscount ? "- " : ""}
+                      {transaction.isDiscount ? "+ " : ""}
                       R$ {(typeof transaction.amount === "number" && !isNaN(transaction.amount) ? transaction.amount : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
@@ -370,7 +371,7 @@ export default function TransactionDetailModal({
                     <div className="min-w-0">
                       <p className="text-[10px] text-slate-400 font-bold uppercase">Tipo de Registro</p>
                       <p className="font-bold text-slate-200 truncate mt-0.5">
-                        {transaction.isDiscount ? "Desconto na Tabela" : transaction.type === "income" ? "Entrada / Salário" : "Despesa"}
+                        {transaction.isDiscount ? "Ganho Extra / Entrada" : transaction.type === "income" ? "Entrada / Salário" : "Despesa"}
                       </p>
                     </div>
                   </div>
@@ -485,19 +486,19 @@ export default function TransactionDetailModal({
                       <span className="hidden sm:inline">Destaque</span>
                     </button>
 
-                    {/* TOGGLE DISCOUNT */}
+                    {/* TOGGLE GANHO EXTRA */}
                     <button
                       type="button"
                       onClick={handleToggleDiscount}
                       className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                         transaction.isDiscount
-                          ? "bg-slate-800 text-slate-200 border-slate-700"
+                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/35"
                           : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700"
                       }`}
-                      title="Marcar como desconto"
+                      title="Marcar como ganho extra"
                     >
-                      <Percent className="w-4 h-4" />
-                      <span className="hidden sm:inline">Desconto</span>
+                      <TrendingUp className="w-4 h-4" />
+                      <span className="hidden sm:inline">Ganho Extra</span>
                     </button>
                   </div>
 

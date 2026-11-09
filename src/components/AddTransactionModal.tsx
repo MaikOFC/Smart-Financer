@@ -549,7 +549,7 @@ export default function AddTransactionModal({
                     </div>
                     <div className="flex flex-col">
                       <span className="text-xs font-bold text-slate-200">É um ganho?</span>
-                      <span className="text-[10px] text-slate-500">Subtrai do total de gastos</span>
+                      <span className="text-[10px] text-emerald-400/80">Soma na receita total e aumenta a sobra do mês</span>
                     </div>
                   </label>
 

@@ -62,18 +62,23 @@ export default function FinanceCharts({
   );
   const activeInstallments = getActiveInstallmentsForMonth(safeTransactions, selectedMonth);
 
-  const leftExpenses = currentMonthTransactions.reduce(
-    (sum, t) => {
+  const leftExpenses = currentMonthTransactions
+    .filter((t) => !t?.isDiscount)
+    .reduce((sum, t) => {
       const val = typeof t.amount === "number" && !isNaN(t.amount) ? t.amount : 0;
-      return t.isDiscount ? sum - val : sum + val;
-    },
-    0
-  );
+      return sum + val;
+    }, 0);
+  const currentMonthGains = currentMonthTransactions
+    .filter((t) => !!t?.isDiscount)
+    .reduce((sum, t) => {
+      const val = typeof t.amount === "number" && !isNaN(t.amount) ? t.amount : 0;
+      return sum + val;
+    }, 0);
   const monthlyInstallments = getMonthlyInstallmentsTotal(safeTransactions, selectedMonth);
   const totalDespesas = leftExpenses + monthlyInstallments;
 
-  const orcamento = safeBudgets[selectedMonth] !== undefined ? safeBudgets[selectedMonth] : (defaultSalary ?? 2500);
-  const safeOrcamento = typeof orcamento === "number" && !isNaN(orcamento) ? orcamento : 0;
+  const baseOrcamento = safeBudgets[selectedMonth] !== undefined ? safeBudgets[selectedMonth] : (defaultSalary ?? 2500);
+  const safeOrcamento = (typeof baseOrcamento === "number" && !isNaN(baseOrcamento) ? baseOrcamento : 0) + currentMonthGains;
   const safeTotalDespesas = typeof totalDespesas === "number" && !isNaN(totalDespesas) ? totalDespesas : 0;
 
   const sobraMes = safeOrcamento - safeTotalDespesas;
@@ -171,15 +176,21 @@ export default function FinanceCharts({
 
     const monthTransactions = safeTransactions.filter((t) => t.date && t.date.startsWith(m));
     const lExp = monthTransactions
-      .filter((t) => isLeft(t.tableSection))
+      .filter((t) => isLeft(t.tableSection) && !t.isDiscount)
       .reduce((sum, t) => {
         const val = typeof t.amount === "number" && !isNaN(t.amount) ? t.amount : 0;
-        return t.isDiscount ? sum - val : sum + val;
+        return sum + val;
+      }, 0);
+    const mGains = monthTransactions
+      .filter((t) => isLeft(t.tableSection) && !!t.isDiscount)
+      .reduce((sum, t) => {
+        const val = typeof t.amount === "number" && !isNaN(t.amount) ? t.amount : 0;
+        return sum + val;
       }, 0);
     const mInst = getMonthlyInstallmentsTotal(safeTransactions, m);
     const totExp = lExp + mInst;
-    const inc = safeBudgets[m] !== undefined ? safeBudgets[m] : (defaultSalary ?? 2500);
-    const safeInc = typeof inc === "number" && !isNaN(inc) ? inc : 0;
+    const baseInc = safeBudgets[m] !== undefined ? safeBudgets[m] : (defaultSalary ?? 2500);
+    const safeInc = (typeof baseInc === "number" && !isNaN(baseInc) ? baseInc : 0) + mGains;
     const sobra = safeInc - totExp;
 
     return {

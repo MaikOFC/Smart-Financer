@@ -265,13 +265,15 @@ export default function TransactionTable({
     return list;
   }, [rawRightTransactions, onlyDuplicates, rightSortBy, rightDuplicatesInfo]);
 
-  // Direct expenses total (excluding active installments)
-  const directExpensesTotal = rawDirectLeftTransactions.reduce((acc, t) => {
-    if (t.isDiscount) {
-      return acc - t.amount;
-    }
-    return acc + t.amount;
-  }, 0);
+  // Direct expenses total (excluding active installments) - apenas gastos reais
+  const directExpensesTotal = rawDirectLeftTransactions
+    .filter((t) => !t.isDiscount)
+    .reduce((acc, t) => acc + (t.amount || 0), 0);
+
+  // Ganhos extras registrados na tabela do mês
+  const directGainsTotal = rawDirectLeftTransactions
+    .filter((t) => !!t.isDiscount)
+    .reduce((acc, t) => acc + (t.amount || 0), 0);
 
   // Active monthly installments due for this selected month
   const monthlyInstallments = getMonthlyInstallmentsTotal(transactions, selectedMonth);
@@ -584,6 +586,11 @@ export default function TransactionTable({
             {monthlyInstallments > 0 && (
               <p className="text-[11px] text-slate-400 font-medium font-sans">
                 (Contas: R$ {(directExpensesTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} + Parcelas ativas: R$ {(monthlyInstallments || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
+              </p>
+            )}
+            {directGainsTotal > 0 && (
+              <p className="text-[11px] text-emerald-400 font-semibold font-sans">
+                + R$ {(directGainsTotal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} em ganhos extras no mês
               </p>
             )}
           </div>

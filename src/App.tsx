@@ -677,19 +677,24 @@ export default function App() {
     (t) => !!t.date && t.date.startsWith(selectedMonth) && !isBottomSec(t.tableSection)
   );
 
-  // Despesas diretas do mês corrente (contas de consumo, etc.)
+  // Despesas diretas reais do mês corrente (contas de consumo, etc.) - apenas gastos reais, nunca negativo
   const directLeftExpensesTotal = currentMonthTransactions
-    .filter((t) => isLeftSec(t.tableSection))
-    .reduce((acc, t) => {
-      if (t.isDiscount) return acc - t.amount;
-      return acc + t.amount;
-    }, 0);
+    .filter((t) => isLeftSec(t.tableSection) && !t.isDiscount)
+    .reduce((acc, t) => acc + (t.amount || 0), 0);
+
+  // Ganhos extras e bonificações do mês corrente
+  const currentMonthGainsTotal = currentMonthTransactions
+    .filter((t) => isLeftSec(t.tableSection) && !!t.isDiscount)
+    .reduce((acc, t) => acc + (t.amount || 0), 0);
 
   // Valor total das parcelas ativas devidas no mês selecionado
   const monthlyInstallmentsTotal = getMonthlyInstallmentsTotal(transactions, selectedMonth);
 
-  // Total de gastos do mês = contas mensais diretas + parcelas ativas do mês
+  // Total de gastos reais do mês = contas mensais diretas + parcelas ativas do mês
   const leftExpensesTotal = directLeftExpensesTotal + monthlyInstallmentsTotal;
+
+  // Receita total do mês = Orçamento base + Ganhos extras
+  const totalMonthlyIncomes = activeBudget + currentMonthGainsTotal;
 
   // Right total (Planejamento Futuro / Compras Futuras - visível em todas as datas)
   const rightExpensesTotal = transactions
@@ -706,8 +711,8 @@ export default function App() {
       return acc + (t.amount * remainingCount);
     }, 0);
 
-  // Sobra = Orçamento - Gastos totais do mês (contas + parcelas ativas)
-  const sobra = activeBudget - leftExpensesTotal;
+  // Sobra = Receitas totais (Orçamento base + Ganhos extras) - Gastos totais do mês
+  const sobra = totalMonthlyIncomes - leftExpensesTotal;
 
   // Contagens para a barra de abas inferior
   const homeExpensesCount =
@@ -1687,6 +1692,8 @@ export default function App() {
                         viewMode={viewMode}
                         monthlyInstallmentsTotal={monthlyInstallmentsTotal}
                         directExpensesTotal={directLeftExpensesTotal}
+                        gainsTotal={currentMonthGainsTotal}
+                        totalIncomes={totalMonthlyIncomes}
                         onOpenExpensesModal={handleOpenExpensesModal}
                         onOpenPlanningModal={handleOpenPlanningModal}
                       />

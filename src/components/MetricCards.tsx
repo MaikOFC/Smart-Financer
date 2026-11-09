@@ -26,6 +26,8 @@ interface MetricCardsProps {
   viewMode?: "compact" | "full";
   monthlyInstallmentsTotal?: number;
   directExpensesTotal?: number;
+  gainsTotal?: number;
+  totalIncomes?: number;
   onOpenExpensesModal?: () => void;
   onOpenPlanningModal?: (tab?: "planning" | "installments") => void;
   onOpenAddModal?: (section: "left" | "right" | "bottom_left") => void;
@@ -41,6 +43,8 @@ export default function MetricCards({
   viewMode = "compact",
   monthlyInstallmentsTotal = 0,
   directExpensesTotal,
+  gainsTotal = 0,
+  totalIncomes,
   onOpenExpensesModal,
   onOpenPlanningModal,
   onOpenAddModal,
@@ -67,16 +71,19 @@ export default function MetricCards({
   };
 
   const safeBudget = typeof budget === "number" && !isNaN(budget) ? budget : 0;
-  const safeLeft = typeof leftExpensesTotal === "number" && !isNaN(leftExpensesTotal) ? leftExpensesTotal : 0;
+  const safeGains = typeof gainsTotal === "number" && !isNaN(gainsTotal) ? gainsTotal : 0;
+  const safeTotalIncomes = typeof totalIncomes === "number" && !isNaN(totalIncomes) ? totalIncomes : (safeBudget + safeGains);
+  const safeLeft = typeof leftExpensesTotal === "number" && !isNaN(leftExpensesTotal) ? Math.max(0, leftExpensesTotal) : 0;
   const safeRight = typeof rightExpensesTotal === "number" && !isNaN(rightExpensesTotal) ? rightExpensesTotal : 0;
   const safeSobra = typeof sobra === "number" && !isNaN(sobra) ? sobra : 0;
   const safeInstallments = typeof monthlyInstallmentsTotal === "number" && !isNaN(monthlyInstallmentsTotal) ? monthlyInstallmentsTotal : 0;
   const safeDirect = typeof directExpensesTotal === "number" && !isNaN(directExpensesTotal)
-    ? directExpensesTotal
+    ? Math.max(0, directExpensesTotal)
     : Math.max(0, safeLeft - safeInstallments);
 
-  // Índices de saúde financeira
-  const percentSpent = safeBudget > 0 ? Math.min(100, Math.round((safeLeft / safeBudget) * 100)) : (safeLeft > 0 ? 100 : 0);
+  // Índices de saúde financeira baseados na receita total real do mês
+  const baseRevenue = safeTotalIncomes > 0 ? safeTotalIncomes : safeBudget;
+  const percentSpent = baseRevenue > 0 ? Math.min(100, Math.round((safeLeft / baseRevenue) * 100)) : (safeLeft > 0 ? 100 : 0);
   const percentFree = Math.max(0, 100 - percentSpent);
   const isHealthy = safeSobra >= 0;
 
@@ -332,12 +339,20 @@ export default function MetricCards({
                   isPrivate ? "filter blur-xs" : ""
                 }`}
               >
-                {isPrivate ? "••••••" : formatCurrency(safeBudget)}
+                {isPrivate ? "••••••" : formatCurrency(safeTotalIncomes)}
               </span>
             </div>
             <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 group-hover:text-emerald-400 transition-colors font-medium">
-              <span>Orçamento previsto</span>
-              <Edit3 className="w-2.5 h-2.5 inline opacity-70" />
+              {safeGains > 0 ? (
+                <span className="text-emerald-400 font-semibold truncate">
+                  Orçamento + R$ {formatCurrency(safeGains)} extras
+                </span>
+              ) : (
+                <>
+                  <span>Orçamento previsto</span>
+                  <Edit3 className="w-2.5 h-2.5 inline opacity-70" />
+                </>
+              )}
             </p>
           </div>
         </div>

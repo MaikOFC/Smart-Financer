@@ -135,10 +135,15 @@ export default function FocusedSectionModal({
   const displayedInstallments = showAllInstallments ? allInstallments : activeInstallmentsThisMonth;
 
   // Compute Totals
-  const directExpensesTotal = currentMonthDirectExpenses.reduce((sum, t) => (t.isDiscount ? sum - t.amount : sum + t.amount), 0);
+  const directExpensesTotal = currentMonthDirectExpenses
+    .filter((t) => !t.isDiscount)
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
+  const gainsTotal = currentMonthDirectExpenses
+    .filter((t) => !!t.isDiscount)
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
   const monthlyInstallmentsTotal = getMonthlyInstallmentsTotal(transactions, selectedMonth);
   const expensesTotal = directExpensesTotal + monthlyInstallmentsTotal;
-  const planningTotal = currentMonthPlanning.reduce((sum, t) => sum + t.amount, 0);
+  const planningTotal = currentMonthPlanning.reduce((sum, t) => sum + (t.amount || 0), 0);
   const installmentsTotal = displayedInstallments.reduce((sum, t) => sum + t.amount * getRemainingInstallments(t, selectedMonth), 0);
 
   // Formatted Month Label
@@ -209,7 +214,8 @@ export default function FocusedSectionModal({
     });
   };
 
-  const filteredExpenses = filterAndSortList(currentMonthExpenses, "expenses");
+  const currentMonthGains = currentMonthExpenses.filter((t) => !!t.isDiscount);
+  const filteredExpenses = filterAndSortList(currentMonthExpenses.filter((t) => !t.isDiscount), "expenses");
   const filteredPlanning = filterAndSortList(currentMonthPlanning, "planning");
   const filteredInstallments = filterAndSortList(displayedInstallments, "installments");
 
@@ -217,36 +223,86 @@ export default function FocusedSectionModal({
 
   // Render content helper for each slide
   const renderSectionContent = (list: Transaction[], type: "expenses" | "planning" | "installments") => {
-    if (list.length === 0) {
-      return (
-        <div className="space-y-4">
-          <div className="py-16 text-center text-slate-400">
-            <p className="text-sm font-medium">Nenhum registro encontrado nesta categoria.</p>
-            <button
-              onClick={() => {
-                onAddTransaction(
-                  type === "expenses"
-                    ? "left"
-                    : type === "planning"
-                    ? "right"
-                    : "bottom_left"
-                );
-              }}
-              className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border cursor-pointer transition-all ${
-                type === "planning"
-                  ? "text-amber-400 hover:text-amber-300 bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/20"
-                  : "text-rose-400 hover:text-rose-300 bg-rose-500/10 border-rose-500/25 hover:bg-rose-500/20"
-              }`}
-            >
-              <Plus className="w-4 h-4" /> Adicionar Primeiro Item
-            </button>
-          </div>
-        </div>
-      );
-    }
-
     return (
-      <div className="space-y-3">
+      <div className="space-y-4">
+        {/* SEÇÃO DESTACADA: GANHOS EXTRAS DO MÊS */}
+        {type === "expenses" && currentMonthGains.length > 0 && (
+          <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-2xl p-3.5 sm:p-4 space-y-2.5">
+            <div className="flex items-center justify-between pb-2 border-b border-emerald-500/20">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-emerald-300">Ganhos Extras do Mês</h4>
+                  <p className="text-[10px] text-emerald-400/80 font-medium">Somam na receita total e aumentam a sobra disponível</p>
+                </div>
+              </div>
+              <span className="text-xs sm:text-sm font-black font-mono text-emerald-400">
+                + R$ {gainsTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+
+            <div className="divide-y divide-emerald-500/15">
+              {currentMonthGains.map((t) => (
+                <div
+                  key={t.id}
+                  onClick={() => setSelectedTransactionForDetail(t)}
+                  className="py-2.5 flex items-center justify-between gap-3 hover:bg-emerald-500/5 px-2 rounded-xl transition-all cursor-pointer group"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs sm:text-sm font-bold text-white group-hover:text-emerald-300 transition-colors truncate">
+                        {t.description}
+                      </span>
+                      <span className="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded font-bold uppercase">
+                        Ganho
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                      {t.category || "Outros"} {t.note ? `• ${t.note}` : ""}
+                    </span>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-xs sm:text-sm font-black font-mono text-emerald-400">
+                      + R$ {(t.amount || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {list.length === 0 ? (
+          type === "expenses" && currentMonthGains.length > 0 ? (
+            <div className="py-6 text-center text-slate-400 bg-slate-900/40 rounded-2xl border border-slate-800/60 p-4">
+              <p className="text-xs font-medium">Nenhuma conta ou gasto direto registrado para este mês.</p>
+            </div>
+          ) : (
+            <div className="py-16 text-center text-slate-400">
+              <p className="text-sm font-medium">Nenhum registro encontrado nesta categoria.</p>
+              <button
+                onClick={() => {
+                  onAddTransaction(
+                    type === "expenses"
+                      ? "left"
+                      : type === "planning"
+                      ? "right"
+                      : "bottom_left"
+                  );
+                }}
+                className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border cursor-pointer transition-all ${
+                  type === "planning"
+                    ? "text-amber-400 hover:text-amber-300 bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/20"
+                    : "text-rose-400 hover:text-rose-300 bg-rose-500/10 border-rose-500/25 hover:bg-rose-500/20"
+                }`}
+              >
+                <Plus className="w-4 h-4" /> Adicionar Primeiro Item
+              </button>
+            </div>
+          )
+        ) : (
         <div className="divide-y divide-slate-800/80 bg-slate-900/60 rounded-2xl border border-slate-800/80 overflow-hidden shadow-sm">
           {list.map((t) => {
           const isInst = isBottomSec(t.tableSection);
@@ -397,7 +453,8 @@ export default function FocusedSectionModal({
             </div>
           );
         })}
-        </div>
+          </div>
+        )}
       </div>
     );
   };

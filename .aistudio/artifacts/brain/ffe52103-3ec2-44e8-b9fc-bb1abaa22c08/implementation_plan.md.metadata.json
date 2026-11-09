@@ -1,6 +1,6 @@
 {
-  "summary":  "Conjunto de ícones de alta fidelidade para o SmartFinancer gerado e integrado com sucesso em todas as resoluções necessárias (512x512, maskable, 192x192, 180x180 Apple Touch Icon, favicon e logo), no estilo Fintech Minimalista Premium.",
-  "updatedAt":  "2026-11-09T12:33:58.418059965Z",
+  "summary":  "Plano de correção da lógica financeira e separação matemática de despesas e ganhos extras no SmartFinancer. Corrige o cálculo de despesas para que nunca fiquem negativas, soma ganhos extras à receita total do mês aumentando a sobra disponível, e organiza os ganhos em destaque visual positivo verde separado das despesas.",
+  "updatedAt":  "2026-11-09T14:00:42.438593096Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
