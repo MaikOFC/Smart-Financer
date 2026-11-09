@@ -9,9 +9,7 @@ import {
   ArrowLeft,
   Loader2,
   Sparkles,
-  Database,
   AlertCircle,
-  Server,
   DollarSign,
   HelpCircle,
   KeyRound,
@@ -267,27 +265,9 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
               }}
             />
           </button>
-          <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-1.5 justify-center">
+          <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-1.5 justify-center mb-1">
             Smart<span className="text-emerald-400">Financer</span>
           </h1>
-          <p className="text-xs text-slate-400 mt-1 font-medium max-w-xs">
-            Gerencie suas finanças, planilhas e relatórios inteligentes em tempo real.
-          </p>
-
-          {/* BADGE DE CONEXÃO DO BANCO */}
-          <div className="mt-3 flex items-center justify-center gap-2">
-            {supabaseActive ? (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold uppercase tracking-wider font-mono">
-                <Database className="w-3 h-3" />
-                Supabase Nuvem Conectado
-              </div>
-            ) : (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/25 text-indigo-400 text-[10px] font-bold uppercase tracking-wider font-mono">
-                <Server className="w-3 h-3" />
-                Modo Servidor Local
-              </div>
-            )}
-          </div>
         </div>
 
         {/* CARD PRINCIPAL */}
@@ -666,8 +646,8 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
 
         {/* FOOTER */}
         <div className="mt-6 text-center">
-          <p className="text-[10px] text-slate-600 font-mono">
-            Dados sincronizados com segurança no Supabase.
+          <p className="text-xs text-slate-500 font-medium tracking-wide">
+            Desenvolvido por Miquéias Mendonça
           </p>
         </div>
       </motion.div>
