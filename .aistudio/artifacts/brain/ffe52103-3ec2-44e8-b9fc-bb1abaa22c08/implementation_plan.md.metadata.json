@@ -1,6 +1,6 @@
 {
-  "summary":  "Plano de implementação para o fluxo de recuperação e redefinição de senha por e-mail na tela de login, incluindo botão 'Esqueceu a senha?' abaixo do campo de senha, modal de envio de link mágico pelo Supabase, detecção de token de recuperação na URL e tela para cadastro da nova senha.",
-  "updatedAt":  "2026-11-09T11:54:52.367230563Z",
+  "summary":  "Plano de design para reformulação visual da tela inicial e cartões de saldo do SmartFinancer, adotando a estética Fintech Minimalista Premium inspirada no design da Apple e Nubank Ultravioleta.",
+  "updatedAt":  "2026-11-09T12:03:13.978814981Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

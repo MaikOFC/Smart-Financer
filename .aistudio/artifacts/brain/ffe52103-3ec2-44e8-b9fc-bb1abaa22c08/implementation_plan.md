@@ -1,82 +1,98 @@
-# Recuperação de Senha por E-mail (SmartFinancer)
+# Redesign Fintech Minimalista Premium (Estilo Apple & Nubank Ultravioleta)
 
-Implementação do fluxo seguro de recuperação de senha por e-mail diretamente na tela de autenticação, permitindo que os usuários redefinam sua senha através de um link de confirmação enviado para a sua caixa de entrada.
+Proposta de reformulação da tela inicial e dos cartões de métricas financeiras do SmartFinancer, elevando a identidade visual para um padrão refinado, minimalista e premium, inspirado na elegância de produtos como Apple Card e Nubank Ultravioleta.
 
 ### Decisões do Usuário & Alinhamento
 
 > [!IMPORTANT]
-> As escolhas a seguir foram confirmadas na etapa de alinhamento interativo:
-> - **Fluxo Escolhido**: Link por e-mail (*Magic Link / Password Reset Link*) para cadastrar uma nova senha com segurança.
-> - **Posicionamento na UI**: Botão *"Esqueceu a senha?"* posicionado logo abaixo do campo de senha, alinhado à direita.
+> As seguintes escolhas foram alinhadas na etapa de questionamento interativo:
+> - **Estilo Visual**: Fintech Minimalista Premium com estética escura sofisticada (tons de obsidiana, reflexos metálicos suaves e acabamentos em vidro fosco sutil).
+> - **Foco de Reformulação**: Tela inicial, cartão mestre de saldo (Hero Card) e os 4 cartões de divisão financeira (Receitas, Despesas, Parcelas e Metas).
 
 ---
 
-### 1. Visão Geral & Experiência do Usuário
+### 1. Visão Geral & Conceito Visual
 
-O objetivo é proporcionar um processo de recuperação de acesso sem atritos, seguro e visualmente integrado ao design dark moderno do SmartFinancer.
+Transformar o primeiro contato do usuário com o aplicativo em uma experiência executiva e tranquila. Em vez de blocos pesados ou excesso de cores chamativas, a interface passa a respirar com uma hierarquia tipográfica impecável, acabamentos metálicos discretos e foco total nos números que importam.
 
-- **Fluxo do Usuário**:
-  1. O usuário está na tela de login e clica em **"Esqueceu a senha?"** abaixo do campo de senha.
-  2. A tela transiciona suavemente para o modo **Recuperar Acesso**, solicitando o e-mail cadastrado (já pré-preenchido se o usuário começou a digitar).
-  3. Ao clicar em **"Enviar Link de Recuperação"**, o sistema dispara o e-mail através do Supabase Auth (`resetPasswordForEmail`).
-  4. Uma mensagem de confirmação clara é exibida, informando que as instruções foram enviadas e orientando a checar a caixa de entrada e a pasta de spam.
-  5. Ao clicar no link recebido no e-mail, o app abre automaticamente no estado **"Redefinir Senha"**, permitindo definir a nova senha e confirmá-la.
-  6. Ao salvar, a senha é atualizada no Supabase (`updateUser({ password })`), e o usuário é autenticado diretamente no painel.
+- **Público-Alvo**: Usuários que buscam clareza mental e controle financeiro diário com uma sensação de sofisticação e segurança.
+- **Valor Principal**: Visualização instantânea da saúde financeira em menos de 3 segundos, sem ruído visual ou poluição gráfica.
 
 ---
 
-### 2. Design Visual & Interface (Frontend Design)
+### 2. Experiência do Usuário & Design System (Frontend Design)
 
-- **Estilo & Consistência**:
-  - Segue a paleta padrão do aplicativo: fundo em `slate-950` / `slate-900`, bordas suaves em `slate-800` e acentos em `indigo-500` / `emerald-500`.
-  - Zero poluição visual: tipografia limpa, sem tags ou badges chamativas desnecessárias.
-- **Micro-interações & Estados de Feedback**:
-  - Feedback visual de envio com indicador de carregamento (`Loader2`).
-  - Alerta de sucesso com botão para reenviar caso o e-mail demore a chegar.
-  - Botão de retorno fácil **"Voltar ao Login"** em qualquer etapa.
-  - Validação de senha mínima (mínimo de 6 caracteres) com comparação de confirmação em tempo real.
+#### A. O Novo Cartão Mestre de Saldo (Ultraviolet & Obsidian Card)
+- **Superfície & Textura**:
+  - Fundo em tom escuro profundo (`#0b0f17` a `#111726`) com uma borda superior ultrafina com brilho metálico (*hairline gradient* em tons de esmeralda e ultravioleta discreto).
+  - Ausência de gradientes pesados ou neon brilhante: o luxo vem da precisão das margens e da pureza da tipografia.
+- **Hierarquia de Números**:
+  - Saldo livre apresentado em escala tipográfica grande com a fonte **Outfit** e alinhamento monoespaçado tabular (`font-mono tabular-nums`), evitando qualquer pulo de layout nas animações.
+  - O seletor de privacidade (olhinho) e o botão de ajuste rápido integrados discretamente no canto superior direito como botões táteis elegantes.
+- **Barra de Saúde Financeira**:
+  - Substituição de barras grossas por uma barra de consumo ultrafina (4px de altura) com cantos perfeitamente arredondados e transições de cor sutis (indigo para comprometido e esmeralda para livre).
+
+#### B. Grid Bento dos 4 Cartões de Apoio
+1. **Receitas Previstas**:
+   - Ícone geométrico sutil em verde esmeralda com fundo translúcido suave (`bg-emerald-500/8`).
+   - Rótulo superior limpo, valor formatado e indicação sutil de edição.
+2. **Despesas Diretas (Consumo & Essenciais)**:
+   - Acento refinado em rosa queimado/carmesim suave (`bg-rose-500/8`).
+   - Mostra o total de gastos do mês sem poluição.
+3. **Parcelas do Mês (Cartões de Crédito)**:
+   - Acento inspirado no Nubank Ultravioleta em roxo nobre translúcido (`bg-purple-500/8`).
+   - Indica a quantidade de parcelas ativas no mês.
+4. **Metas & Reservas Financeiras**:
+   - Acento em dourado champanhe/âmbar discreto (`bg-amber-500/8`).
+   - Exibe o progresso de metas e planos futuros.
+
+#### C. Microinterações & Toque
+- Efeito de profundidade com elevação tátil suave ao tocar ou passar o mouse (`active:scale-[0.98] transition-all`).
+- Modo de privacidade uniforme: todos os 5 cartões ocultam valores com efeito de desfoque elegante (*blur*) instantâneo.
 
 ---
 
-### 3. Decisões Técnicas & Arquitetura
+### 3. Decisões de Arquitetura & Implementação
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                        AuthScreen Component                            │
+│                        MetricCards Component                           │
 │                                                                        │
-│  ┌───────────────────────┐             ┌────────────────────────────┐  │
-│  │   Modo: 'login'       │  "Esqueceu  │  Modo: 'forgot-password'   │  │
-│  │   • E-mail            │  a senha?"  │  • E-mail para envio       │  │
-│  │   • Senha             ├────────────►│  • Disparo via Supabase    │  │
-│  │   • [Entrar]          │             │  • Confirmação em tela     │  │
-│  └───────────────────────┘             └────────────────────────────┘  │
-│             ▲                                        │                 │
-│             │ "Voltar ao Login"                      │ Envio de e-mail │
-│             │                                        ▼                 │
-│  ┌───────────────────────┐             ┌────────────────────────────┐  │
-│  │  Modo: 'reset-password'│◄────────────┤  Link no E-mail (URL Hash) │  │
-│  │  • Nova Senha         │  Clique no  │  #access_token=...         │  │
-│  │  • Confirmar Senha    │  link de    │  &type=recovery            │  │
-│  │  • [Salvar e Entrar]  │  recuperação│                            │  │
-│  └───────────────────────┘             └────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │  MASTER HERO CARD (Obsidian & Metal Finish)                      │  │
+│  │  • Hairline metálico superior (1px)                              │  │
+│  │  • Rótulo "Saldo Livre Disponível" + Status Pill Discreto        │  │
+│  │  • R$ 443,00 (Outfit Tabular, tamanho destacado)                 │  │
+│  │  • Barra de progresso minimalista (4px)                          │  │
+│  │  • Botões discretos: [Privacidade] [Ajustar Orçamento]           │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                                                                        │
+│  ┌──────────────────── BENTO GRID (4 CARDS) ────────────────────────┐  │
+│  │ ┌────────────────┐ ┌────────────────┐ ┌────────────────┐ ┌───────┐ │  │
+│  │ │ Receitas       │ │ Despesas       │ │ Parcelas (TWA) │ │ Metas │ │  │
+│  │ │ R$ 1.000,00    │ │ R$ 195,00      │ │ R$ 362,00      │ │ R$ 1k │ │  │
+│  │ │ Emerald Accent │ │ Rose Accent    │ │ Violet Accent  │ │ Amber │ │  │
+│  │ └────────────────┘ └────────────────┘ └────────────────┘ └───────┘ │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Integração com Supabase Auth**:
-  - Função `sendPasswordResetEmail(email: string)` utilizando `supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })`.
-  - Função `updateUserPassword(newPassword: string)` utilizando `supabase.auth.updateUser({ password: newPassword })`.
-- **Detecção do Hash de Recuperação**:
-  - Monitoramento de eventos de autenticação via `supabase.auth.onAuthStateChange((event) => ...)` para identificar o evento `PASSWORD_RECOVERY`, ou leitura direta do fragmento `#type=recovery` na URL ao inicializar.
-- **Suporte ao Modo Servidor Local / Demo**:
-  - Fallback suave caso o usuário esteja em ambiente local ou de demonstração, exibindo simulação amigável para que o fluxo funcione perfeitamente em qualquer cenário.
+- **Arquivos Impactados**:
+  - `src/components/MetricCards.tsx`: Implementação da nova estrutura visual, cartões bento e animações de número.
+  - `src/components/AnimatedNumber.tsx`: Ajustes de renderização suave sem recortes.
+  - Preservação de todos os handlers de clique (ajuste de orçamento, abertura de gastos, abertura de parcelas e metas).
 
 ---
 
-### 4. Próximos Passos de Execução (Após Aprovação)
+### 4. Plano de Execução (Após Aprovação)
 
-1. **Serviço de Autenticação (`src/lib/supabaseService.ts`)**: Adicionar as funções auxiliares `sendPasswordResetEmail` e `updateUserPassword`.
-2. **Componente de Login (`src/components/AuthScreen.tsx`)**:
-   - Incluir o botão *"Esqueceu a senha?"* logo abaixo do campo de senha (alinhado à direita).
-   - Adicionar as visões dinâmicas para `forgot-password` (solicitação) e `reset-password` (cadastro da nova senha).
-   - Implementar escuta de eventos para URLs com token de recuperação.
-3. **Validação & Teste de Compilação**: Executar `lint_applet` e `compile_applet` para assegurar integridade total do código.
+1. **Refatoração do Master Hero Card em `MetricCards.tsx`**:
+   - Aplicar a nova paleta escura obsidiana com hairline metálico superior.
+   - Refinar a barra de consumo para o formato ultrafino minimalista.
+   - Ajustar o tamanho e espaçamento do saldo principal e dos botões de controle.
+2. **Atualização do Grid Bento dos 4 Cartões**:
+   - Padronizar os fundos translúcidos e bordas em 1px suave (`border-slate-800/80 hover:border-slate-700`).
+   - Aplicar as cores de acento sutis (Emerald, Rose, Ultraviolet, Amber).
+3. **Verificação & Teste**:
+   - Testar modos claro e escuro, modo de privacidade e responsividade no mobile.
+   - Executar `lint_applet` e `compile_applet`.
