@@ -230,7 +230,7 @@ export default function UserMenuDrawer({
                     <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:text-slate-600 dark:group-hover:text-slate-300" />
                   </button>
 
-                  {/* OPÇÃO: (Funções de teste) */}
+                  {/* FUNÇÕES DE TESTE */}
                   <button
                     onClick={() => {
                       onClose();
@@ -238,27 +238,22 @@ export default function UserMenuDrawer({
                         onOpenTestFeatures();
                       }
                     }}
-                    className="w-full flex items-center justify-between p-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/30 hover:border-emerald-400 dark:hover:border-emerald-500/50 transition-all text-left group cursor-pointer"
+                    className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/60 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left group cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 group-hover:scale-105 transition-transform">
-                        <FlaskConical className="w-4 h-4 stroke-[2.2]" />
+                      <div className="p-2 rounded-lg bg-slate-200/70 text-slate-700 dark:bg-slate-800 dark:text-slate-300 group-hover:text-emerald-500 transition-colors">
+                        <FlaskConical className="w-4 h-4 stroke-[2]" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-xs font-bold text-slate-900 dark:text-emerald-300 group-hover:text-emerald-700 dark:group-hover:text-white">
-                            (Funções de teste)
-                          </p>
-                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-200 dark:bg-emerald-500/30 text-emerald-800 dark:text-emerald-300">
-                            Novo
-                          </span>
-                        </div>
+                        <p className="text-xs font-bold text-slate-900 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white">
+                          Funções de Teste
+                        </p>
                         <p className="text-[10px] text-slate-500 dark:text-slate-400">
                           Trocar fonte (Outfit / Jakarta) e visualização
                         </p>
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-emerald-600 dark:text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:text-slate-600 dark:group-hover:text-slate-300" />
                   </button>
 
                   {/* INSTALAÇÃO DO APLICATIVO (PWA / APK) */}
@@ -320,28 +315,23 @@ export default function UserMenuDrawer({
                         onClose();
                         onSimulateNubank();
                       }}
-                      className="w-full flex items-center justify-between p-3 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/20 dark:hover:bg-purple-900/30 border border-purple-200 dark:border-purple-800/40 hover:border-purple-400 dark:hover:border-purple-600 transition-all text-left group cursor-pointer"
+                      className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/60 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left group cursor-pointer"
                       title="Testar leitura de comprovante compartilhado pelo Nubank ou outros bancos"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 rounded-lg group-hover:bg-purple-200 dark:group-hover:bg-purple-500/30 transition-colors">
-                          <Share2 className="w-4 h-4" />
+                        <div className="p-2 rounded-lg bg-slate-200/70 text-slate-700 dark:bg-slate-800 dark:text-slate-300 group-hover:text-purple-400 transition-colors">
+                          <Share2 className="w-4 h-4 stroke-[2]" />
                         </div>
                         <div>
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-xs font-bold text-purple-900 dark:text-purple-200 group-hover:text-purple-700 dark:group-hover:text-white">
-                              Comprovante Nubank / Pix
-                            </p>
-                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200">
-                              Novo
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-purple-700/80 dark:text-purple-300/70">
+                          <p className="text-xs font-bold text-slate-900 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white">
+                            Comprovante Nubank / Pix
+                          </p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400">
                             Testar importação de comprovante compartilhado
                           </p>
                         </div>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-purple-400 group-hover:text-purple-600 dark:text-purple-400 dark:group-hover:text-purple-200" />
+                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:text-slate-600 dark:group-hover:text-slate-300" />
                     </button>
                   )}
 

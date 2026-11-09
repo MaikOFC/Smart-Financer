@@ -126,6 +126,31 @@ app.post("/api/auth/login", (req, res) => {
   }
 });
 
+// Solicitação de Recuperação de Senha (Servidor Local)
+app.post("/api/auth/reset-password-request", (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: "O endereço de e-mail é obrigatório." });
+  }
+  // No modo local/offline, simulamos o envio com sucesso
+  res.json({
+    success: true,
+    message: "Se o e-mail estiver cadastrado, as instruções de recuperação foram enviadas com sucesso."
+  });
+});
+
+// Redefinição de Senha (Servidor Local)
+app.post("/api/auth/reset-password", (req, res) => {
+  const { email, newPassword } = req.body;
+  if (!email || !newPassword || newPassword.length < 6) {
+    return res.status(400).json({ error: "A nova senha deve ter pelo menos 6 caracteres." });
+  }
+  res.json({
+    success: true,
+    message: "Senha atualizada com sucesso!"
+  });
+});
+
 // Obter dados do usuário autenticado
 app.get("/api/auth/me", authMiddleware, (req: any, res) => {
   res.json({

@@ -291,6 +291,43 @@ export async function signOutSupabase() {
   if (error) throw error;
 }
 
+// Envia link de recuperação de senha por e-mail via Supabase Auth
+export async function sendPasswordResetEmail(email: string) {
+  const cleanEmail = email.trim().toLowerCase();
+  const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/` : undefined;
+
+  const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+    redirectTo,
+  });
+
+  if (error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes("rate limit") || msg.includes("too many requests")) {
+      throw new Error("Muitas solicitações seguidas. Aguarde um minuto antes de solicitar novamente.");
+    }
+    throw error;
+  }
+
+  return { success: true };
+}
+
+// Atualiza a senha do usuário após entrar pelo link de recuperação
+export async function updateUserPassword(newPasswordPlain: string) {
+  if (!newPasswordPlain || newPasswordPlain.length < 6) {
+    throw new Error("A nova senha deve conter pelo menos 6 caracteres.");
+  }
+
+  const { data, error } = await supabase.auth.updateUser({
+    password: newPasswordPlain,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 // --- DATA SEEDING (Idempotent initial data for new user accounts) ---
 
 export async function seedUserIfNeeded(userId: string, initialSalary?: number) {

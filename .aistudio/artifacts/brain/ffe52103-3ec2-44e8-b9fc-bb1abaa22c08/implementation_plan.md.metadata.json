@@ -1,0 +1,6 @@
+{
+  "summary":  "Plano de implementação para o fluxo de recuperação e redefinição de senha por e-mail na tela de login, incluindo botão 'Esqueceu a senha?' abaixo do campo de senha, modal de envio de link mágico pelo Supabase, detecção de token de recuperação na URL e tela para cadastro da nova senha.",
+  "updatedAt":  "2026-11-09T11:54:52.367230563Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}
