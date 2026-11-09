@@ -1349,7 +1349,7 @@ export default function App() {
           <div className="hidden md:flex justify-between items-center gap-3.5">
             {/* LOGO & TITULO */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 p-1.5 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 shadow-sm flex items-center justify-center overflow-hidden">
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center overflow-hidden drop-shadow-sm">
                 <img src="/logo.png" alt="SmartFinancer" className="w-full h-full object-contain" />
               </div>
               <div>

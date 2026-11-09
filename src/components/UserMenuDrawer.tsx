@@ -137,7 +137,7 @@ export default function UserMenuDrawer({
               {/* CABEÇALHO */}
               <div className="p-5 pt-[max(1.25rem,env(safe-area-inset-top,0px))] border-b border-slate-200 dark:border-slate-800/80 flex items-center justify-between bg-slate-50 dark:bg-slate-950/50">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 p-1 bg-emerald-500/10 rounded-xl border border-emerald-500/20 flex items-center justify-center overflow-hidden">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden drop-shadow-sm">
                     <img src="/logo.png" alt="SmartFinancer" className="w-full h-full object-contain" />
                   </div>
                   <div>

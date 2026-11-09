@@ -253,13 +253,13 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
             type="button"
             onClick={handleDemoLogin}
             disabled={loading}
-            className="w-16 h-16 p-2 bg-emerald-500/10 rounded-3xl border border-emerald-500/25 mb-3 shadow-lg shadow-emerald-500/5 hover:bg-emerald-500/20 hover:border-emerald-400 hover:scale-105 active:scale-95 transition-all cursor-pointer group relative flex items-center justify-center overflow-hidden"
+            className="w-16 h-16 p-1.5 bg-slate-900/90 rounded-2xl border border-purple-500/30 mb-3 shadow-xl shadow-purple-950/30 hover:border-purple-400/50 hover:scale-105 active:scale-95 transition-all cursor-pointer group relative flex items-center justify-center overflow-hidden"
             title="SmartFinancer"
           >
             <img
               src="/logo.png"
               alt="SmartFinancer Logo"
-              className="w-11 h-11 object-contain group-hover:scale-110 transition-transform drop-shadow-sm"
+              className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform"
               onError={(e) => {
                 (e.target as HTMLElement).style.display = "none";
               }}
