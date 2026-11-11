@@ -100,6 +100,15 @@ export function mapFromSupabase(row: any): Transaction {
     }
   }
 
+  let parsedImageUrl: string | undefined = row.image_url ?? row.imageUrl ?? undefined;
+  if (cleanedNote && cleanedNote.includes("[img:")) {
+    const imgMatch = cleanedNote.match(/\[img:([^\]]+)\]/i);
+    if (imgMatch) {
+      if (!parsedImageUrl) parsedImageUrl = imgMatch[1];
+      cleanedNote = cleanedNote.replace(/\[img:[^\]]+\]\s*/g, "").trim();
+    }
+  }
+
   return {
     id: String(row.id),
     description,
@@ -113,12 +122,19 @@ export function mapFromSupabase(row: any): Transaction {
     note: cleanedNote,
     startDate: parsedStartDate,
     totalInstallments: parsedTotalInstallments,
+    imageUrl: parsedImageUrl,
   };
 }
 
 // Convert a React camelCase Transaction to Supabase snake_case
 export function mapToSupabase(t: Omit<Transaction, "id"> & { id?: string }, userId: string): any {
   let noteToSave = t.note ? t.note.trim() : "";
+
+  // Se tiver imageUrl, codifica no campo note de forma segura como fallback
+  if (t.imageUrl && !noteToSave.includes("[img:")) {
+    const imgTag = `[img:${t.imageUrl}]`;
+    noteToSave = noteToSave ? `${imgTag} ${noteToSave}` : imgTag;
+  }
 
   // Se for parcela (bottom_left) e tiver startDate/totalInstallments, codifica no campo note de forma segura
   if (t.tableSection === "bottom_left") {
@@ -142,6 +158,7 @@ export function mapToSupabase(t: Omit<Transaction, "id"> & { id?: string }, user
     is_orange_highlight: !!t.isOrangeHighlight,
     is_discount: !!t.isDiscount,
     note: noteToSave || null,
+    image_url: t.imageUrl || null,
   };
   if (t.id && !t.id.startsWith("manual-")) {
     mapped.id = t.id;
@@ -530,6 +547,13 @@ export async function updateSupabaseTransaction(userId: string, id: string, upda
   if (updates.isOrangeHighlight !== undefined) rowUpdates.is_orange_highlight = updates.isOrangeHighlight;
   if (updates.isDiscount !== undefined) rowUpdates.is_discount = updates.isDiscount;
   if (updates.note !== undefined) rowUpdates.note = updates.note;
+  if (updates.imageUrl !== undefined) {
+    rowUpdates.image_url = updates.imageUrl || null;
+    let n = updates.note !== undefined ? (updates.note || "") : "";
+    if (updates.imageUrl && !n.includes("[img:")) {
+      rowUpdates.note = `[img:${updates.imageUrl}] ${n}`.trim();
+    }
+  }
 
   const { data, error } = await supabase
     .from("transactions")

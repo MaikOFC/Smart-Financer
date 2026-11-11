@@ -785,7 +785,15 @@ export default function TransactionTable({
                               )}
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2.5">
+                              {t.imageUrl && (
+                                <img
+                                  src={t.imageUrl}
+                                  alt={t.description}
+                                  className="w-8 h-8 rounded-lg object-cover border border-slate-700/80 shadow-sm shrink-0"
+                                  loading="lazy"
+                                />
+                              )}
                               <span className="font-semibold text-white group-hover:text-indigo-300 transition-colors">{t.description}</span>
                               {isDuplicate && (
                                 <span

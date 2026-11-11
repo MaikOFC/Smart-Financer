@@ -18,9 +18,11 @@ import {
   ChevronRight,
   Clock,
   Sparkles,
+  Image as ImageIcon,
 } from "lucide-react";
 import { Transaction } from "../types";
 import { useModalBackHandler } from "../hooks/useBackNavigation";
+import ImagePickerModal from "./ImagePickerModal";
 import {
   getInstallmentMeta,
   getRemainingInstallments,
@@ -54,6 +56,8 @@ export default function TransactionDetailModal({
   const [editCategory, setEditCategory] = useState("");
   const [editDate, setEditDate] = useState("");
   const [editNote, setEditNote] = useState("");
+  const [editImageUrl, setEditImageUrl] = useState("");
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [editIsHighlight, setEditIsHighlight] = useState(false);
   const [editIsDiscount, setEditIsDiscount] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +72,8 @@ export default function TransactionDetailModal({
       setEditCategory(transaction.category || "Outros");
       setEditDate(transaction.date || "");
       setEditNote(stripMetaFromNote(transaction.note));
+      setEditImageUrl(transaction.imageUrl || "");
+      setIsImageModalOpen(false);
       setEditIsHighlight(!!transaction.isOrangeHighlight);
       setEditIsDiscount(!!transaction.isDiscount);
       setIsEditing(false);
@@ -113,6 +119,7 @@ export default function TransactionDetailModal({
       category: editCategory,
       date: editDate,
       note: finalNote,
+      imageUrl: editImageUrl ? editImageUrl.trim() : "",
       isOrangeHighlight: editIsHighlight,
       isDiscount: editIsDiscount,
     });
@@ -270,6 +277,52 @@ export default function TransactionDetailModal({
                   />
                 </div>
 
+                {/* Foto / Imagem do Item */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    Foto do Item (Web ou Upload)
+                  </label>
+                  {editImageUrl ? (
+                    <div className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl">
+                      <img
+                        src={editImageUrl}
+                        alt="Foto do item"
+                        className="w-12 h-12 rounded-xl object-cover border border-orange-500/40 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-white truncate">Foto vinculada ao item</p>
+                        <p className="text-[10px] text-orange-400">Miniatura à esquerda do título</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsImageModalOpen(true)}
+                          className="px-2.5 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-800 rounded-lg cursor-pointer transition-colors"
+                        >
+                          Trocar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditImageUrl("")}
+                          className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg cursor-pointer transition-colors"
+                          title="Remover foto"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsImageModalOpen(true)}
+                      className="w-full py-2.5 px-3 bg-slate-950 hover:bg-slate-850 border border-dashed border-slate-700 hover:border-orange-500/60 rounded-xl text-xs font-bold text-slate-300 hover:text-white flex items-center justify-center gap-2 cursor-pointer transition-all"
+                    >
+                      <ImageIcon className="w-4 h-4 text-orange-400" />
+                      <span>+ Adicionar Foto ao Item (Web ou Upload)</span>
+                    </button>
+                  )}
+                </div>
+
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                     Observações / Notas
@@ -311,8 +364,15 @@ export default function TransactionDetailModal({
               <div className="space-y-5">
                 {/* CARTÃO PRINCIPAL: NOME & VALOR GRANDE */}
                 <div className="bg-slate-950/70 border border-slate-800/90 rounded-2xl p-5 shadow-inner flex flex-col justify-between">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
+                  <div className="flex items-start gap-3.5">
+                    {transaction.imageUrl && (
+                      <img
+                        src={transaction.imageUrl}
+                        alt={transaction.description}
+                        className="w-14 h-14 rounded-2xl object-cover border border-slate-700/80 shadow-md shrink-0 self-start"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
                       <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                         Produto / Item
                       </span>
@@ -529,6 +589,15 @@ export default function TransactionDetailModal({
             )}
           </div>
         </motion.div>
+
+        {/* Modal de Escolha de Imagem */}
+        <ImagePickerModal
+          isOpen={isImageModalOpen}
+          onClose={() => setIsImageModalOpen(false)}
+          onSelectImage={(url) => setEditImageUrl(url)}
+          initialQuery={editDesc}
+          currentImageUrl={editImageUrl}
+        />
       </div>
     </AnimatePresence>
   );

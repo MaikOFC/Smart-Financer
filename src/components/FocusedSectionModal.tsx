@@ -17,6 +17,7 @@ import {
   Layers,
   Sparkles,
   ArrowLeft,
+  Target,
 } from "lucide-react";
 import { Transaction } from "../types";
 import TransactionDetailModal from "./TransactionDetailModal";
@@ -332,6 +333,22 @@ export default function FocusedSectionModal({
                   : "border-l-4 border-rose-500/40 hover:border-rose-500"
               }`}
             >
+              {/* Miniatura à esquerda do título para Planejamento & Metas */}
+              {type === "planning" && (
+                t.imageUrl ? (
+                  <img
+                    src={t.imageUrl}
+                    alt={t.description}
+                    className="w-12 h-12 rounded-xl object-cover border border-slate-700/80 shadow-md shrink-0 self-center"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 flex items-center justify-center shrink-0 self-center">
+                    <Target className="w-5 h-5" />
+                  </div>
+                )
+              )}
+
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-sm font-bold text-white transition-colors ${

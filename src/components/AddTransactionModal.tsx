@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Tag, DollarSign, List, Calendar, Star, Percent, AlertCircle, ShieldAlert, TrendingDown, TrendingUp, Layers, Clock, Calculator } from "lucide-react";
+import { X, Tag, DollarSign, List, Calendar, Star, Percent, AlertCircle, ShieldAlert, TrendingDown, TrendingUp, Layers, Clock, Calculator, Image as ImageIcon } from "lucide-react";
 import { Transaction } from "../types";
 import { useModalBackHandler } from "../hooks/useBackNavigation";
 import { calculateEndDateFromInstallments, getRemainingInstallments } from "../utils/installmentUtils";
+import ImagePickerModal from "./ImagePickerModal";
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -46,6 +47,8 @@ export default function AddTransactionModal({
   const [startMonth, setStartMonth] = useState(selectedMonth);
   const [installmentCountStr, setInstallmentCountStr] = useState<string>("6");
   const [note, setNote] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [isOrangeHighlight, setIsOrangeHighlight] = useState(false);
   const [isDiscount, setIsDiscount] = useState(false);
   const [isInstallment, setIsInstallment] = useState(false);
@@ -94,6 +97,8 @@ export default function AddTransactionModal({
       setNewCategoryName("");
       setIsCreatingCategory(false);
       setNote("");
+      setImageUrl("");
+      setIsImageModalOpen(false);
       setIsOrangeHighlight(false);
       setIsDiscount(false);
       setIsInstallment(section === "bottom_left");
@@ -166,6 +171,7 @@ export default function AddTransactionModal({
       type: "expense",
       tableSection: effectiveSection,
       category: finalCategory,
+      imageUrl: imageUrl.trim() || undefined,
       isOrangeHighlight: section === "left" && !isEffectiveInstallment ? isOrangeHighlight : false,
       isDiscount: section === "left" && !isEffectiveInstallment ? isDiscount : false,
       note: section === "right" ? note.trim() : isEffectiveInstallment ? `${finalCount}x parcelas` : "",
@@ -493,18 +499,69 @@ export default function AddTransactionModal({
 
               {/* Extra Sections depending on Left vs Right Table */}
               {section === "right" && (
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Label / Nota (Opcional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Urgente, Desejado, Karinne"
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 px-4 py-3 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium"
-                  />
-                </div>
+                <>
+                  {/* Foto / Imagem do Item de Planejamento */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Foto do Item (Pesquisar na Web ou Upload)
+                    </label>
+
+                    {imageUrl ? (
+                      <div className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-2xl">
+                        <img
+                          src={imageUrl}
+                          alt="Prévia do Item"
+                          className="w-12 h-12 rounded-xl object-cover border border-orange-500/40 shadow-sm shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-white truncate">Foto selecionada</p>
+                          <p className="text-[10px] text-orange-400">Aparecerá à esquerda do título</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setIsImageModalOpen(true)}
+                            className="px-2.5 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+                          >
+                            Trocar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setImageUrl("")}
+                            className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                            title="Remover foto"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsImageModalOpen(true)}
+                        className="w-full py-3 px-4 bg-slate-950 hover:bg-slate-850 border border-dashed border-slate-700 hover:border-orange-500/60 rounded-2xl text-xs font-bold text-slate-300 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer group"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <ImageIcon className="w-4 h-4" />
+                        </div>
+                        <span>+ Adicionar Foto do Item (Web ou Upload)</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Label / Nota (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Urgente, Desejado, Karinne"
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 px-4 py-3 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-medium"
+                    />
+                  </div>
+                </>
               )}
 
               {section === "left" && (
@@ -621,6 +678,15 @@ export default function AddTransactionModal({
               </div>
             </form>
           </motion.div>
+
+          {/* Modal de Busca de Imagem na Web / Upload */}
+          <ImagePickerModal
+            isOpen={isImageModalOpen}
+            onClose={() => setIsImageModalOpen(false)}
+            onSelectImage={(url) => setImageUrl(url)}
+            initialQuery={description}
+            currentImageUrl={imageUrl}
+          />
         </div>
       )}
     </AnimatePresence>

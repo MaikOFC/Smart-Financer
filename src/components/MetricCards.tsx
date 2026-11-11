@@ -357,7 +357,7 @@ export default function MetricCards({
           </div>
         </div>
 
-        {/* Card 2: Despesas Diretas */}
+        {/* Card 2: Despesas do Mês (Total Real: Contas de Consumo + Parcelas Ativas) */}
         <div
           onClick={() => {
             if (onOpenExpensesModal) onOpenExpensesModal();
@@ -366,7 +366,7 @@ export default function MetricCards({
           title="Clique para ver os gastos do mês"
         >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] font-bold text-slate-400 font-sans">Despesas Diretas</span>
+            <span className="text-[11px] font-bold text-slate-400 font-sans">Despesas do Mês</span>
             <div className="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
               <TrendingDown className="w-4 h-4 stroke-[2.2]" />
             </div>
@@ -379,12 +379,18 @@ export default function MetricCards({
                   isPrivate ? "filter blur-xs" : ""
                 }`}
               >
-                {isPrivate ? "••••••" : formatCurrency(safeDirect)}
+                {isPrivate ? "••••••" : formatCurrency(safeLeft)}
               </span>
             </div>
             <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 group-hover:text-rose-400 transition-colors font-medium">
-              <span>Contas de consumo</span>
-              <ChevronRight className="w-2.5 h-2.5 inline opacity-70" />
+              {safeInstallments > 0 ? (
+                <span className="truncate">
+                  R$ {formatCurrency(safeDirect)} contas + R$ {formatCurrency(safeInstallments)} parcelas
+                </span>
+              ) : (
+                <span>Contas de consumo do mês</span>
+              )}
+              <ChevronRight className="w-2.5 h-2.5 inline opacity-70 shrink-0" />
             </p>
           </div>
         </div>

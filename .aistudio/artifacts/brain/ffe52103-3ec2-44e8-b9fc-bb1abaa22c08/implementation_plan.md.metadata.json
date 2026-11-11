@@ -1,6 +1,6 @@
 {
-  "summary":  "Plano de correção da lógica financeira e separação matemática de despesas e ganhos extras no SmartFinancer. Corrige o cálculo de despesas para que nunca fiquem negativas, soma ganhos extras à receita total do mês aumentando a sobra disponível, e organiza os ganhos em destaque visual positivo verde separado das despesas.",
-  "updatedAt":  "2026-11-09T14:00:42.438593096Z",
+  "summary":  "Plano de implementação para inclusão de imagens nas Metas & Planejamento (busca de fotos na web estilo WhatsApp e upload local) com miniatura à esquerda do título, e consolidação do card de Despesas da tela inicial para exibir o total geral de gastos do mês (contas + parcelas) sem interferência de ganhos.",
+  "updatedAt":  "2026-11-11T13:25:15.873161334Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
