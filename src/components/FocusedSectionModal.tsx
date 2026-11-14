@@ -304,7 +304,7 @@ export default function FocusedSectionModal({
             </div>
           )
         ) : (
-        <div className="divide-y divide-slate-800/80 bg-slate-900/60 rounded-2xl border border-slate-800/80 overflow-hidden shadow-sm">
+        <div className="bg-slate-900 rounded-2xl border border-slate-800/80 overflow-hidden isolate shadow-sm">
           {list.map((t) => {
           const isInst = isBottomSec(t.tableSection);
           const remainingCount = isInst ? getRemainingInstallments(t, selectedMonth) : 0;
@@ -313,26 +313,37 @@ export default function FocusedSectionModal({
           const isFinished = isInst && remainingCount === 0;
           const remainingBalance = t.amount * remainingCount;
 
+          const accentStripeClass = t.isOrangeHighlight
+            ? "bg-amber-500"
+            : isInst && type === "expenses"
+            ? "bg-purple-500"
+            : t.isDiscount
+            ? "bg-emerald-500"
+            : type === "planning"
+            ? "bg-amber-500/50 group-hover:bg-amber-500"
+            : type === "installments"
+            ? isFinished
+              ? "bg-slate-600"
+              : "bg-purple-500/50 group-hover:bg-purple-500"
+            : "bg-rose-500/50 group-hover:bg-rose-500";
+
+          const rowTintClass = t.isOrangeHighlight
+            ? "bg-amber-500/5"
+            : isInst && type === "expenses"
+            ? "bg-purple-500/5"
+            : t.isDiscount
+            ? "bg-emerald-500/5"
+            : type === "installments" && isFinished
+            ? "bg-slate-900/40 opacity-60"
+            : "";
+
           return (
             <div
               key={t.id}
               onClick={() => setSelectedTransactionForDetail(t)}
-              className={`p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-slate-800/50 active:bg-slate-800/70 transition-all cursor-pointer group ${
-                t.isOrangeHighlight
-                  ? "border-l-4 border-amber-500 bg-amber-500/5"
-                  : isInst && type === "expenses"
-                  ? "border-l-4 border-purple-500 bg-purple-500/5"
-                  : t.isDiscount
-                  ? "border-l-4 border-emerald-500 bg-emerald-500/5"
-                  : type === "planning"
-                  ? "border-l-4 border-amber-500/40 hover:border-amber-500"
-                  : type === "installments"
-                  ? isFinished
-                    ? "border-l-4 border-slate-600 bg-slate-900/40 opacity-60"
-                    : "border-l-4 border-purple-500/40 hover:border-purple-500"
-                  : "border-l-4 border-rose-500/40 hover:border-rose-500"
-              }`}
+              className={`relative p-3.5 sm:p-4 pl-4 sm:pl-5 border-b border-slate-800/80 last:border-b-0 flex items-center justify-between gap-3 hover:bg-slate-800/50 active:bg-slate-800/70 transition-colors cursor-pointer group ${rowTintClass}`}
             >
+              <span aria-hidden="true" className={`absolute left-0 inset-y-0 w-1 transition-colors pointer-events-none ${accentStripeClass}`} />
               {/* Miniatura à esquerda do título para Planejamento & Metas */}
               {type === "planning" && (
                 t.imageUrl ? (

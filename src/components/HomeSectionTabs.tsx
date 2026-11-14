@@ -147,7 +147,7 @@ export default function HomeSectionTabs({
   return (
     <section id="home-section-viewer" className="space-y-4">
       {/* CARD PRINCIPAL DO CONTEÚDO ATIVO NA TELA INICIAL */}
-      <div className="bg-slate-900/90 backdrop-blur-md rounded-3xl border border-slate-800/80 p-4 sm:p-6 shadow-xl space-y-4">
+      <div className="bg-slate-900 rounded-3xl border border-slate-800/80 p-4 sm:p-6 shadow-xl space-y-4">
         {/* CABEÇALHO DO CONTEÚDO: TÍTULO E VALOR TOTAL ALINHADOS */}
         <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
           <div className="min-w-0 flex-1">
@@ -208,7 +208,7 @@ export default function HomeSectionTabs({
                 <div
                   key={t.id}
                   onClick={() => setSelectedTransactionForDetail(t)}
-                  className="py-2.5 flex items-center justify-between gap-3 hover:bg-emerald-500/5 px-2 rounded-xl transition-all cursor-pointer group"
+                  className="py-2.5 flex items-center justify-between gap-3 hover:bg-emerald-500/5 px-2 rounded-xl transition-colors cursor-pointer group"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -254,7 +254,7 @@ export default function HomeSectionTabs({
                       : "bottom_left"
                   );
                 }}
-                className={`inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border cursor-pointer transition-all ${
+                className={`inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border cursor-pointer transition-colors ${
                   activeTab === "planning"
                     ? "text-orange-400 hover:text-orange-300 bg-orange-500/10 border-orange-500/25 hover:bg-orange-500/20"
                     : activeTab === "installments"
@@ -267,7 +267,7 @@ export default function HomeSectionTabs({
             </div>
           )
         ) : (
-          <div className="divide-y divide-slate-800/80 bg-slate-950/50 rounded-2xl border border-slate-800/80 overflow-hidden shadow-inner">
+          <div className="bg-slate-950 rounded-2xl border border-slate-800/80 overflow-hidden isolate">
             {currentList.map((t) => {
               const isInst = isBottomSec(t.tableSection);
               const remainingCount = isInst ? getRemainingInstallments(t, selectedMonth) : 0;
@@ -276,26 +276,37 @@ export default function HomeSectionTabs({
               const isFinished = isInst && remainingCount === 0;
               const remainingBalance = t.amount * remainingCount;
 
+              const accentStripeClass = t.isOrangeHighlight
+                ? "bg-amber-500"
+                : isInst && activeTab === "expenses"
+                ? "bg-purple-500"
+                : t.isDiscount
+                ? "bg-emerald-500"
+                : activeTab === "planning"
+                ? "bg-orange-500/60 group-hover:bg-orange-500"
+                : activeTab === "installments"
+                ? isFinished
+                  ? "bg-slate-600"
+                  : "bg-purple-500/60 group-hover:bg-purple-500"
+                : "bg-rose-500/60 group-hover:bg-rose-500";
+
+              const rowTintClass = t.isOrangeHighlight
+                ? "bg-amber-500/5"
+                : isInst && activeTab === "expenses"
+                ? "bg-purple-500/5"
+                : t.isDiscount
+                ? "bg-emerald-500/5"
+                : activeTab === "installments" && isFinished
+                ? "bg-slate-900/40 opacity-60"
+                : "";
+
               return (
                 <div
                   key={t.id}
                   onClick={() => setSelectedTransactionForDetail(t)}
-                  className={`p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-slate-800/50 active:bg-slate-800/70 transition-all cursor-pointer group ${
-                    t.isOrangeHighlight
-                      ? "border-l-4 border-amber-500 bg-amber-500/5"
-                      : isInst && activeTab === "expenses"
-                      ? "border-l-4 border-purple-500 bg-purple-500/5"
-                      : t.isDiscount
-                      ? "border-l-4 border-emerald-500 bg-emerald-500/5"
-                      : activeTab === "planning"
-                      ? "border-l-4 border-orange-500/50 hover:border-orange-500"
-                      : activeTab === "installments"
-                      ? isFinished
-                        ? "border-l-4 border-slate-600 bg-slate-900/40 opacity-60"
-                        : "border-l-4 border-purple-500/50 hover:border-purple-500"
-                      : "border-l-4 border-rose-500/50 hover:border-rose-500"
-                  }`}
+                  className={`relative p-3.5 sm:p-4 pl-4 sm:pl-5 border-b border-slate-800/80 last:border-b-0 flex items-center justify-between gap-3 hover:bg-slate-800/50 active:bg-slate-800/70 transition-colors cursor-pointer group ${rowTintClass}`}
                 >
+                  <span aria-hidden="true" className={`absolute left-0 inset-y-0 w-1 transition-colors pointer-events-none ${accentStripeClass}`} />
                   {/* Miniatura à esquerda do título para Planejamento & Metas */}
                   {activeTab === "planning" && (
                     t.imageUrl ? (
