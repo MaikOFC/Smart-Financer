@@ -128,11 +128,14 @@ export function mapFromSupabase(row: any): Transaction {
 
 // Convert a React camelCase Transaction to Supabase snake_case
 export function mapToSupabase(t: Omit<Transaction, "id"> & { id?: string }, userId: string): any {
-  let noteToSave = t.note ? t.note.trim() : "";
+  let noteToSave = t.note ? String(t.note).trim() : "";
 
-  // Se tiver imageUrl, codifica no campo note de forma segura como fallback
-  if (t.imageUrl && !noteToSave.includes("[img:")) {
-    const imgTag = `[img:${t.imageUrl}]`;
+  // Remove any stale [img:...] tag first so it doesn't duplicate
+  noteToSave = noteToSave.replace(/\[img:[^\]]+\]\s*/gi, "").trim();
+
+  // Se tiver imageUrl, codifica no campo note de forma segura (compatível sem alterar schema do Supabase)
+  if (t.imageUrl && String(t.imageUrl).trim()) {
+    const imgTag = `[img:${String(t.imageUrl).trim()}]`;
     noteToSave = noteToSave ? `${imgTag} ${noteToSave}` : imgTag;
   }
 
@@ -147,18 +150,24 @@ export function mapToSupabase(t: Omit<Transaction, "id"> & { id?: string }, user
     }
   }
 
+  const validSection: "left" | "right" | "bottom_left" =
+    t.tableSection === "right" || t.tableSection === "bottom_left" ? t.tableSection : "left";
+  const validType: "expense" | "income" = t.type === "income" ? "income" : "expense";
+  const rawDate = t.date ? String(t.date).trim() : "";
+  const validDate = (rawDate || new Date().toISOString().slice(0, 10)).slice(0, 10);
+  const validAmount = typeof t.amount === "number" && Number.isFinite(t.amount) ? t.amount : parseFloat(String(t.amount)) || 0;
+
   const mapped: any = {
     user_id: userId,
-    description: t.description,
-    amount: t.amount,
-    date: t.date,
-    type: t.type,
-    table_section: t.tableSection,
-    category: t.category || "Outros",
+    description: String(t.description || "").trim().slice(0, 255),
+    amount: validAmount,
+    date: validDate,
+    type: validType,
+    table_section: validSection,
+    category: String(t.category || "Outros").trim().slice(0, 100) || "Outros",
     is_orange_highlight: !!t.isOrangeHighlight,
     is_discount: !!t.isDiscount,
     note: noteToSave || null,
-    image_url: t.imageUrl || null,
   };
   if (t.id && !t.id.startsWith("manual-")) {
     mapped.id = t.id;
@@ -513,7 +522,13 @@ export async function getSupabaseTransactions(userId: string): Promise<Transacti
 }
 
 export async function addSupabaseTransaction(userId: string, t: Omit<Transaction, "id"> & { id?: string }): Promise<Transaction> {
-  const row = mapToSupabase(t, userId);
+  const { data: sessionData } = await supabase.auth.getSession();
+  const activeUserId = sessionData?.session?.user?.id;
+  if (!activeUserId) {
+    throw new Error("Sessão expirada ou não autenticada no banco de dados. Saia e entre novamente na sua conta.");
+  }
+
+  const row = mapToSupabase(t, activeUserId || userId);
   const { data, error } = await supabase
     .from("transactions")
     .insert(row)
@@ -525,7 +540,13 @@ export async function addSupabaseTransaction(userId: string, t: Omit<Transaction
 }
 
 export async function addSupabaseTransactionsBatch(userId: string, list: (Omit<Transaction, "id"> & { id?: string })[]): Promise<Transaction[]> {
-  const rows = list.map(t => mapToSupabase(t, userId));
+  const { data: sessionData } = await supabase.auth.getSession();
+  const activeUserId = sessionData?.session?.user?.id;
+  if (!activeUserId) {
+    throw new Error("Sessão expirada ou não autenticada no banco de dados. Saia e entre novamente na sua conta.");
+  }
+
+  const rows = list.map(t => mapToSupabase(t, activeUserId || userId));
   const { data, error } = await supabase
     .from("transactions")
     .insert(rows)
@@ -536,30 +557,72 @@ export async function addSupabaseTransactionsBatch(userId: string, list: (Omit<T
 }
 
 export async function updateSupabaseTransaction(userId: string, id: string, updates: Partial<Transaction>): Promise<Transaction> {
-  // Convert updates fields to snake_case if they exist
+  const { data: sessionData } = await supabase.auth.getSession();
+  const activeUserId = sessionData?.session?.user?.id || userId;
+
+  // Convert updates fields to snake_case if they exist (never include non-existent columns like image_url)
   const rowUpdates: any = {};
-  if (updates.description !== undefined) rowUpdates.description = updates.description;
-  if (updates.amount !== undefined) rowUpdates.amount = updates.amount;
-  if (updates.date !== undefined) rowUpdates.date = updates.date;
-  if (updates.type !== undefined) rowUpdates.type = updates.type;
+  if (updates.description !== undefined) rowUpdates.description = String(updates.description).trim().slice(0, 255);
+  if (updates.amount !== undefined) rowUpdates.amount = Number(updates.amount) || 0;
+  if (updates.date !== undefined) rowUpdates.date = String(updates.date || "").slice(0, 10);
+  if (updates.type !== undefined) rowUpdates.type = updates.type === "income" ? "income" : "expense";
   if (updates.tableSection !== undefined) rowUpdates.table_section = updates.tableSection;
-  if (updates.category !== undefined) rowUpdates.category = updates.category;
-  if (updates.isOrangeHighlight !== undefined) rowUpdates.is_orange_highlight = updates.isOrangeHighlight;
-  if (updates.isDiscount !== undefined) rowUpdates.is_discount = updates.isDiscount;
-  if (updates.note !== undefined) rowUpdates.note = updates.note;
-  if (updates.imageUrl !== undefined) {
-    rowUpdates.image_url = updates.imageUrl || null;
-    let n = updates.note !== undefined ? (updates.note || "") : "";
-    if (updates.imageUrl && !n.includes("[img:")) {
-      rowUpdates.note = `[img:${updates.imageUrl}] ${n}`.trim();
+  if (updates.category !== undefined) rowUpdates.category = String(updates.category || "Outros").trim().slice(0, 100);
+  if (updates.isOrangeHighlight !== undefined) rowUpdates.is_orange_highlight = !!updates.isOrangeHighlight;
+  if (updates.isDiscount !== undefined) rowUpdates.is_discount = !!updates.isDiscount;
+
+  if (updates.note !== undefined || updates.imageUrl !== undefined) {
+    let baseNote = updates.note !== undefined ? String(updates.note || "") : "";
+    let existingImgTag = "";
+    let existingMetaTag = "";
+
+    // Fetch existing note if either note or imageUrl wasn't explicitly provided so we don't wipe tags
+    if (updates.note === undefined || updates.imageUrl === undefined) {
+      try {
+        const { data: existingRow } = await supabase
+          .from("transactions")
+          .select("note")
+          .eq("id", id)
+          .eq("user_id", activeUserId)
+          .maybeSingle();
+        const oldNote = existingRow?.note ? String(existingRow.note) : "";
+        if (updates.note === undefined) {
+          baseNote = oldNote;
+        }
+        const imgMatch = oldNote.match(/\[img:[^\]]+\]/i);
+        if (imgMatch) existingImgTag = imgMatch[0];
+        const metaMatch = oldNote.match(/\[meta:[^\]]+\]/i);
+        if (metaMatch) existingMetaTag = metaMatch[0];
+      } catch {
+        // ignore
+      }
     }
+
+    // Clean old [img:...] tag from baseNote
+    let cleaned = baseNote.replace(/\[img:[^\]]+\]\s*/gi, "").trim();
+
+    // Preserve [meta:...] if it was on oldNote and missing in updates.note
+    if (existingMetaTag && !cleaned.includes("[meta:")) {
+      cleaned = cleaned ? `${existingMetaTag} ${cleaned}` : existingMetaTag;
+    }
+
+    if (updates.imageUrl !== undefined) {
+      const newUrl = String(updates.imageUrl || "").trim();
+      if (newUrl) {
+        cleaned = cleaned ? `[img:${newUrl}] ${cleaned}` : `[img:${newUrl}]`;
+      }
+    } else if (existingImgTag) {
+      cleaned = cleaned ? `${existingImgTag} ${cleaned}` : existingImgTag;
+    }
+
+    rowUpdates.note = cleaned || null;
   }
 
   const { data, error } = await supabase
     .from("transactions")
     .update(rowUpdates)
     .eq("id", id)
-    .eq("user_id", userId)
+    .eq("user_id", activeUserId)
     .select()
     .single();
 

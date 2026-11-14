@@ -507,10 +507,17 @@ export default function App() {
           }
         } else if (supabaseActive) {
           // --- FETCH DIRECT FROM SUPABASE ---
-          const tList = await getSupabaseTransactions(user.id);
-          const bMap = await getSupabaseBudgets(user.id);
-          const cList = await getSupabaseCategories(user.id);
-          const sal = await getUserDefaultSalary(user.id);
+          const { data: sessionRes } = await supabase.auth.getSession();
+          const activeUid = sessionRes?.session?.user?.id;
+          if (!activeUid) {
+            console.warn("Sessão do Supabase ausente ou expirada. Solicitando novo login.");
+            handleLogout();
+            return;
+          }
+          const tList = await getSupabaseTransactions(activeUid);
+          const bMap = await getSupabaseBudgets(activeUid);
+          const cList = await getSupabaseCategories(activeUid);
+          const sal = await getUserDefaultSalary(activeUid);
           if (sal) {
             setDefaultSalary(sal);
           }
@@ -723,7 +730,9 @@ export default function App() {
 
   // Add a new transaction (called from the AddTransactionModal)
   const handleAddTransaction = async (newTransaction: Omit<Transaction, "id">) => {
-    if (!token || !user) return;
+    if (!token || !user) {
+      throw new Error("Você precisa estar logado para adicionar um lançamento.");
+    }
 
     // Strict duplicate check to ensure no duplicates can be inserted
     const isDup = transactions.some((t) => {
@@ -737,7 +746,7 @@ export default function App() {
 
     if (isDup) {
       console.warn("Tentativa de adicionar item duplicado bloqueada:", newTransaction.description);
-      return;
+      throw new Error(`O item "${newTransaction.description}" já existe nesta lista.`);
     }
 
     try {
@@ -761,14 +770,24 @@ export default function App() {
           },
           body: JSON.stringify(newTransaction),
         });
+        if (response.status === 401) {
+          handleLogout();
+          throw new Error("Sua sessão expirou. Faça login novamente.");
+        }
+        const contentType = response.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+          throw new Error("Servidor indisponível para gravação. Verifique a conexão com o banco de dados.");
+        }
         const data = await response.json();
         if (!response.ok || data.error) {
           throw new Error(data.error || "Erro ao adicionar transação.");
         }
         setTransactions((prev) => [...prev, data.transaction]);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("Erro ao adicionar transação:", err);
+      const msg = err?.message || "Erro ao se comunicar com o banco de dados.";
+      throw new Error(msg);
     }
   };
 
@@ -1773,7 +1792,9 @@ export default function App() {
             setSharedPayload(null);
           }}
           onAddTransaction={(tx) => {
-            handleAddTransaction(tx);
+            handleAddTransaction(tx).catch((err) => {
+              console.error("Erro ao salvar comprovante:", err);
+            });
           }}
           selectedMonth={selectedMonth}
           categories={categories}
