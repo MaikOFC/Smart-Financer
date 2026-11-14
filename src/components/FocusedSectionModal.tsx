@@ -339,6 +339,7 @@ export default function FocusedSectionModal({
                   <img
                     src={t.imageUrl}
                     alt={t.description}
+                    referrerPolicy="no-referrer"
                     className="w-12 h-12 rounded-xl object-cover border border-slate-700/80 shadow-md shrink-0 self-center"
                     loading="lazy"
                   />

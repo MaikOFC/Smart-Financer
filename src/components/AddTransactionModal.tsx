@@ -524,6 +524,7 @@ export default function AddTransactionModal({
                         <img
                           src={imageUrl}
                           alt="Prévia do Item"
+                          referrerPolicy="no-referrer"
                           className="w-12 h-12 rounded-xl object-cover border border-orange-500/40 shadow-sm shrink-0"
                         />
                         <div className="flex-1 min-w-0">

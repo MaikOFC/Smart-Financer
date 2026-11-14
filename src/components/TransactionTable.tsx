@@ -790,6 +790,7 @@ export default function TransactionTable({
                                 <img
                                   src={t.imageUrl}
                                   alt={t.description}
+                                  referrerPolicy="no-referrer"
                                   className="w-8 h-8 rounded-lg object-cover border border-slate-700/80 shadow-sm shrink-0"
                                   loading="lazy"
                                 />

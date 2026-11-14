@@ -287,6 +287,7 @@ export default function TransactionDetailModal({
                       <img
                         src={editImageUrl}
                         alt="Foto do item"
+                        referrerPolicy="no-referrer"
                         className="w-12 h-12 rounded-xl object-cover border border-orange-500/40 shrink-0"
                       />
                       <div className="flex-1 min-w-0">
@@ -369,6 +370,7 @@ export default function TransactionDetailModal({
                       <img
                         src={transaction.imageUrl}
                         alt={transaction.description}
+                        referrerPolicy="no-referrer"
                         className="w-14 h-14 rounded-2xl object-cover border border-slate-700/80 shadow-md shrink-0 self-start"
                       />
                     )}

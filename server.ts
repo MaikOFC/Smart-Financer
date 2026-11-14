@@ -54,13 +54,19 @@ app.get("/api/images/search", async (req, res) => {
     return res.json({ results: [] });
   }
 
+  const fetchWithTimeout = (url: string, options: RequestInit = {}, timeoutMs = 4500) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+  };
+
   try {
     const results: Array<{ id: string; title: string; thumbnail: string; fullUrl: string; source: string }> = [];
     const seenUrls = new Set<string>();
 
     // 1. Busca Global no DuckDuckGo Imagens (Acessa toda a web: lojas, marcas, e-commerce, fotos reais)
     try {
-      const ddgPageRes = await fetch(
+      const ddgPageRes = await fetchWithTimeout(
         `https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&iax=images&ia=images`,
         {
           headers: {
@@ -74,7 +80,7 @@ app.get("/api/images/search", async (req, res) => {
         const vqdMatch = ddgHtml.match(/vqd=([0-9-]+)/);
         if (vqdMatch) {
           const vqd = vqdMatch[1];
-          const imgRes = await fetch(
+          const imgRes = await fetchWithTimeout(
             `https://duckduckgo.com/i.js?l=wt-wt&o=json&q=${encodeURIComponent(query)}&vqd=${vqd}&f=,,,`,
             {
               headers: {
@@ -107,7 +113,7 @@ app.get("/api/images/search", async (req, res) => {
     // 2. Busca Complementar no Bing Web Images (Garante ampla cobertura de fotos de produtos e veículos)
     if (results.length < 15) {
       try {
-        const bingRes = await fetch(
+        const bingRes = await fetchWithTimeout(
           `https://www.bing.com/images/search?q=${encodeURIComponent(query)}&first=1`,
           {
             headers: {
@@ -146,7 +152,7 @@ app.get("/api/images/search", async (req, res) => {
     if (results.length < 6) {
       try {
         const ptWikiUrl = `https://pt.wikipedia.org/w/api.php?action=query&generator=search&gsrnamespace=0&gsrsearch=${encodeURIComponent(query)}&gsrlimit=10&prop=pageimages&pithumbsize=500&format=json`;
-        const ptRes = await fetch(ptWikiUrl, { headers: { "User-Agent": "SmartFinancer/1.0" } });
+        const ptRes = await fetchWithTimeout(ptWikiUrl, { headers: { "User-Agent": "SmartFinancer/1.0" } });
         if (ptRes.ok) {
           const ptData: any = await ptRes.json();
           const pages = Object.values(ptData.query?.pages || {});
@@ -165,6 +171,32 @@ app.get("/api/images/search", async (req, res) => {
         }
       } catch (e) {
         console.warn("Erro no fallback do Wikipedia:", e);
+      }
+    }
+
+    if (results.length < 6) {
+      try {
+        const commonsUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(query)}&gsrlimit=12&prop=imageinfo&iiprop=url&iiurlwidth=500&format=json`;
+        const cmRes = await fetchWithTimeout(commonsUrl, { headers: { "User-Agent": "SmartFinancer/1.0" } });
+        if (cmRes.ok) {
+          const cmData: any = await cmRes.json();
+          const pages = Object.values(cmData.query?.pages || {});
+          for (const p of pages as any[]) {
+            const thumb = p.imageinfo?.[0]?.thumburl || p.imageinfo?.[0]?.url;
+            if (thumb && !thumb.endsWith(".svg") && !seenUrls.has(thumb)) {
+              seenUrls.add(thumb);
+              results.push({
+                id: `commons-${p.pageid || Math.random()}`,
+                title: (p.title || query).replace(/^File:/i, ""),
+                thumbnail: thumb,
+                fullUrl: p.imageinfo?.[0]?.url || thumb,
+                source: "Wikimedia",
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Erro no fallback do Wikimedia Commons:", e);
       }
     }
 

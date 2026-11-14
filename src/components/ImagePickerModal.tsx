@@ -74,6 +74,65 @@ export default function ImagePickerModal({
     }
   }, [isOpen, initialQuery, currentImageUrl]);
 
+  const searchClientCorsFallback = async (q: string): Promise<ImageResult[]> => {
+    const fallbackResults: ImageResult[] = [];
+    const seen = new Set<string>();
+
+    const fetchJson = async (url: string) => {
+      const r = await fetch(url);
+      if (!r.ok) return null;
+      return r.json();
+    };
+
+    try {
+      const [ptData, enData, commonsData] = await Promise.allSettled([
+        fetchJson(`https://pt.wikipedia.org/w/api.php?action=query&generator=search&gsrnamespace=0&gsrsearch=${encodeURIComponent(q)}&gsrlimit=10&prop=pageimages&pithumbsize=500&format=json&origin=*`),
+        fetchJson(`https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrnamespace=0&gsrsearch=${encodeURIComponent(q)}&gsrlimit=10&prop=pageimages&pithumbsize=500&format=json&origin=*`),
+        fetchJson(`https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(q)}&gsrlimit=12&prop=imageinfo&iiprop=url&iiurlwidth=500&format=json&origin=*`),
+      ]);
+
+      for (const resPromise of [ptData, enData]) {
+        if (resPromise.status === "fulfilled" && resPromise.value?.query?.pages) {
+          const pages = Object.values(resPromise.value.query.pages) as any[];
+          for (const p of pages) {
+            const src = p?.thumbnail?.source;
+            if (src && !seen.has(src)) {
+              seen.add(src);
+              fallbackResults.push({
+                id: `wiki-${p.pageid || Math.random().toString(36).slice(2)}`,
+                title: p.title || q,
+                thumbnail: src,
+                fullUrl: src,
+                source: "Wikipedia",
+              });
+            }
+          }
+        }
+      }
+
+      if (commonsData.status === "fulfilled" && commonsData.value?.query?.pages) {
+        const pages = Object.values(commonsData.value.query.pages) as any[];
+        for (const p of pages) {
+          const thumb = p?.imageinfo?.[0]?.thumburl || p?.imageinfo?.[0]?.url;
+          if (thumb && !thumb.endsWith(".svg") && !seen.has(thumb)) {
+            seen.add(thumb);
+            fallbackResults.push({
+              id: `commons-${p.pageid || Math.random().toString(36).slice(2)}`,
+              title: (p.title || q).replace(/^File:/i, ""),
+              thumbnail: thumb,
+              fullUrl: p?.imageinfo?.[0]?.url || thumb,
+              source: "Wikimedia",
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Fallback CORS de imagens falhou:", err);
+    }
+
+    return fallbackResults;
+  };
+
   const handleSearch = async (termToSearch: string) => {
     const q = termToSearch.trim();
     if (!q) return;
@@ -81,13 +140,27 @@ export default function ImagePickerModal({
     setIsLoading(true);
     setHasSearched(true);
     try {
-      const res = await fetch(`/api/images/search?q=${encodeURIComponent(q)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setSearchResults(data.results || []);
-      } else {
-        setSearchResults([]);
+      let finalResults: ImageResult[] = [];
+
+      try {
+        const res = await fetch(`/api/images/search?q=${encodeURIComponent(q)}`);
+        const contentType = res.headers.get("content-type") || "";
+        if (res.ok && contentType.includes("application/json")) {
+          const data = await res.json();
+          if (Array.isArray(data.results)) {
+            finalResults = data.results;
+          }
+        }
+      } catch (apiErr) {
+        console.warn("Endpoint /api/images/search indisponível no host, usando fallback direto:", apiErr);
       }
+
+      // Fallback direto via navegador (CORS *) se o endpoint falhar, não retornar JSON (ex: SPA static host) ou vier vazio
+      if (finalResults.length === 0) {
+        finalResults = await searchClientCorsFallback(q);
+      }
+
+      setSearchResults(finalResults);
     } catch (err) {
       console.error("Erro ao buscar imagens:", err);
       setSearchResults([]);
@@ -112,7 +185,7 @@ export default function ImagePickerModal({
       img.onload = () => {
         try {
           const canvas = document.createElement("canvas");
-          const maxDim = 400; // alta resolução para miniatura de 48px
+          const maxDim = 320; // nítido para miniatura e compacto para salvar no banco
           let width = img.width;
           let height = img.height;
 
@@ -133,7 +206,7 @@ export default function ImagePickerModal({
           const ctx = canvas.getContext("2d");
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.78);
             setSelectedUrl(dataUrl);
           }
         } catch (err) {
@@ -291,6 +364,11 @@ export default function ImagePickerModal({
                           <img
                             src={img.thumbnail}
                             alt={img.title}
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              const parent = (e.currentTarget as HTMLImageElement).closest("button");
+                              if (parent) parent.style.display = "none";
+                            }}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                             loading="lazy"
                           />
@@ -361,6 +439,7 @@ export default function ImagePickerModal({
                   <img
                     src={selectedUrl}
                     alt="Selecionada"
+                    referrerPolicy="no-referrer"
                     className="w-12 h-12 rounded-xl object-cover border border-slate-700 shrink-0"
                   />
                   <div>
