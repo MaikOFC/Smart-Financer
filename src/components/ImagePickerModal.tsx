@@ -78,40 +78,92 @@ export default function ImagePickerModal({
     const fallbackResults: ImageResult[] = [];
     const seen = new Set<string>();
 
-    const fetchJson = async (url: string) => {
-      const r = await fetch(url);
-      if (!r.ok) return null;
-      return r.json();
+    const fetchJson = async (url: string, timeoutMs = 9000) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const r = await fetch(url, { signal: controller.signal });
+        if (!r.ok) return null;
+        return await r.json();
+      } finally {
+        clearTimeout(timer);
+      }
     };
 
     try {
-      const [ptData, enData, commonsData] = await Promise.allSettled([
-        fetchJson(`https://pt.wikipedia.org/w/api.php?action=query&generator=search&gsrnamespace=0&gsrsearch=${encodeURIComponent(q)}&gsrlimit=10&prop=pageimages&pithumbsize=500&format=json&origin=*`),
-        fetchJson(`https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrnamespace=0&gsrsearch=${encodeURIComponent(q)}&gsrlimit=10&prop=pageimages&pithumbsize=500&format=json&origin=*`),
-        fetchJson(`https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(q)}&gsrlimit=12&prop=imageinfo&iiprop=url&iiurlwidth=500&format=json&origin=*`),
+      const [openverseRes, itunesRes, ddgIaRes, commonsRes] = await Promise.allSettled([
+        fetchJson(`https://api.openverse.org/v1/images/?q=${encodeURIComponent(q)}&page_size=24`, 11000),
+        fetchJson(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&limit=8`, 5000),
+        fetchJson(`https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1`, 5000),
+        fetchJson(`https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(q)}&gsrlimit=12&prop=imageinfo&iiprop=url&iiurlwidth=500&format=json&origin=*`, 6000),
       ]);
 
-      for (const resPromise of [ptData, enData]) {
-        if (resPromise.status === "fulfilled" && resPromise.value?.query?.pages) {
-          const pages = Object.values(resPromise.value.query.pages) as any[];
-          for (const p of pages) {
-            const src = p?.thumbnail?.source;
-            if (src && !seen.has(src)) {
-              seen.add(src);
-              fallbackResults.push({
-                id: `wiki-${p.pageid || Math.random().toString(36).slice(2)}`,
-                title: p.title || q,
-                thumbnail: src,
-                fullUrl: src,
-                source: "Wikipedia",
-              });
-            }
+      // 1. Openverse (700M+ fotos reais da web - Flickr, StockSnap, Rawpixel, WordPress Photos, etc.)
+      if (openverseRes.status === "fulfilled" && Array.isArray(openverseRes.value?.results)) {
+        for (const item of openverseRes.value.results) {
+          const thumb = item.thumbnail || item.url;
+          if (thumb && String(thumb).startsWith("http") && !seen.has(thumb)) {
+            seen.add(thumb);
+            fallbackResults.push({
+              id: `ov-${item.id || Math.random().toString(36).slice(2)}`,
+              title: item.title || q,
+              thumbnail: thumb,
+              fullUrl: item.url || thumb,
+              source: "Openverse",
+            });
           }
         }
       }
 
-      if (commonsData.status === "fulfilled" && commonsData.value?.query?.pages) {
-        const pages = Object.values(commonsData.value.query.pages) as any[];
+      // 2. DuckDuckGo Instant Answer (entidades/marcas)
+      if (ddgIaRes.status === "fulfilled" && ddgIaRes.value) {
+        const dj = ddgIaRes.value;
+        const candidates: Array<{ img: string; title: string }> = [];
+        if (dj.Image) {
+          const full = dj.Image.startsWith("http") ? dj.Image : `https://duckduckgo.com${dj.Image}`;
+          candidates.push({ img: full, title: dj.Heading || q });
+        }
+        for (const rel of dj.RelatedTopics || []) {
+          if (rel?.Icon?.URL) {
+            const full = rel.Icon.URL.startsWith("http") ? rel.Icon.URL : `https://duckduckgo.com${rel.Icon.URL}`;
+            candidates.push({ img: full, title: rel.Text || q });
+          }
+        }
+        for (const c of candidates) {
+          if (c.img && !seen.has(c.img)) {
+            seen.add(c.img);
+            fallbackResults.push({
+              id: `ddgia-${Math.random().toString(36).slice(2, 8)}`,
+              title: c.title,
+              thumbnail: c.img,
+              fullUrl: c.img,
+              source: "DuckDuckGo",
+            });
+          }
+        }
+      }
+
+      // 3. iTunes Store (alta qualidade para apps, jogos, músicas, filmes, livros)
+      if (itunesRes.status === "fulfilled" && Array.isArray(itunesRes.value?.results)) {
+        for (const item of itunesRes.value.results) {
+          const art = item.artworkUrl512 || item.artworkUrl100;
+          const highRes = art ? String(art).replace("100x100bb", "400x400bb") : "";
+          if (highRes && !seen.has(highRes)) {
+            seen.add(highRes);
+            fallbackResults.push({
+              id: `itunes-${item.trackId || item.collectionId || Math.random().toString(36).slice(2)}`,
+              title: item.trackName || item.collectionName || q,
+              thumbnail: highRes,
+              fullUrl: highRes,
+              source: "Store",
+            });
+          }
+        }
+      }
+
+      // 4. Wikimedia Commons (acervo global de mídia se ainda houver espaço)
+      if (commonsRes.status === "fulfilled" && commonsRes.value?.query?.pages && fallbackResults.length < 18) {
+        const pages = Object.values(commonsRes.value.query.pages) as any[];
         for (const p of pages) {
           const thumb = p?.imageinfo?.[0]?.thumburl || p?.imageinfo?.[0]?.url;
           if (thumb && !thumb.endsWith(".svg") && !seen.has(thumb)) {
@@ -121,13 +173,13 @@ export default function ImagePickerModal({
               title: (p.title || q).replace(/^File:/i, ""),
               thumbnail: thumb,
               fullUrl: p?.imageinfo?.[0]?.url || thumb,
-              source: "Wikimedia",
+              source: "Commons",
             });
           }
         }
       }
     } catch (err) {
-      console.warn("Fallback CORS de imagens falhou:", err);
+      console.warn("Fallback direto de imagens falhou:", err);
     }
 
     return fallbackResults;
@@ -272,7 +324,7 @@ export default function ImagePickerModal({
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              <Globe className="w-4 h-4" /> Pesquisar na Web (Google / Bing)
+              <Globe className="w-4 h-4" /> Pesquisar na Web
             </button>
             <button
               type="button"
