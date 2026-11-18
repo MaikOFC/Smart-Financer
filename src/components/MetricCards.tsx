@@ -363,7 +363,10 @@ export default function MetricCards({
               ) : incomeConfig?.mode === "hourly" ? (
                 <span className="truncate">
                   Horista · R$ {formatCurrency(incomeConfig.hourlyRate)}/h
+                  {incomeConfig.applyInssDiscount || (Number(incomeConfig.fixedDiscount) || 0) > 0 ? " (Líq.)" : ""}
                 </span>
+              ) : incomeConfig?.applyInssDiscount || (Number(incomeConfig?.fixedDiscount) || 0) > 0 ? (
+                <span className="truncate">Mensalista · Líquido</span>
               ) : (
                 <span className="truncate">Mensalista · Configurar</span>
               )}

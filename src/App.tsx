@@ -61,7 +61,7 @@ import { getPendingSharedPayloads, SharedPayloadItem } from "./utils/shareTarget
 import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth, getRemainingInstallments } from "./utils/installmentUtils";
 import {
   DEFAULT_INCOME_CONFIG,
-  calculateHourlyIncomeForMonth,
+  calculateNetIncomeForMonth,
   getNextMonths,
   sanitizeIncomeConfig,
 } from "./utils/incomeUtils";
@@ -653,8 +653,10 @@ export default function App() {
   const activeBudget =
     budgets[selectedMonth] !== undefined
       ? budgets[selectedMonth]
-      : incomeConfig.mode === "hourly"
-      ? calculateHourlyIncomeForMonth(incomeConfig, selectedMonth).totalMonthly
+      : incomeConfig.mode === "hourly" ||
+        incomeConfig.applyInssDiscount ||
+        (Number(incomeConfig.fixedDiscount) || 0) > 0
+      ? calculateNetIncomeForMonth(incomeConfig, selectedMonth, defaultSalary)
       : defaultSalary;
 
   const handleSaveIncomeConfig = async (
@@ -674,7 +676,7 @@ export default function App() {
       futureMonths.forEach((mKey) => {
         monthlyBudgetsUpdate[mKey] =
           sanitized.mode === "hourly"
-            ? calculateHourlyIncomeForMonth(sanitized, mKey).totalMonthly
+            ? calculateNetIncomeForMonth(sanitized, mKey, targetMonthAmount)
             : targetMonthAmount;
       });
     }

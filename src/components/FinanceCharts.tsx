@@ -19,7 +19,7 @@ import {
 import { IncomeConfig, Transaction } from "../types";
 import { PieChart as PieIcon, BarChart2, TrendingUp, CreditCard, ChevronRight, ChevronLeft } from "lucide-react";
 import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth } from "../utils/installmentUtils";
-import { calculateHourlyIncomeForMonth } from "../utils/incomeUtils";
+import { calculateNetIncomeForMonth } from "../utils/incomeUtils";
 
 interface FinanceChartsProps {
   transactions: Transaction[];
@@ -82,8 +82,13 @@ export default function FinanceCharts({
 
   const getBaseBudgetForMonth = (monthKey: string) => {
     if (safeBudgets[monthKey] !== undefined) return safeBudgets[monthKey];
-    if (incomeConfig?.mode === "hourly") {
-      return calculateHourlyIncomeForMonth(incomeConfig, monthKey).totalMonthly;
+    if (
+      incomeConfig &&
+      (incomeConfig.mode === "hourly" ||
+        incomeConfig.applyInssDiscount ||
+        (Number(incomeConfig.fixedDiscount) || 0) > 0)
+    ) {
+      return calculateNetIncomeForMonth(incomeConfig, monthKey, defaultSalary ?? 2500);
     }
     return defaultSalary ?? 2500;
   };

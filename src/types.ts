@@ -23,16 +23,24 @@ export type IncomeMode = "monthly" | "hourly";
 
 export type WorkScheduleType = "6x1" | "5x2" | "12x36" | "custom";
 
+export type EmploymentType = "clt" | "apprentice";
+
 export interface IncomeConfig {
   mode: IncomeMode;
   monthlySalary?: number;
   hourlyRate: number;
   hoursPerDay: number;
+  weeklyHours?: number;
   paidDaysOff: boolean;
   scheduleType: WorkScheduleType;
   workWeekDays: number[]; // 0=Dom .. 6=Sáb
   customWorkDays?: number;
   customOffDays?: number;
+  employmentType?: EmploymentType;
+  applyInssDiscount?: boolean;
+  showFgtsInfo?: boolean;
+  fixedDiscount?: number;
+  applyFgtsDiscount?: boolean; // legado: migrado para showFgtsInfo (FGTS é informativo)
 }
 
 export interface UserProfile {
