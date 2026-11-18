@@ -39,7 +39,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { Transaction } from "./types";
+import { IncomeConfig, Transaction } from "./types";
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from "./initialData";
 import { processImportFile } from "./utils/fileParser";
 import MetricCards from "./components/MetricCards";
@@ -53,11 +53,18 @@ import WelcomeOnboardingModal from "./components/WelcomeOnboardingModal";
 import UserMenuDrawer from "./components/UserMenuDrawer";
 import FocusedSectionModal from "./components/FocusedSectionModal";
 import HomeSectionTabs, { HomeSectionTab } from "./components/HomeSectionTabs";
+import IncomeSectionTab from "./components/IncomeSectionTab";
 import BottomNavigationDock, { AppNavTab } from "./components/BottomNavigationDock";
 import SharedReceiptModal from "./components/SharedReceiptModal";
 import TestFeaturesModal from "./components/TestFeaturesModal";
 import { getPendingSharedPayloads, SharedPayloadItem } from "./utils/shareTargetStorage";
 import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth, getRemainingInstallments } from "./utils/installmentUtils";
+import {
+  DEFAULT_INCOME_CONFIG,
+  calculateHourlyIncomeForMonth,
+  getNextMonths,
+  sanitizeIncomeConfig,
+} from "./utils/incomeUtils";
 import { isUserAdmin, ADMIN_EMAIL, ADMIN_USERNAME } from "./lib/admin";
 import { ThemeMode, getStoredThemeMode, saveThemeMode, applyTheme } from "./lib/theme";
 import { applyAppFont, getStoredFontKey } from "./lib/fontManager";
@@ -74,6 +81,8 @@ import {
   setSupabaseBudget,
   getUserDefaultSalary,
   updateUserDefaultSalary,
+  getUserIncomeConfig,
+  saveUserIncomeConfig,
   signOutSupabase,
   seedUserIfNeeded,
   getSupabaseCategories,
@@ -85,7 +94,7 @@ import { supabase } from "./lib/supabase";
 export default function App() {
   // Authentication states
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("finances_token"));
-  const [user, setUser] = useState<{ id: string; name: string; email: string; defaultSalary?: number } | null>(() => {
+  const [user, setUser] = useState<{ id: string; name: string; email: string; defaultSalary?: number; incomeConfig?: IncomeConfig } | null>(() => {
     const saved = localStorage.getItem("finances_user");
     return saved ? JSON.parse(saved) : null;
   });
@@ -99,6 +108,29 @@ export default function App() {
       } catch {}
     }
     return 2500;
+  });
+
+  const [incomeConfig, setIncomeConfig] = useState<IncomeConfig>(() => {
+    try {
+      const savedUserRaw = localStorage.getItem("finances_user");
+      if (savedUserRaw) {
+        const u = JSON.parse(savedUserRaw);
+        if (u?.incomeConfig) {
+          return sanitizeIncomeConfig(u.incomeConfig, u.defaultSalary);
+        }
+        if (u?.id) {
+          const perUserRaw = localStorage.getItem(`user_income_config_${u.id}`);
+          if (perUserRaw) {
+            return sanitizeIncomeConfig(JSON.parse(perUserRaw), u.defaultSalary);
+          }
+        }
+      }
+      const demoRaw = localStorage.getItem("demo_income_config");
+      if (demoRaw) {
+        return sanitizeIncomeConfig(JSON.parse(demoRaw));
+      }
+    } catch {}
+    return DEFAULT_INCOME_CONFIG;
   });
 
   // Client states loaded from the database
@@ -135,6 +167,7 @@ export default function App() {
   // Add Transaction Modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addModalSection, setAddModalSection] = useState<"left" | "right" | "bottom_left">("left");
+  const [addModalInitialGain, setAddModalInitialGain] = useState(false);
 
   // Shared Receipt state (Web Share Target / PWA / Nubank / Bancos)
   const [sharedPayload, setSharedPayload] = useState<SharedPayloadItem | null>(null);
@@ -306,6 +339,11 @@ export default function App() {
     touchStartYRef.current = null;
   };
 
+  const handleOpenIncomeTab = () => {
+    setCurrentNavTab("income");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const handleOpenExpensesModal = () => {
     setCurrentNavTab("expenses");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -319,7 +357,7 @@ export default function App() {
   // Auth Success Handler
   const handleAuthSuccess = (
     newToken: string,
-    newUser: { id: string; name: string; email: string; defaultSalary?: number },
+    newUser: { id: string; name: string; email: string; defaultSalary?: number; incomeConfig?: IncomeConfig },
     isNewRegistration?: boolean
   ) => {
     localStorage.setItem("finances_token", newToken);
@@ -328,6 +366,9 @@ export default function App() {
     setUser(newUser);
     if (newUser.defaultSalary && typeof newUser.defaultSalary === "number") {
       setDefaultSalary(newUser.defaultSalary);
+    }
+    if (newUser.incomeConfig) {
+      setIncomeConfig(sanitizeIncomeConfig(newUser.incomeConfig, newUser.defaultSalary));
     }
     if (isNewRegistration) {
       setIsWelcomeModalOpen(true);
@@ -458,6 +499,8 @@ export default function App() {
     setUser(null);
     setTransactions([]);
     setBudgets({});
+    setIncomeConfig(DEFAULT_INCOME_CONFIG);
+    setCurrentNavTab("home");
     setAdvisorResponse(null);
   };
 
@@ -477,9 +520,21 @@ export default function App() {
           const savedBudgets = localStorage.getItem("demo_budgets");
           const savedCategories = localStorage.getItem("demo_categories");
           const savedSalary = localStorage.getItem("demo_default_salary");
+          const savedIncomeConfig = localStorage.getItem("demo_income_config");
 
+          const resolvedSalary = savedSalary ? parseFloat(savedSalary) : defaultSalary;
           if (savedSalary) {
-            setDefaultSalary(parseFloat(savedSalary));
+            setDefaultSalary(resolvedSalary);
+          }
+
+          if (savedIncomeConfig) {
+            try {
+              setIncomeConfig(sanitizeIncomeConfig(JSON.parse(savedIncomeConfig), resolvedSalary));
+            } catch {
+              setIncomeConfig(sanitizeIncomeConfig(null, resolvedSalary));
+            }
+          } else {
+            setIncomeConfig(sanitizeIncomeConfig(null, resolvedSalary));
           }
 
           if (savedTransactions) {
@@ -518,9 +573,11 @@ export default function App() {
           const bMap = await getSupabaseBudgets(activeUid);
           const cList = await getSupabaseCategories(activeUid);
           const sal = await getUserDefaultSalary(activeUid);
+          const loadedIncomeConfig = await getUserIncomeConfig(activeUid, sal);
           if (sal) {
             setDefaultSalary(sal);
           }
+          setIncomeConfig(loadedIncomeConfig);
           loadedTransactions = tList;
           setTransactions(tList);
           setBudgets(bMap);
@@ -544,6 +601,18 @@ export default function App() {
           if (user.defaultSalary) {
             setDefaultSalary(user.defaultSalary);
           }
+
+          try {
+            const icRes = await fetch("/api/user/income-config", {
+              headers: { "Authorization": `Bearer ${token}` },
+            });
+            if (icRes.ok) {
+              const icData = await icRes.json();
+              if (icData.incomeConfig) {
+                setIncomeConfig(sanitizeIncomeConfig(icData.incomeConfig, user.defaultSalary));
+              }
+            }
+          } catch {}
 
           loadedTransactions = tData.transactions || [];
           setTransactions(loadedTransactions);
@@ -581,7 +650,95 @@ export default function App() {
   }, [token, user]);
 
   // Handle active budget setting for the current selected month
-  const activeBudget = budgets[selectedMonth] !== undefined ? budgets[selectedMonth] : defaultSalary;
+  const activeBudget =
+    budgets[selectedMonth] !== undefined
+      ? budgets[selectedMonth]
+      : incomeConfig.mode === "hourly"
+      ? calculateHourlyIncomeForMonth(incomeConfig, selectedMonth).totalMonthly
+      : defaultSalary;
+
+  const handleSaveIncomeConfig = async (
+    nextConfig: IncomeConfig,
+    targetMonthAmount: number,
+    applyToFutureMonths: boolean
+  ) => {
+    const sanitized = sanitizeIncomeConfig(nextConfig, targetMonthAmount);
+    setIncomeConfig(sanitized);
+
+    const monthlyBudgetsUpdate: Record<string, number> = {
+      [selectedMonth]: targetMonthAmount,
+    };
+
+    if (applyToFutureMonths) {
+      const futureMonths = getNextMonths(selectedMonth, 12);
+      futureMonths.forEach((mKey) => {
+        monthlyBudgetsUpdate[mKey] =
+          sanitized.mode === "hourly"
+            ? calculateHourlyIncomeForMonth(sanitized, mKey).totalMonthly
+            : targetMonthAmount;
+      });
+    }
+
+    const updatedDefaultSal = applyToFutureMonths && targetMonthAmount > 0 ? targetMonthAmount : defaultSalary;
+    if (applyToFutureMonths && targetMonthAmount > 0) {
+      setDefaultSalary(targetMonthAmount);
+    }
+
+    const mergedBudgets: Record<string, number> = {
+      ...budgets,
+      ...monthlyBudgetsUpdate,
+    };
+    setBudgets(mergedBudgets);
+
+    if (user) {
+      const updatedUser = {
+        ...user,
+        defaultSalary: updatedDefaultSal,
+        incomeConfig: sanitized,
+      };
+      try {
+        localStorage.setItem("finances_user", JSON.stringify(updatedUser));
+        localStorage.setItem(`user_income_config_${user.id}`, JSON.stringify(sanitized));
+      } catch {}
+    }
+
+    if (!token || !user) return;
+
+    try {
+      if (isDemoUser) {
+        localStorage.setItem("demo_income_config", JSON.stringify(sanitized));
+        localStorage.setItem("demo_budgets", JSON.stringify(mergedBudgets));
+        if (applyToFutureMonths && targetMonthAmount > 0) {
+          localStorage.setItem("demo_default_salary", String(targetMonthAmount));
+        }
+      } else if (supabaseActive) {
+        await saveUserIncomeConfig(
+          user.id,
+          sanitized,
+          monthlyBudgetsUpdate,
+          applyToFutureMonths ? targetMonthAmount : undefined
+        );
+      } else {
+        const res = await fetch("/api/user/income-config", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            incomeConfig: sanitized,
+            monthlyBudgets: monthlyBudgetsUpdate,
+            defaultSalary: applyToFutureMonths ? targetMonthAmount : undefined,
+          }),
+        });
+        if (!res.ok) {
+          throw new Error("Erro ao salvar configuração de receita.");
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao salvar configuração de receita:", err);
+    }
+  };
 
   const handleUpdateDefaultSalary = async (newSalary: number, applyToFutureMonths: boolean, fromMonth: string) => {
     setDefaultSalary(newSalary);
@@ -690,9 +847,13 @@ export default function App() {
     .reduce((acc, t) => acc + (t.amount || 0), 0);
 
   // Ganhos extras e bonificações do mês corrente
-  const currentMonthGainsTotal = currentMonthTransactions
-    .filter((t) => isLeftSec(t.tableSection) && !!t.isDiscount)
-    .reduce((acc, t) => acc + (t.amount || 0), 0);
+  const currentMonthGainsList = currentMonthTransactions.filter(
+    (t) => isLeftSec(t.tableSection) && !!t.isDiscount
+  );
+  const currentMonthGainsTotal = currentMonthGainsList.reduce(
+    (acc, t) => acc + (t.amount || 0),
+    0
+  );
 
   // Valor total das parcelas ativas devidas no mês selecionado
   const monthlyInstallmentsTotal = getMonthlyInstallmentsTotal(transactions, selectedMonth);
@@ -1713,6 +1874,8 @@ export default function App() {
                         directExpensesTotal={directLeftExpensesTotal}
                         gainsTotal={currentMonthGainsTotal}
                         totalIncomes={totalMonthlyIncomes}
+                        incomeConfig={incomeConfig}
+                        onOpenIncomeTab={handleOpenIncomeTab}
                         onOpenExpensesModal={handleOpenExpensesModal}
                         onOpenPlanningModal={handleOpenPlanningModal}
                       />
@@ -1722,6 +1885,7 @@ export default function App() {
                         <TransactionTable
                           transactions={transactions}
                           onAddTransaction={(section) => {
+                            setAddModalInitialGain(false);
                             setAddModalSection(section);
                             setIsAddModalOpen(true);
                           }}
@@ -1740,8 +1904,31 @@ export default function App() {
                         budgets={budgets}
                         selectedMonth={selectedMonth}
                         defaultSalary={defaultSalary}
+                        incomeConfig={incomeConfig}
                       />
                     </div>
+                  ) : currentNavTab === "income" ? (
+                    /* ABA DEDICADA DE RECEITA (MENSALISTA / HORISTA) */
+                    <IncomeSectionTab
+                      selectedMonth={selectedMonth}
+                      activeBudget={activeBudget}
+                      defaultSalary={defaultSalary}
+                      incomeConfig={incomeConfig}
+                      currentMonthGains={currentMonthGainsList}
+                      categories={categories}
+                      onSaveIncomeConfig={handleSaveIncomeConfig}
+                      onBackToHome={() => {
+                        setCurrentNavTab("home");
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      onAddExtraGain={() => {
+                        setAddModalSection("left");
+                        setAddModalInitialGain(true);
+                        setIsAddModalOpen(true);
+                      }}
+                      onUpdateTransaction={handleUpdateTransaction}
+                      onDeleteTransaction={handleDeleteTransaction}
+                    />
                   ) : (
                     /* TELA SEPARADA PARA A ABA SELECIONADA: DESPESAS, METAS OU PARCELAS */
                     <HomeSectionTabs
@@ -1758,6 +1945,7 @@ export default function App() {
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
                       onAddTransaction={(section) => {
+                        setAddModalInitialGain(false);
                         setAddModalSection(section);
                         setIsAddModalOpen(true);
                       }}
@@ -1774,13 +1962,17 @@ export default function App() {
         {/* MODAL DE ADICIONAR TRANSAÇÃO */}
         <AddTransactionModal
           isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
+          onClose={() => {
+            setIsAddModalOpen(false);
+            setAddModalInitialGain(false);
+          }}
           onAdd={handleAddTransaction}
           section={addModalSection}
           selectedMonth={selectedMonth}
           categories={categories}
           onAddCategory={handleAddCategory}
           existingTransactions={transactions}
+          initialIsDiscount={addModalInitialGain}
         />
 
         {/* MODAL DE COMPROVANTE BANCÁRIO COMPARTILHADO (NUBANK / PIX / SHARE TARGET) */}
@@ -2034,6 +2226,7 @@ export default function App() {
               : currentNavTab === "installments"
               ? "bottom_left"
               : "left";
+          setAddModalInitialGain(currentNavTab === "income");
           setAddModalSection(section);
           setIsAddModalOpen(true);
         }}

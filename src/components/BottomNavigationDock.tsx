@@ -2,7 +2,7 @@ import React from "react";
 import { motion } from "motion/react";
 import { Home, TrendingDown, Target, Layers, Plus } from "lucide-react";
 
-export type AppNavTab = "home" | "expenses" | "planning" | "installments";
+export type AppNavTab = "home" | "income" | "expenses" | "planning" | "installments";
 
 interface BottomNavigationDockProps {
   activeTab: AppNavTab;

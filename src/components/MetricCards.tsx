@@ -15,6 +15,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import AnimatedNumber from "./AnimatedNumber";
+import { IncomeConfig } from "../types";
 
 interface MetricCardsProps {
   budget: number;
@@ -28,6 +29,8 @@ interface MetricCardsProps {
   directExpensesTotal?: number;
   gainsTotal?: number;
   totalIncomes?: number;
+  incomeConfig?: IncomeConfig;
+  onOpenIncomeTab?: () => void;
   onOpenExpensesModal?: () => void;
   onOpenPlanningModal?: (tab?: "planning" | "installments") => void;
   onOpenAddModal?: (section: "left" | "right" | "bottom_left") => void;
@@ -45,6 +48,8 @@ export default function MetricCards({
   directExpensesTotal,
   gainsTotal = 0,
   totalIncomes,
+  incomeConfig,
+  onOpenIncomeTab,
   onOpenExpensesModal,
   onOpenPlanningModal,
   onOpenAddModal,
@@ -178,11 +183,15 @@ export default function MetricCards({
             <button
               type="button"
               onClick={() => {
-                setBudgetValueInput(budget ? String(budget) : "");
-                setIsEditingBudget(true);
+                if (onOpenIncomeTab) {
+                  onOpenIncomeTab();
+                } else {
+                  setBudgetValueInput(budget ? String(budget) : "");
+                  setIsEditingBudget(true);
+                }
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/50 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/50 text-xs font-semibold transition-all cursor-pointer shadow-sm active:scale-95"
-              title="Ajustar Orçamento do Mês"
+              title="Configurar Receita do Mês (Mensalista ou Horista)"
             >
               <Edit3 className="w-3.5 h-3.5 text-emerald-400" />
               <span className="text-[11px]">Ajustar</span>
@@ -319,11 +328,15 @@ export default function MetricCards({
         {/* Card 1: Receitas Totais */}
         <div
           onClick={() => {
-            setBudgetValueInput(budget ? String(budget) : "");
-            setIsEditingBudget(true);
+            if (onOpenIncomeTab) {
+              onOpenIncomeTab();
+            } else {
+              setBudgetValueInput(budget ? String(budget) : "");
+              setIsEditingBudget(true);
+            }
           }}
           className="bg-[#0b0f17] border border-slate-800/80 hover:border-slate-700 rounded-3xl p-4 sm:p-5 flex flex-col justify-between transition-all duration-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 cursor-pointer group relative overflow-hidden"
-          title="Clique para ajustar o Orçamento"
+          title="Clique para abrir a aba de Receita (Mensalista ou Horista)"
         >
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-bold text-slate-400 font-sans">Receitas</span>
@@ -345,14 +358,16 @@ export default function MetricCards({
             <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 group-hover:text-emerald-400 transition-colors font-medium">
               {safeGains > 0 ? (
                 <span className="text-emerald-400 font-semibold truncate">
-                  Orçamento + R$ {formatCurrency(safeGains)} extras
+                  {incomeConfig?.mode === "hourly" ? "Horista" : "Base"} + R$ {formatCurrency(safeGains)} extras
+                </span>
+              ) : incomeConfig?.mode === "hourly" ? (
+                <span className="truncate">
+                  Horista · R$ {formatCurrency(incomeConfig.hourlyRate)}/h
                 </span>
               ) : (
-                <>
-                  <span>Orçamento previsto</span>
-                  <Edit3 className="w-2.5 h-2.5 inline opacity-70" />
-                </>
+                <span className="truncate">Mensalista · Configurar</span>
               )}
+              <ChevronRight className="w-2.5 h-2.5 inline opacity-70 shrink-0" />
             </p>
           </div>
         </div>

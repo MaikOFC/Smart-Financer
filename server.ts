@@ -17,7 +17,9 @@ import {
   getUserBudgets,
   setUserBudget,
   getUserDefaultSalary,
-  setUserDefaultSalary
+  setUserDefaultSalary,
+  getUserIncomeConfig,
+  setUserIncomeConfig
 } from "./src/serverDb";
 
 dotenv.config();
@@ -307,7 +309,8 @@ app.post("/api/auth/login", (req, res) => {
         id: user.id, 
         name: user.name, 
         email: user.email,
-        defaultSalary: user.defaultSalary || 2500
+        defaultSalary: user.defaultSalary || 2500,
+        incomeConfig: user.incomeConfig
       },
       token
     });
@@ -348,9 +351,35 @@ app.get("/api/auth/me", authMiddleware, (req: any, res) => {
       id: req.user.id, 
       name: req.user.name, 
       email: req.user.email,
-      defaultSalary: req.user.defaultSalary || 2500
+      defaultSalary: req.user.defaultSalary || 2500,
+      incomeConfig: req.user.incomeConfig
     }
   });
+});
+
+// Obter configuração de receita (Mensalista / Horista)
+app.get("/api/user/income-config", authMiddleware, (req: any, res) => {
+  try {
+    const incomeConfig = getUserIncomeConfig(req.user.id);
+    res.json({ incomeConfig });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Salvar configuração de receita (Mensalista / Horista) e atualizar orçamentos
+app.post("/api/user/income-config", authMiddleware, (req: any, res) => {
+  try {
+    const { incomeConfig, monthlyBudgets, defaultSalary } = req.body;
+    const result = setUserIncomeConfig(req.user.id, incomeConfig, monthlyBudgets, defaultSalary);
+    res.json({
+      message: "Configuração de receita salva com sucesso!",
+      incomeConfig: result.incomeConfig,
+      updatedBudgets: result.updatedBudgets
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Atualizar Salário Base Padrão do Usuário

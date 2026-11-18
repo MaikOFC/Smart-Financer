@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
-import { Transaction } from "../types";
+import { IncomeConfig, Transaction } from "../types";
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from "../initialData";
+import { sanitizeIncomeConfig } from "../utils/incomeUtils";
 
 // Helper to check if Supabase is properly configured in the environment
 export function isSupabaseConfigured(): boolean {
@@ -764,4 +765,75 @@ export async function updateUserDefaultSalary(
 
   return updatedBudgetsMap;
 }
+
+// --- INCOME CONFIG (MENSALISTA / HORISTA) ---
+
+export async function getUserIncomeConfig(userId: string, fallbackSalary?: number): Promise<IncomeConfig> {
+  try {
+    const { data } = await supabase.auth.getUser();
+    if (data?.user?.user_metadata?.income_config) {
+      const sanitized = sanitizeIncomeConfig(data.user.user_metadata.income_config, fallbackSalary);
+      try {
+        localStorage.setItem(`user_income_config_${userId}`, JSON.stringify(sanitized));
+      } catch {}
+      return sanitized;
+    }
+  } catch (err) {
+    console.warn("Could not fetch user metadata for income_config:", err);
+  }
+
+  try {
+    const saved = localStorage.getItem(`user_income_config_${userId}`);
+    if (saved) {
+      return sanitizeIncomeConfig(JSON.parse(saved), fallbackSalary);
+    }
+  } catch {}
+
+  return sanitizeIncomeConfig(null, fallbackSalary);
+}
+
+export async function saveUserIncomeConfig(
+  userId: string,
+  config: IncomeConfig,
+  monthlyBudgetsMap: Record<string, number>,
+  updatedDefaultSalary?: number
+): Promise<void> {
+  const sanitized = sanitizeIncomeConfig(config, updatedDefaultSalary);
+
+  // 1. Save immediately in localStorage
+  try {
+    localStorage.setItem(`user_income_config_${userId}`, JSON.stringify(sanitized));
+    if (typeof updatedDefaultSalary === "number" && !isNaN(updatedDefaultSalary) && updatedDefaultSalary >= 0) {
+      localStorage.setItem(`user_default_salary_${userId}`, String(updatedDefaultSalary));
+    }
+  } catch {}
+
+  // 2. Persist in Supabase auth user_metadata (no extra DB table migration required)
+  try {
+    const metadataPayload: Record<string, any> = {
+      income_config: sanitized,
+    };
+    if (typeof updatedDefaultSalary === "number" && !isNaN(updatedDefaultSalary) && updatedDefaultSalary > 0) {
+      metadataPayload.default_salary = updatedDefaultSalary;
+    }
+    await supabase.auth.updateUser({
+      data: metadataPayload,
+    });
+  } catch (err) {
+    console.warn("Aviso ao salvar income_config no user_metadata:", err);
+  }
+
+  // 3. Persist monthly budget amounts to Supabase budgets table
+  const entries = Object.entries(monthlyBudgetsMap || {});
+  if (entries.length > 0) {
+    await Promise.all(
+      entries.map(([month, amount]) =>
+        setSupabaseBudget(userId, month, amount).catch((e) =>
+          console.warn(`Aviso ao atualizar orçamento do mês ${month}:`, e)
+        )
+      )
+    );
+  }
+}
+
 

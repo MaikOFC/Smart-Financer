@@ -1,8 +1,9 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { Transaction } from "./types";
+import { IncomeConfig, Transaction } from "./types";
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from "./initialData";
+import { sanitizeIncomeConfig } from "./utils/incomeUtils";
 
 const DB_FILE = path.join(process.cwd(), "database.json");
 
@@ -12,6 +13,7 @@ export interface User {
   email: string;
   passwordHash: string;
   defaultSalary?: number;
+  incomeConfig?: IncomeConfig;
   createdAt: string;
 }
 
@@ -311,4 +313,47 @@ export function setUserDefaultSalary(userId: string, salary: number, applyFromMo
   saveDb(db);
   return updatedBudgetsMap;
 }
+
+export function getUserIncomeConfig(userId: string): IncomeConfig {
+  const db = initDb();
+  const user = db.users.find((u) => u.id === userId);
+  return sanitizeIncomeConfig(user?.incomeConfig, user?.defaultSalary || 2500);
+}
+
+export function setUserIncomeConfig(
+  userId: string,
+  config: IncomeConfig,
+  monthlyBudgetsMap?: Record<string, number>,
+  updatedDefaultSalary?: number
+): { incomeConfig: IncomeConfig; updatedBudgets: Record<string, number> } {
+  const db = initDb();
+  const user = db.users.find((u) => u.id === userId);
+  const sanitized = sanitizeIncomeConfig(config, updatedDefaultSalary ?? user?.defaultSalary);
+
+  if (user) {
+    user.incomeConfig = sanitized;
+    if (typeof updatedDefaultSalary === "number" && !isNaN(updatedDefaultSalary) && updatedDefaultSalary > 0) {
+      user.defaultSalary = updatedDefaultSalary;
+    }
+  }
+
+  const updatedBudgets: Record<string, number> = {};
+  if (monthlyBudgetsMap && typeof monthlyBudgetsMap === "object") {
+    Object.entries(monthlyBudgetsMap).forEach(([month, rawAmount]) => {
+      const amount = Number(rawAmount);
+      if (isNaN(amount) || amount < 0) return;
+      updatedBudgets[month] = amount;
+      const bIndex = db.budgets.findIndex((b) => b.userId === userId && b.month === month);
+      if (bIndex !== -1) {
+        db.budgets[bIndex].amount = amount;
+      } else {
+        db.budgets.push({ userId, month, amount });
+      }
+    });
+  }
+
+  saveDb(db);
+  return { incomeConfig: sanitized, updatedBudgets };
+}
+
 

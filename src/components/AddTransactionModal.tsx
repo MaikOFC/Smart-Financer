@@ -15,6 +15,7 @@ interface AddTransactionModalProps {
   categories?: string[];
   onAddCategory?: (name: string) => Promise<string>;
   existingTransactions?: Transaction[];
+  initialIsDiscount?: boolean;
 }
 
 const DEFAULT_CATEGORIES = [
@@ -37,6 +38,7 @@ export default function AddTransactionModal({
   categories,
   onAddCategory,
   existingTransactions = [],
+  initialIsDiscount = false,
 }: AddTransactionModalProps) {
   const [description, setDescription] = useState("");
   const [amountStr, setAmountStr] = useState("");
@@ -102,7 +104,7 @@ export default function AddTransactionModal({
       setImageUrl("");
       setIsImageModalOpen(false);
       setIsOrangeHighlight(false);
-      setIsDiscount(false);
+      setIsDiscount(section === "left" && Boolean(initialIsDiscount));
       setIsInstallment(section === "bottom_left");
       setIsSubmitting(false);
       setSubmitError(null);

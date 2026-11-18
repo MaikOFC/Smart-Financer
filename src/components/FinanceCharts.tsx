@@ -16,15 +16,17 @@ import {
   LabelList,
   ReferenceLine,
 } from "recharts";
-import { Transaction } from "../types";
+import { IncomeConfig, Transaction } from "../types";
 import { PieChart as PieIcon, BarChart2, TrendingUp, CreditCard, ChevronRight, ChevronLeft } from "lucide-react";
 import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth } from "../utils/installmentUtils";
+import { calculateHourlyIncomeForMonth } from "../utils/incomeUtils";
 
 interface FinanceChartsProps {
   transactions: Transaction[];
   budgets: Record<string, number>;
   selectedMonth: string; // YYYY-MM
   defaultSalary?: number;
+  incomeConfig?: IncomeConfig;
 }
 
 const CATEGORY_COLORS = [
@@ -45,6 +47,7 @@ export default function FinanceCharts({
   budgets,
   selectedMonth,
   defaultSalary = 2500,
+  incomeConfig,
 }: FinanceChartsProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "categories" | "history">("overview");
   const [isPieHovered, setIsPieHovered] = useState(false);
@@ -77,7 +80,15 @@ export default function FinanceCharts({
   const monthlyInstallments = getMonthlyInstallmentsTotal(safeTransactions, selectedMonth);
   const totalDespesas = leftExpenses + monthlyInstallments;
 
-  const baseOrcamento = safeBudgets[selectedMonth] !== undefined ? safeBudgets[selectedMonth] : (defaultSalary ?? 2500);
+  const getBaseBudgetForMonth = (monthKey: string) => {
+    if (safeBudgets[monthKey] !== undefined) return safeBudgets[monthKey];
+    if (incomeConfig?.mode === "hourly") {
+      return calculateHourlyIncomeForMonth(incomeConfig, monthKey).totalMonthly;
+    }
+    return defaultSalary ?? 2500;
+  };
+
+  const baseOrcamento = getBaseBudgetForMonth(selectedMonth);
   const safeOrcamento = (typeof baseOrcamento === "number" && !isNaN(baseOrcamento) ? baseOrcamento : 0) + currentMonthGains;
   const safeTotalDespesas = typeof totalDespesas === "number" && !isNaN(totalDespesas) ? totalDespesas : 0;
 
@@ -189,7 +200,7 @@ export default function FinanceCharts({
       }, 0);
     const mInst = getMonthlyInstallmentsTotal(safeTransactions, m);
     const totExp = lExp + mInst;
-    const baseInc = safeBudgets[m] !== undefined ? safeBudgets[m] : (defaultSalary ?? 2500);
+    const baseInc = getBaseBudgetForMonth(m);
     const safeInc = (typeof baseInc === "number" && !isNaN(baseInc) ? baseInc : 0) + mGains;
     const sobra = safeInc - totExp;
 
