@@ -258,6 +258,25 @@ html.light .border-emerald-500\/30 {
   border-color: #a7f3d0 !important;
 }
 
+html.light .text-teal-400,
+html.light .text-teal-300 {
+  color: #0f766e !important;
+}
+
+html.light .bg-teal-500\/10,
+html.light .bg-teal-500\/15,
+html.light .bg-teal-500\/20 {
+  background-color: #ccfbf1 !important;
+  color: #115e59 !important;
+}
+
+html.light .border-teal-500\/20,
+html.light .border-teal-500\/25,
+html.light .border-teal-500\/30,
+html.light .border-teal-500\/40 {
+  border-color: #99f6e4 !important;
+}
+
 html.light .text-indigo-400,
 html.light .text-indigo-300,
 html.light .text-indigo-200 {

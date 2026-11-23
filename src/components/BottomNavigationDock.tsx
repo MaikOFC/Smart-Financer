@@ -99,14 +99,14 @@ export default function BottomNavigationDock({
               title={`Metas (${planningCount})`}
               className={`flex items-center justify-center py-2.5 px-2 rounded-2xl transition-all cursor-pointer ${
                 activeTab === "planning"
-                  ? "bg-orange-500/15 border border-orange-500/40 text-orange-300 shadow-sm"
+                  ? "bg-teal-500/15 border border-teal-500/40 text-teal-300 shadow-sm"
                   : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent"
               }`}
             >
               <div
                 className={`p-2 rounded-xl transition-transform ${
                   activeTab === "planning"
-                    ? "bg-orange-500 text-white scale-110 shadow-md shadow-orange-500/25"
+                    ? "bg-teal-500 text-white scale-110 shadow-md shadow-teal-500/25"
                     : "text-slate-400"
                 }`}
               >

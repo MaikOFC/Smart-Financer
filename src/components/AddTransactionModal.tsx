@@ -217,7 +217,7 @@ export default function AddTransactionModal({
       ? "text-sky-400 bg-sky-500/10 border-sky-500/20"
       : section === "left"
       ? "text-rose-400 bg-rose-500/10 border-rose-500/20"
-      : "text-amber-400 bg-amber-500/10 border-amber-500/20";
+      : "text-teal-400 bg-teal-500/10 border-teal-500/20";
 
   const formatMonthNice = (mStr: string) => {
     try {
@@ -267,7 +267,7 @@ export default function AddTransactionModal({
                     ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
                     : section === "left"
                     ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                    : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                    : "bg-teal-500/10 text-teal-400 border-teal-500/20"
                 }`}>
                   {isEffectiveInstallment ? (
                     <Layers className="w-5 h-5" />
@@ -549,11 +549,11 @@ export default function AddTransactionModal({
                           src={imageUrl}
                           alt="Prévia do Item"
                           referrerPolicy="no-referrer"
-                          className="w-12 h-12 rounded-xl object-cover border border-orange-500/40 shadow-sm shrink-0"
+                          className="w-12 h-12 rounded-xl object-cover border border-teal-500/40 shadow-sm shrink-0"
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-bold text-white truncate">Foto selecionada</p>
-                          <p className="text-[10px] text-orange-400">Aparecerá à esquerda do título</p>
+                          <p className="text-[10px] text-teal-400">Aparecerá à esquerda do título</p>
                         </div>
                         <div className="flex items-center gap-1">
                           <button
@@ -577,9 +577,9 @@ export default function AddTransactionModal({
                       <button
                         type="button"
                         onClick={() => setIsImageModalOpen(true)}
-                        className="w-full py-3 px-4 bg-slate-950 hover:bg-slate-850 border border-dashed border-slate-700 hover:border-orange-500/60 rounded-2xl text-xs font-bold text-slate-300 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer group"
+                        className="w-full py-3 px-4 bg-slate-950 hover:bg-slate-850 border border-dashed border-slate-700 hover:border-teal-500/60 rounded-2xl text-xs font-bold text-slate-300 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer group"
                       >
-                        <div className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <div className="w-7 h-7 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center group-hover:scale-110 transition-transform">
                           <ImageIcon className="w-4 h-4" />
                         </div>
                         <span>+ Adicionar Foto do Item (Web ou Upload)</span>

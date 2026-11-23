@@ -635,7 +635,7 @@ export default function TransactionTable({
             <button
               id="btn-add-right"
               onClick={() => onAddTransaction("right")}
-              className="flex items-center gap-1.5 text-xs font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-3.5 py-2 rounded-xl border border-indigo-500/15 transition-all self-start sm:self-auto cursor-pointer"
+              className="flex items-center gap-1.5 text-xs font-bold bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 px-3.5 py-2 rounded-xl border border-teal-500/20 transition-all self-start sm:self-auto cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Adicionar
             </button>
@@ -793,7 +793,7 @@ export default function TransactionTable({
                                   loading="lazy"
                                 />
                               )}
-                              <span className="font-semibold text-white group-hover:text-indigo-300 transition-colors">{t.description}</span>
+                              <span className="font-semibold text-white group-hover:text-teal-300 transition-colors">{t.description}</span>
                               {isDuplicate && (
                                 <span
                                   className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase tracking-tight"
@@ -819,7 +819,7 @@ export default function TransactionTable({
                               />
                             </div>
                           ) : (
-                            <span className={hasSpecialLabel ? "text-slate-500 italic font-normal" : "text-amber-400 font-mono font-black"}>
+                            <span className={hasSpecialLabel ? "text-slate-500 italic font-normal" : "text-teal-400 font-mono font-black"}>
                               {hasSpecialLabel
                                 ? "—"
                                 : `R$ ${(typeof t.amount === "number" && !isNaN(t.amount) ? t.amount : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
@@ -839,7 +839,7 @@ export default function TransactionTable({
                             />
                           ) : (
                             t.note && (
-                              <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded font-mono font-bold uppercase">
+                              <span className="text-[10px] bg-teal-500/10 text-teal-400 border border-teal-500/20 px-2 py-0.5 rounded font-mono font-bold uppercase">
                                 {t.note}
                               </span>
                             )
@@ -917,7 +917,7 @@ export default function TransactionTable({
             <span className="font-bold text-slate-400 text-xs uppercase tracking-wider">Total Planejado:</span>
             <span className="text-[10px] text-slate-500 font-medium font-sans">Valor meramente informativo (não diminui o saldo do mês)</span>
           </div>
-          <div className="bg-slate-950/55 text-amber-400 border border-slate-800 px-4 py-2 rounded-2xl text-base font-black font-mono">
+          <div className="bg-slate-950/55 text-teal-400 border border-slate-800 px-4 py-2 rounded-2xl text-base font-black font-mono">
             R$ <AnimatedNumber value={rightTotal} duration={1000} />
           </div>
         </div>

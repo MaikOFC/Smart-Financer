@@ -239,7 +239,7 @@ export default function FocusedSectionModal({
                 }}
                 className={`mt-4 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border cursor-pointer transition-all ${
                   type === "planning"
-                    ? "text-amber-400 hover:text-amber-300 bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/20"
+                    ? "text-teal-400 hover:text-teal-300 bg-teal-500/10 border-teal-500/25 hover:bg-teal-500/20"
                     : "text-rose-400 hover:text-rose-300 bg-rose-500/10 border-rose-500/25 hover:bg-rose-500/20"
                 }`}
               >
@@ -258,14 +258,14 @@ export default function FocusedSectionModal({
 
           const accentStripeClass = t.isDiscount
             ? "bg-emerald-500"
+            : type === "planning"
+            ? "bg-teal-500/50 group-hover:bg-teal-500"
             : t.isOrangeHighlight
             ? "bg-amber-500"
             : isInst && type === "expenses"
             ? "bg-purple-500"
             : t.isRecurring && type === "expenses"
             ? "bg-sky-500"
-            : type === "planning"
-            ? "bg-amber-500/50 group-hover:bg-amber-500"
             : type === "installments"
             ? isFinished
               ? "bg-slate-600"
@@ -274,6 +274,8 @@ export default function FocusedSectionModal({
 
           const rowTintClass = t.isDiscount
             ? "bg-emerald-500/5"
+            : type === "planning"
+            ? ""
             : t.isOrangeHighlight
             ? "bg-amber-500/5"
             : isInst && type === "expenses"
@@ -302,7 +304,7 @@ export default function FocusedSectionModal({
                     loading="lazy"
                   />
                 ) : (
-                  <div className="w-12 h-12 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 flex items-center justify-center shrink-0 self-center">
+                  <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center shrink-0 self-center">
                     <Target className="w-5 h-5" />
                   </div>
                 )
@@ -313,14 +315,14 @@ export default function FocusedSectionModal({
                   <span className={`text-sm font-bold text-white transition-colors ${
                     t.isDiscount
                       ? "group-hover:text-emerald-300"
+                      : type === "planning"
+                      ? "group-hover:text-teal-400"
                       : t.isOrangeHighlight
                       ? "group-hover:text-amber-300"
                       : isInst && type === "expenses"
                       ? "group-hover:text-purple-400"
                       : t.isRecurring && type === "expenses"
                       ? "group-hover:text-sky-300"
-                      : type === "planning"
-                      ? "group-hover:text-amber-400"
                       : type === "installments"
                       ? "group-hover:text-purple-400"
                       : "group-hover:text-rose-400"
@@ -328,7 +330,7 @@ export default function FocusedSectionModal({
                     {t.description}
                   </span>
                   {type === "planning" && stripMetaFromNote(t.note) && (
-                    <span className="text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-md font-mono">
+                    <span className="text-[10px] bg-teal-500/15 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded-md font-mono">
                       {stripMetaFromNote(t.note)}
                     </span>
                   )}
@@ -366,7 +368,7 @@ export default function FocusedSectionModal({
                         : t.isOrangeHighlight && type === "expenses"
                         ? "text-amber-300"
                         : type === "planning"
-                        ? "text-amber-400"
+                        ? "text-teal-400"
                         : isInst && type === "expenses"
                         ? "text-purple-300"
                         : "text-rose-400"
@@ -450,7 +452,7 @@ export default function FocusedSectionModal({
                 onClick={onClose}
                 className={`p-2 sm:hidden rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
                   activeTab === "planning"
-                    ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30"
+                    ? "bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border-teal-500/30"
                     : "bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/30"
                 }`}
                 title="Voltar ao Painel"
@@ -460,7 +462,7 @@ export default function FocusedSectionModal({
 
               <div className={`hidden sm:flex p-3 rounded-2xl border ${
                 activeTab === "planning"
-                  ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                  ? "bg-teal-500/10 text-teal-400 border-teal-500/20"
                   : "bg-rose-500/10 text-rose-400 border-rose-500/20"
               }`}>
                 {activeTab === "expenses" ? (
@@ -492,7 +494,7 @@ export default function FocusedSectionModal({
             <div className="flex items-center gap-2">
               <span className={`sm:hidden text-xs font-mono font-bold px-2.5 py-1 rounded-lg border ${
                 activeTab === "planning"
-                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                  ? "bg-teal-500/10 text-teal-400 border-teal-500/30"
                   : "bg-rose-500/10 text-rose-400 border-rose-500/30"
               }`}>
                 R${" "}
@@ -521,7 +523,7 @@ export default function FocusedSectionModal({
                 }}
                 className={`hidden sm:flex items-center gap-1.5 text-xs font-bold px-3 sm:px-4 py-2 rounded-xl border transition-all cursor-pointer shadow-sm ${
                   activeTab === "planning"
-                    ? "bg-amber-500/15 hover:bg-amber-500/25 active:bg-amber-500/30 text-amber-400 border-amber-500/30"
+                    ? "bg-teal-500/15 hover:bg-teal-500/25 active:bg-teal-500/30 text-teal-400 border-teal-500/30"
                     : "bg-rose-500/15 hover:bg-rose-500/25 active:bg-rose-500/30 text-rose-400 border-rose-500/30"
                 }`}
               >
@@ -558,7 +560,7 @@ export default function FocusedSectionModal({
                 onClick={() => setActiveTab("planning")}
                 className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeTab === "planning"
-                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-sm"
+                    ? "bg-teal-500/20 text-teal-300 border border-teal-500/30 shadow-sm"
                     : "text-slate-400 hover:text-slate-200"
                 }`}
               >
@@ -584,7 +586,7 @@ export default function FocusedSectionModal({
               <span className="text-xs text-slate-400 font-medium">Total:</span>
               <span className={`text-sm font-mono font-black px-3 py-1 bg-slate-900 border rounded-xl ${
                 activeTab === "planning"
-                  ? "text-amber-400 border-amber-500/30"
+                  ? "text-teal-400 border-teal-500/30"
                   : "text-rose-400 border-rose-500/30"
               }`}>
                 R${" "}
@@ -715,7 +717,7 @@ export default function FocusedSectionModal({
             }}
             className={`sm:hidden fixed bottom-[max(5rem,calc(env(safe-area-inset-bottom,0px)+4.5rem))] right-4 z-30 w-13 h-13 rounded-2xl active:scale-90 font-black shadow-lg flex items-center justify-center transition-transform cursor-pointer ${
               activeTab === "planning"
-                ? "bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/30"
+                ? "bg-teal-500 hover:bg-teal-400 text-white shadow-teal-500/30"
                 : "bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/30"
             }`}
             title="Adicionar novo item"
@@ -756,14 +758,14 @@ export default function FocusedSectionModal({
               onClick={() => setActiveTab("planning")}
               className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-2xl transition-all cursor-pointer ${
                 activeTab === "planning"
-                  ? "text-amber-400 font-bold"
+                  ? "text-teal-400 font-bold"
                   : "text-slate-400 hover:text-slate-300 font-medium"
               }`}
             >
               <div
                 className={`px-4 py-1 rounded-full flex items-center justify-center transition-all ${
                   activeTab === "planning"
-                    ? "border border-amber-500/30 bg-amber-500/15 text-amber-400 shadow-sm"
+                    ? "border border-teal-500/30 bg-teal-500/15 text-teal-400 shadow-sm"
                     : "border border-transparent"
                 }`}
               >

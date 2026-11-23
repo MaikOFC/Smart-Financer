@@ -455,7 +455,7 @@ export default function MetricCards({
         >
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-bold text-slate-400 font-sans">Metas & Reservas</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-8 h-8 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
               <Target className="w-4 h-4 stroke-[2.2]" />
             </div>
           </div>
@@ -463,14 +463,14 @@ export default function MetricCards({
             <div className="flex items-baseline gap-1">
               <span className="text-[11px] font-bold font-mono text-slate-500">R$</span>
               <span
-                className={`text-base sm:text-xl font-black font-mono tracking-tight text-amber-300 tabular-nums truncate ${
+                className={`text-base sm:text-xl font-black font-mono tracking-tight text-teal-300 tabular-nums truncate ${
                   isPrivate ? "filter blur-xs" : ""
                 }`}
               >
                 {isPrivate ? "••••••" : formatCurrency(safeRight)}
               </span>
             </div>
-            <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 group-hover:text-amber-300 transition-colors font-medium">
+            <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 group-hover:text-teal-300 transition-colors font-medium">
               <span>Projeções futuras</span>
               <ChevronRight className="w-2.5 h-2.5 inline opacity-70" />
             </p>

@@ -91,6 +91,11 @@ export default function TransactionDetailModal({
     rawSection === "left" ||
     rawSection === "esquerda" ||
     rawSection === "despesas";
+  const isRightPlanningSection =
+    rawSection === "right" ||
+    rawSection === "direito" ||
+    rawSection === "direita" ||
+    rawSection === "planejamento";
   const isInst = transaction.tableSection === "bottom_left";
   const instMeta = isInst ? getInstallmentMeta(transaction) : null;
   const remainingCount = isInst ? getRemainingInstallments(transaction, selectedMonth) : 0;
@@ -104,7 +109,9 @@ export default function TransactionDetailModal({
         ? { label: "Despesa Recorrente", color: "text-sky-400 bg-sky-500/10 border-sky-500/20" }
         : { label: "Despesa Mensal", color: "text-rose-400 bg-rose-500/10 border-rose-500/20" };
     }
-    if (sec === "right" || sec === "planejamento") return { label: "Planejamento Futuro", color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20" };
+    if (sec === "right" || sec === "direito" || sec === "direita" || sec === "planejamento") {
+      return { label: "Planejamento Futuro", color: "text-teal-400 bg-teal-500/10 border-teal-500/20" };
+    }
     return { label: "Parcela / Empréstimo", color: "text-purple-400 bg-purple-500/10 border-purple-500/20" };
   };
 
@@ -212,6 +219,8 @@ export default function TransactionDetailModal({
               ? "bg-gradient-to-r from-amber-500 to-orange-500"
               : transaction.isDiscount
               ? "bg-gradient-to-r from-emerald-500 to-teal-400"
+              : isRightPlanningSection
+              ? "bg-gradient-to-r from-teal-500 to-cyan-400"
               : "bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500"
           }`} />
 
@@ -322,11 +331,11 @@ export default function TransactionDetailModal({
                         src={editImageUrl}
                         alt="Foto do item"
                         referrerPolicy="no-referrer"
-                        className="w-12 h-12 rounded-xl object-cover border border-orange-500/40 shrink-0"
+                        className="w-12 h-12 rounded-xl object-cover border border-teal-500/40 shrink-0"
                       />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-white truncate">Foto vinculada ao item</p>
-                        <p className="text-[10px] text-orange-400">Miniatura à esquerda do título</p>
+                        <p className="text-[10px] text-teal-400">Miniatura à esquerda do título</p>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
@@ -350,9 +359,9 @@ export default function TransactionDetailModal({
                     <button
                       type="button"
                       onClick={() => setIsImageModalOpen(true)}
-                      className="w-full py-2.5 px-3 bg-slate-950 hover:bg-slate-850 border border-dashed border-slate-700 hover:border-orange-500/60 rounded-xl text-xs font-bold text-slate-300 hover:text-white flex items-center justify-center gap-2 cursor-pointer transition-all"
+                      className="w-full py-2.5 px-3 bg-slate-950 hover:bg-slate-850 border border-dashed border-slate-700 hover:border-teal-500/60 rounded-xl text-xs font-bold text-slate-300 hover:text-white flex items-center justify-center gap-2 cursor-pointer transition-all"
                     >
-                      <ImageIcon className="w-4 h-4 text-orange-400" />
+                      <ImageIcon className="w-4 h-4 text-teal-400" />
                       <span>+ Adicionar Foto ao Item (Web ou Upload)</span>
                     </button>
                   )}
@@ -447,6 +456,8 @@ export default function TransactionDetailModal({
                     <span className={`text-2xl font-black font-mono tracking-tight ${
                       transaction.isDiscount
                         ? "text-emerald-400"
+                        : isRightPlanningSection
+                        ? "text-teal-400"
                         : transaction.isOrangeHighlight
                         ? "text-amber-400"
                         : "text-rose-400"

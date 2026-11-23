@@ -166,7 +166,7 @@ export default function HomeSectionTabs({
               activeTab === "expenses"
                 ? "text-rose-400"
                 : activeTab === "planning"
-                ? "text-orange-400"
+                ? "text-teal-400"
                 : "text-purple-300"
             }`}>
               R${" "}
@@ -201,7 +201,7 @@ export default function HomeSectionTabs({
                 }}
                 className={`inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border cursor-pointer transition-colors ${
                   activeTab === "planning"
-                    ? "text-orange-400 hover:text-orange-300 bg-orange-500/10 border-orange-500/25 hover:bg-orange-500/20"
+                    ? "text-teal-400 hover:text-teal-300 bg-teal-500/10 border-teal-500/25 hover:bg-teal-500/20"
                     : activeTab === "installments"
                     ? "text-purple-400 hover:text-purple-300 bg-purple-500/10 border-purple-500/25 hover:bg-purple-500/20"
                     : "text-rose-400 hover:text-rose-300 bg-rose-500/10 border-rose-500/25 hover:bg-rose-500/20"
@@ -222,14 +222,14 @@ export default function HomeSectionTabs({
 
               const accentStripeClass = t.isDiscount
                 ? "bg-emerald-500"
+                : activeTab === "planning"
+                ? "bg-teal-500/60 group-hover:bg-teal-500"
                 : t.isOrangeHighlight
                 ? "bg-amber-500"
                 : isInst && activeTab === "expenses"
                 ? "bg-purple-500"
                 : t.isRecurring && activeTab === "expenses"
                 ? "bg-sky-500"
-                : activeTab === "planning"
-                ? "bg-orange-500/60 group-hover:bg-orange-500"
                 : activeTab === "installments"
                 ? isFinished
                   ? "bg-slate-600"
@@ -238,6 +238,8 @@ export default function HomeSectionTabs({
 
               const rowTintClass = t.isDiscount
                 ? "bg-emerald-500/5"
+                : activeTab === "planning"
+                ? ""
                 : t.isOrangeHighlight
                 ? "bg-amber-500/5"
                 : isInst && activeTab === "expenses"
@@ -266,7 +268,7 @@ export default function HomeSectionTabs({
                         loading="lazy"
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 flex items-center justify-center shrink-0 self-center">
+                      <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center shrink-0 self-center">
                         <Target className="w-5 h-5" />
                       </div>
                     )
@@ -277,14 +279,14 @@ export default function HomeSectionTabs({
                       <span className={`text-sm font-bold text-white transition-colors ${
                         t.isDiscount
                           ? "group-hover:text-emerald-300"
+                          : activeTab === "planning"
+                          ? "group-hover:text-teal-400"
                           : t.isOrangeHighlight
                           ? "group-hover:text-amber-300"
                           : isInst && activeTab === "expenses"
                           ? "group-hover:text-purple-400"
                           : t.isRecurring && activeTab === "expenses"
                           ? "group-hover:text-sky-300"
-                          : activeTab === "planning"
-                          ? "group-hover:text-orange-400"
                           : activeTab === "installments"
                           ? "group-hover:text-purple-400"
                           : "group-hover:text-rose-400"
@@ -292,7 +294,7 @@ export default function HomeSectionTabs({
                         {t.description}
                       </span>
                       {activeTab === "planning" && stripMetaFromNote(t.note) && (
-                        <span className="text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-md font-mono">
+                        <span className="text-[10px] bg-teal-500/15 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded-md font-mono">
                           {stripMetaFromNote(t.note)}
                         </span>
                       )}
@@ -330,7 +332,7 @@ export default function HomeSectionTabs({
                             : t.isOrangeHighlight && activeTab === "expenses"
                             ? "text-amber-300"
                             : activeTab === "planning"
-                            ? "text-orange-400"
+                            ? "text-teal-400"
                             : isInst && activeTab === "expenses"
                             ? "text-purple-300"
                             : "text-rose-400"
