@@ -4,7 +4,7 @@ import { processImportFile } from "../utils/fileParser";
 import { Transaction } from "../types";
 
 interface SpreadsheetUploadProps {
-  onImportTransactions: (imported: Transaction[]) => void;
+  onImportTransactions: (imported: Transaction[]) => Promise<void> | void;
   className?: string;
   hideHeader?: boolean;
   isCompact?: boolean;
@@ -40,7 +40,7 @@ export default function SpreadsheetUpload({
 
     try {
       const imported = await processImportFile(file, (step) => setLoadingStep(step));
-      onImportTransactions(imported);
+      await onImportTransactions(imported);
       setSuccess(`Sucesso! Foram importadas ${imported.length} transações processadas com IA!`);
     } catch (err: any) {
       console.error(err);

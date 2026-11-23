@@ -726,7 +726,7 @@ app.get("/api/system-status", (req, res) => {
       nodeVersion: process.version,
       uptimeSeconds: Math.floor(process.uptime()),
       environment: process.env.NODE_ENV || "development",
-      aiModelIntegration: !!process.env.GEMINI_API_KEY ? "Gemini 2.5 Flash Ativo" : "Não Configurado",
+      aiModelIntegration: !!process.env.GEMINI_API_KEY ? "Gemini IA Ativo" : "Não Configurado",
     },
     timestamp: new Date().toISOString(),
   });
@@ -740,11 +740,10 @@ app.get("/api/config", (req, res) => {
   });
 });
 
-// Candidate models in order of priority (Fast, lightweight & economic flash models)
+// Candidate models in order of priority per gemini-api guidelines
 const CANDIDATE_MODELS = [
+  "gemini-4-hydrogen",
   "gemini-3.1-flash-lite",
-  "gemini-3.7-flash",
-  "gemini-flash-latest",
 ];
 
 // Helper to call Gemini with automatic exponential backoff, timeout and model fallback
@@ -756,14 +755,14 @@ async function callGeminiWithFallback(aiClient: GoogleGenAI, requestConfig: any)
       try {
         console.log(`[Gemini] Requesting model ${modelName} (attempt ${attempt + 1})...`);
         
-        // Wrap with a 15-second timeout per attempt to guarantee no infinite hanging
+        // Wrap with a 30-second timeout per attempt so large spreadsheets finish cleanly
         const generatePromise = aiClient.models.generateContent({
           ...requestConfig,
           model: modelName,
         });
 
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Timeout ao conectar com modelo ${modelName}`)), 15000)
+          setTimeout(() => reject(new Error(`Timeout ao conectar com modelo ${modelName}`)), 30000)
         );
 
         const response: any = await Promise.race([generatePromise, timeoutPromise]);
@@ -804,111 +803,49 @@ async function callGeminiWithFallback(aiClient: GoogleGenAI, requestConfig: any)
   throw lastError || new Error("Não foi possível obter resposta dos modelos de IA disponíveis.");
 }
 
-// Fallback local heuristic parser for tabular text (CSV/XLSX) in case AI models are completely unavailable
-function parseTabularTextFallback(textData: string): any[] {
-  const lines = textData.split("\n").filter((l) => l.trim().length > 0);
-  if (lines.length === 0) return [];
-
-  const transactions: any[] = [];
-  const currentDate = new Date().toISOString().split("T")[0];
-
-  for (const line of lines) {
-    // Remove "Linha X: " prefix if present
-    const cleanLine = line.replace(/^Linha\s+\d+:\s*/i, "").trim();
-    if (!cleanLine) continue;
-
-    const parts = cleanLine.split("|").map((p) => p.trim());
-    if (parts.length === 0) continue;
-
-    // Search for a currency/number in the parts
-    let amount = 0;
-    let description = "";
-    let dateStr = currentDate;
-    let foundAmount = false;
-
-    for (const part of parts) {
-      // Check if it's a date
-      const dateMatch = part.match(/\b(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\b/);
-      if (dateMatch) {
-        const rawDate = dateMatch[0];
-        if (rawDate.includes("/")) {
-          const segs = rawDate.split("/");
-          if (segs.length === 3) {
-            if (segs[0].length === 4) {
-              dateStr = `${segs[0]}-${segs[1].padStart(2, "0")}-${segs[2].padStart(2, "0")}`;
-            } else {
-              const year = segs[2].length === 2 ? `20${segs[2]}` : segs[2];
-              dateStr = `${year}-${segs[1].padStart(2, "0")}-${segs[0].padStart(2, "0")}`;
-            }
-          }
-        } else {
-          dateStr = rawDate.replace(/\//g, "-");
-        }
-        continue;
-      }
-
-      // Check if it's a monetary amount
-      const numMatch = part.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
-      const parsedNum = parseFloat(numMatch);
-      if (!isNaN(parsedNum) && parsedNum > 0 && !foundAmount && !part.includes("/") && !part.includes("-")) {
-        amount = parsedNum;
-        foundAmount = true;
-        continue;
-      }
-
-      // If it looks like text description and not just numbers/dates
-      if (part.length > 1 && !description && !/^[\d\s.,:/-]+$/.test(part)) {
-        description = part;
-      }
-    }
-
-    if (description && amount > 0) {
-      transactions.push({
-        description,
-        amount,
-        date: dateStr,
-        type: "expense",
-        tableSection: "left",
-        category: "Outros",
-        isOrangeHighlight: false,
-        isDiscount: false,
-        note: null,
-      });
-    }
-  }
-
-  return transactions;
-}
-
-// API Endpoint to parse spreadsheets or images of spreadsheets using Gemini
+// API Endpoint to parse Excel/CSV spreadsheets or images of spreadsheets using Gemini
 app.post("/api/parse-spreadsheet", async (req, res) => {
   try {
-    const { imageBase64, mimeType, textData } = req.body;
+    const { imageBase64, mimeType, textData, selectedMonth, fileName } = req.body;
 
     if (!imageBase64 && !textData) {
-      return res.status(400).json({ error: "Nenhum dado de imagem ou texto foi fornecido para processamento." });
+      return res.status(400).json({ error: "Nenhum dado de imagem ou planilha foi fornecido para processamento." });
     }
 
-    let prompt = `Você é um assistente especialista em finanças pessoais e extração de dados. Mapeie todas as transações de gastos e entradas contidas neste arquivo ou imagem. 
-Identifique as seguintes seções típicas da planilha do usuário:
-- Tabela Esquerda ('left'): Gastos mensais normais. Ex: Cartão, whey, Memoria Ram, Academia, Celular, Cartão de Mãe, Viagem, Assinatura, Descontos.
-- Tabela Direita ('right'): Compras específicas ou de eletrônicos/tecnologia. Ex: RTX 5060, Alexa, Kit Ryzen, etc. Observe que alguns preços podem ter labels de texto como "Karinne" ou "3D" em vez de números. Se o preço for textual, defina o campo 'amount' como 0 e coloque esse texto no campo 'note'.
-- Tabela de Parcelas/Recebíveis ('bottom_left'): Parcelas com datas/meses e descrições de reembolso ou parcelamento (ex: Notebook - Mãe, Pai - Celular, etc.).
+    if (!ai) {
+      return res.status(500).json({
+        error: "A chave GEMINI_API_KEY não está configurada no servidor para analisar a planilha com IA.",
+      });
+    }
 
-Mapeie cada transação encontrada para este esquema JSON exato:
-{
-  "description": "Nome do produto ou descrição do item",
-  "amount": 123.45, (valor numérico positivo. Se for desconto ou redução, extraia o valor absoluto e marque 'isDiscount': true. Se o preço for textual, use 0),
-  "date": "2026-07-13", (formato YYYY-MM-DD se puder deduzir da data ou mês como 01/12/2026. Se for apenas mês, coloque o primeiro dia desse mês),
-  "type": "expense" ou "income", (os itens das tabelas left e right são 'expense' por padrão, exceto descontos que reduzem a soma total, ou se for um recebível de entrada),
-  "tableSection": "left" ou "right" ou "bottom_left",
-  "category": "Moradia" ou "Alimentação" ou "Transporte" ou "Lazer" ou "Tecnologia" ou "Saúde" ou "Família" ou "Outros",
-  "isOrangeHighlight": true ou false, (se o item estava destacado em laranja ou destaque visual na planilha),
-  "isDiscount": true ou false, (se é um desconto/dedução na planilha),
-  "note": "Informações adicionais, ex: o preço textual como 'Karinne' ou '3D'"
-}
+    const fallbackMonth =
+      typeof selectedMonth === "string" && /^\d{4}-\d{2}$/.test(selectedMonth)
+        ? selectedMonth
+        : new Date().toISOString().slice(0, 7);
 
-Por favor, analise a planilha de entrada e retorne um array JSON válido de transações.`;
+    const prompt = `Você é um especialista em finanças pessoais e análise inteligente de planilhas (Excel .xlsx/.xls e CSV).
+Analise cuidadosamente as COLUNAS e o cabeçalho da planilha${fileName ? ` ("${fileName}")` : ""} para identificar o significado de cada coluna (ex.: Data, Descrição/Item/Nome/Estabelecimento/Histórico, Valor/Preço/R$/Montante/Saída/Entrada, Categoria, Tipo, Parcelas, Recorrente, Observações/Notas).
+
+Regras importantes de extração:
+1. Ignore linhas de cabeçalho, títulos decorativos, linhas em branco e linhas de totais/resumo ("Total", "Subtotal", "Saldo final", "Soma").
+2. Converta valores monetários em formato brasileiro ("R$ 1.234,56" -> 1234.56) ou americano ("1234.56") para número positivo em 'amount'.
+   - Se uma linha tiver valor negativo ou coluna de "Débito"/"Saída", é uma despesa ('type': 'expense') com 'amount' positivo.
+   - Se a coluna indicar claramente "Desconto", "Estorno" ou "Redução" em uma lista de gastos, marque 'isDiscount': true e 'type': 'expense'.
+   - Se a coluna indicar entrada/receita/salário/rendimento/crédito recebido, use 'type': 'income'. Caso contrário, use 'expense'.
+   - Se o valor não for numérico (ex.: rótulo textual), use 'amount': 0 e preserve o texto em 'note'.
+3. Datas ('date' no formato YYYY-MM-DD):
+   - Converta datas como DD/MM/AAAA, DD/MM/AA, YYYY-MM-DD, MM/AAAA ou nomes de mês (ex.: "Jan/2026" -> "2026-01-01").
+   - Se a planilha não possuir coluna de data para uma linha, utilize "${fallbackMonth}-01".
+4. Classificação de seção ('tableSection'):
+   - 'left': Gastos normais do mês ou entradas lançadas na planilha (padrão).
+   - 'bottom_left': Apenas se a linha ou coluna indicar explicitamente parcelamento (ex.: "3/10", "12x", coluna Parcelas > 1). Nesse caso preencha também 'totalInstallments' se identificável.
+   - 'right': Apenas se a tabela ou linha for explicitamente de metas, lista de desejos ou planejamento futuro.
+5. Categoria ('category'): Escolha estritamente a mais adequada entre:
+   "Moradia", "Alimentação", "Transporte", "Lazer", "Tecnologia", "Saúde", "Família", "Outros".
+6. Recorrência ('isRecurring'): true somente se a planilha indicar explicitamente gasto fixo/recorrente/mensal.
+7. 'note': Combine informações úteis de colunas extras (ex.: forma de pagamento, banco, observação, parcelamento) quando houver.
+
+Retorne SOMENTE um array JSON válido de transações extraídas a partir das colunas reais da planilha.`;
 
     const schemaConfig = {
       responseMimeType: "application/json",
@@ -925,67 +862,49 @@ Por favor, analise a planilha de entrada e retorne um array JSON válido de tran
             category: { type: Type.STRING },
             isOrangeHighlight: { type: Type.BOOLEAN },
             isDiscount: { type: Type.BOOLEAN },
+            isRecurring: { type: Type.BOOLEAN },
+            totalInstallments: { type: Type.INTEGER },
+            startDate: { type: Type.STRING },
             note: { type: Type.STRING },
           },
-          required: ["description", "amount", "type", "tableSection"],
+          required: ["description", "amount", "date", "type", "tableSection", "category"],
         },
       },
     };
 
     let parsedTransactions: any[] = [];
+    let response;
 
-    if (ai) {
-      try {
-        let response;
-        if (imageBase64 && mimeType) {
-          const imagePart = {
-            inlineData: {
-              mimeType: mimeType,
-              data: imageBase64,
-            },
-          };
-          response = await callGeminiWithFallback(ai, {
-            contents: [imagePart, { text: prompt }],
-            config: schemaConfig,
-          });
-        } else if (textData) {
-          response = await callGeminiWithFallback(ai, {
-            contents: `Aqui estão os dados de texto estruturados da planilha do usuário:\n\n${textData}\n\n${prompt}`,
-            config: schemaConfig,
-          });
-        }
-
-        if (response && response.text) {
-          const cleanJson = response.text.trim();
-          parsedTransactions = JSON.parse(cleanJson);
-        }
-      } catch (aiErr: any) {
-        console.error("AI parse attempt failed, evaluating fallbacks:", aiErr);
-        // If it was tabular text data, attempt local fallback parser
-        if (textData) {
-          console.log("Using local tabular heuristic fallback parser...");
-          parsedTransactions = parseTabularTextFallback(textData);
-        }
-
-        // If still empty, throw
-        if (!parsedTransactions || parsedTransactions.length === 0) {
-          throw aiErr;
-        }
-      }
-    } else {
-      // No AI key configured, try local parser if text data exists
-      if (textData) {
-        parsedTransactions = parseTabularTextFallback(textData);
-      } else {
-        return res.status(500).json({
-          error: "A chave da API Gemini não está configurada no servidor. Configure a chave no painel Secrets.",
-        });
-      }
+    if (imageBase64 && mimeType) {
+      const imagePart = {
+        inlineData: {
+          mimeType: mimeType,
+          data: imageBase64,
+        },
+      };
+      response = await callGeminiWithFallback(ai, {
+        contents: [imagePart, { text: prompt }],
+        config: schemaConfig,
+      });
+    } else if (textData) {
+      response = await callGeminiWithFallback(ai, {
+        contents: `Dados tabulares extraídos da planilha (as colunas estão separadas por " | "):\n\n${textData}\n\n${prompt}`,
+        config: schemaConfig,
+      });
     }
 
-    if (!parsedTransactions || parsedTransactions.length === 0) {
+    if (response && response.text) {
+      const cleanJson = response.text
+        .trim()
+        .replace(/^```json\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/\s*```$/i, "");
+      parsedTransactions = JSON.parse(cleanJson);
+    }
+
+    if (!Array.isArray(parsedTransactions) || parsedTransactions.length === 0) {
       return res.status(422).json({
-        error: "Nenhuma transação legível pôde ser extraída do arquivo. Verifique a clareza dos dados e tente novamente.",
+        error: "Nenhuma transação legível pôde ser extraída da planilha. Verifique se há colunas de descrição e valor e tente novamente.",
       });
     }
 

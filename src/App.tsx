@@ -205,20 +205,6 @@ export default function App() {
     };
   }, []);
 
-  const handleSimulateNubankReceipt = () => {
-    const today = new Date().toISOString().split("T")[0];
-    const sampleItem: SharedPayloadItem = {
-      id: "simulated_" + Date.now(),
-      timestamp: Date.now(),
-      title: "Comprovante de transferência Pix",
-      text: `Comprovante de transferência Pix realizada com sucesso.\nValor: R$ 145,90\nPara: Restaurante e Pizzaria Bella Itália\nData: ${today}\nInstituição: Nu Pagamentos S.A. (Nubank)\nID da Transação: E182361202609151230456`,
-      url: "",
-      files: [],
-    };
-    setSharedPayload(sampleItem);
-    setIsSharedModalOpen(true);
-  };
-
   // Admin / Settings Modal state
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [adminModalMode, setAdminModalMode] = useState<"salary" | "admin">("salary");
@@ -1157,14 +1143,26 @@ export default function App() {
   // Import transactions from file parsing or AI image analysis
   const handleImportTransactions = async (imported: Transaction[]) => {
     const parsedImported = imported.map((item) => ({
-      description: item.description,
-      amount: item.amount,
-      date: item.date || `${selectedMonth}-01`,
-      type: item.type,
-      tableSection: item.tableSection,
+      description: String(item.description || "Gasto importado").trim(),
+      amount: Math.abs(Number(item.amount) || 0),
+      date:
+        typeof item.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.date)
+          ? item.date
+          : `${selectedMonth}-01`,
+      type: item.type === "income" ? ("income" as const) : ("expense" as const),
+      tableSection:
+        item.tableSection === "right" || item.tableSection === "bottom_left"
+          ? item.tableSection
+          : ("left" as const),
       category: item.category || "Outros",
       isOrangeHighlight: !!item.isOrangeHighlight,
       isDiscount: !!item.isDiscount,
+      isRecurring: !!item.isRecurring,
+      totalInstallments:
+        typeof item.totalInstallments === "number" && item.totalInstallments > 1
+          ? Math.round(item.totalInstallments)
+          : undefined,
+      startDate: item.startDate || undefined,
       note: item.note || "",
     }));
 
@@ -1198,6 +1196,7 @@ export default function App() {
       }
     } catch (err) {
       console.error(err);
+      throw err;
     }
   };
 
@@ -1212,19 +1211,20 @@ export default function App() {
 
   const handleDirectFileImport = async (file: File) => {
     setIsImportingDirectly(true);
-    setImportStatusStep("Iniciando leitura do arquivo...");
+    setImportStatusStep("Iniciando leitura da planilha...");
     setImportFeedbackToast(null);
 
     try {
-      const imported = await processImportFile(file, (step) => setImportStatusStep(step));
+      const imported = await processImportFile(file, (step) => setImportStatusStep(step), selectedMonth);
       if (!imported || imported.length === 0) {
         throw new Error("Nenhuma transação foi identificada no arquivo.");
       }
+      setImportStatusStep(`Salvando ${imported.length} lançamentos identificados...`);
       await handleImportTransactions(imported);
       setImportFeedbackToast({
         type: "success",
-        title: "Importação Concluída com Sucesso!",
-        message: `${imported.length} transações foram importadas e salvas na sua planilha.`,
+        title: "Planilha Importada com Sucesso!",
+        message: `${imported.length} lançamentos foram identificados pela IA e salvos nas suas despesas.`,
       });
       setTimeout(() => {
         setImportFeedbackToast(null);
@@ -1763,9 +1763,9 @@ export default function App() {
               </div>
 
               <div>
-                <h3 className="text-lg font-bold text-white">Importando Planilha / Extrato</h3>
+                <h3 className="text-lg font-bold text-white">Importando Planilha com IA</h3>
                 <p className="text-xs text-purple-300/90 font-medium mt-1">
-                  {importStatusStep || "Analisando comprovante e estruturando lançamentos com IA..."}
+                  {importStatusStep || "Analisando colunas do Excel / CSV e extraindo gastos com IA..."}
                 </p>
               </div>
 
@@ -2114,7 +2114,6 @@ export default function App() {
           themeMode={themeMode}
           onSetThemeMode={handleSetThemeMode}
           onDirectImportFile={handleDirectFileImport}
-          onSimulateNubank={handleSimulateNubankReceipt}
           onOpenTestFeatures={() => setIsTestFeaturesOpen(true)}
         />
 

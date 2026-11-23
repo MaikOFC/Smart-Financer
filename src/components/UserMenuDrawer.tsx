@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   X,
@@ -19,7 +19,7 @@ import {
   RefreshCw,
   ArrowUpCircle,
   CheckCircle2,
-  Share2,
+  FileSpreadsheet,
   FlaskConical,
   Trash2,
   AlertTriangle,
@@ -52,7 +52,6 @@ interface UserMenuDrawerProps {
   themeMode?: ThemeMode;
   onSetThemeMode?: (mode: ThemeMode) => void;
   onDirectImportFile?: (file: File) => void;
-  onSimulateNubank?: () => void;
   onOpenTestFeatures?: () => void;
 }
 
@@ -73,9 +72,9 @@ export default function UserMenuDrawer({
   themeMode = "system",
   onSetThemeMode,
   onDirectImportFile,
-  onSimulateNubank,
   onOpenTestFeatures,
 }: UserMenuDrawerProps) {
+  const spreadsheetInputRef = useRef<HTMLInputElement | null>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateFeedback, setUpdateFeedback] = useState<string | null>(null);
   const [updateIsLatest, setUpdateIsLatest] = useState<boolean | null>(null);
@@ -487,31 +486,47 @@ export default function UserMenuDrawer({
                     </button>
                   )}
 
-                  {/* COMPARTILHAMENTO DE COMPROVANTE (NUBANK / PIX) */}
-                  {onSimulateNubank && (
-                    <button
-                      onClick={() => {
-                        onClose();
-                        onSimulateNubank();
-                      }}
-                      className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/60 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left group cursor-pointer"
-                      title="Testar leitura de comprovante compartilhado pelo Nubank ou outros bancos"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-slate-200/70 text-slate-700 dark:bg-slate-800 dark:text-slate-300 group-hover:text-purple-400 transition-colors">
-                          <Share2 className="w-4 h-4 stroke-[2]" />
+                  {/* IMPORTAR PLANILHA EXCEL / CSV COM IA */}
+                  {onDirectImportFile && (
+                    <>
+                      <input
+                        ref={spreadsheetInputRef}
+                        type="file"
+                        accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (file) {
+                            onClose();
+                            onDirectImportFile(file);
+                          }
+                        }}
+                      />
+                      <button
+                        id="btn-drawer-import-spreadsheet"
+                        type="button"
+                        onClick={() => spreadsheetInputRef.current?.click()}
+                        className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/60 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800/80 hover:border-emerald-500/40 dark:hover:border-emerald-500/30 transition-all text-left group cursor-pointer"
+                        title="Importar planilha Excel (.xlsx, .xls) ou CSV com leitura automática das colunas por IA"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
+                            <FileSpreadsheet className="w-4 h-4 stroke-[2]" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-slate-900 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-white flex items-center gap-1.5">
+                              <span>Importar Planilha (Excel / CSV)</span>
+                              <Sparkles className="w-3 h-3 text-emerald-500 dark:text-emerald-400 shrink-0" />
+                            </p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                              Enviar .xlsx, .xls ou .csv para a IA lançar os gastos
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-900 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white">
-                            Comprovante Nubank / Pix
-                          </p>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                            Testar importação de comprovante compartilhado
-                          </p>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:text-slate-600 dark:group-hover:text-slate-300" />
-                    </button>
+                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:text-slate-600 dark:group-hover:text-slate-300" />
+                      </button>
+                    </>
                   )}
 
                   {/* SELETOR DE TEMA / APARÊNCIA */}
