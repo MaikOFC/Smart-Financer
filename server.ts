@@ -9,6 +9,7 @@ import {
   loginUser, 
   getUserByToken, 
   logoutUser,
+  deleteUserAccount,
   getUserTransactions,
   createTransaction,
   updateTransaction,
@@ -405,6 +406,97 @@ app.post("/api/user/salary", authMiddleware, (req: any, res) => {
 app.post("/api/auth/logout", authMiddleware, (req: any, res) => {
   logoutUser(req.token);
   res.json({ message: "Logout realizado com sucesso." });
+});
+
+// Excluir conta do usuário (Servidor Local) com confirmação de senha
+app.post("/api/auth/delete-account", authMiddleware, (req: any, res) => {
+  try {
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
+    if (!password) {
+      return res.status(400).json({ error: "Informe sua senha para confirmar a exclusão da conta." });
+    }
+    deleteUserAccount(req.user.id, password);
+    res.json({ success: true, message: "Conta excluída com sucesso." });
+  } catch (error: any) {
+    const msg = error?.message || "Não foi possível excluir a conta.";
+    const status = msg.includes("Senha incorreta") ? 403 : 400;
+    res.status(status).json({ error: msg });
+  }
+});
+
+// Excluir usuário do Supabase Auth via Service Role Key (quando configurada no servidor)
+app.post("/api/supabase/delete-account", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Sessão ausente ou inválida." });
+    }
+    const accessToken = authHeader.split(" ")[1];
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
+    if (!password) {
+      return res.status(400).json({ error: "Informe sua senha para confirmar a exclusão da conta." });
+    }
+
+    const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").replace(/\/+$/, "");
+    const supabaseAnonKey =
+      process.env.VITE_SUPABASE_ANON_KEY ||
+      process.env.VITE_SUPABASE_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      "";
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
+    if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
+      return res.status(501).json({ deletedAuthUser: false });
+    }
+
+    // 1. Validar token do usuário autenticado
+    const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        apikey: supabaseAnonKey,
+      },
+    });
+    if (!userRes.ok) {
+      return res.status(401).json({ error: "Sessão expirada ou inválida no Supabase." });
+    }
+    const authUser: any = await userRes.json();
+    if (!authUser?.id || !authUser?.email) {
+      return res.status(401).json({ error: "Usuário não identificado." });
+    }
+
+    // 2. Confirmar a senha atual no Supabase Auth antes da exclusão
+    const verifyRes = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: supabaseAnonKey,
+      },
+      body: JSON.stringify({
+        email: authUser.email,
+        password,
+      }),
+    });
+    if (!verifyRes.ok) {
+      return res.status(403).json({ error: "Senha incorreta. Verifique sua senha e tente novamente." });
+    }
+
+    // 3. Remover usuário do Supabase Auth (com cascade nas tabelas vinculadas)
+    const delRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${encodeURIComponent(authUser.id)}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+      },
+    });
+    if (!delRes.ok) {
+      return res.status(500).json({ error: "Erro ao remover credenciais da conta no Supabase." });
+    }
+
+    return res.json({ success: true, deletedAuthUser: true });
+  } catch (err: any) {
+    console.error("Erro em /api/supabase/delete-account:", err);
+    return res.status(500).json({ error: "Erro ao processar exclusão da conta." });
+  }
 });
 
 // --- TRANSAÇÕES (PROTEGIDAS) ---

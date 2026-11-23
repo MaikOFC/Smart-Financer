@@ -84,6 +84,7 @@ import {
   getUserIncomeConfig,
   saveUserIncomeConfig,
   signOutSupabase,
+  deleteSupabaseAccount,
   seedUserIfNeeded,
   getSupabaseCategories,
   addSupabaseCategory,
@@ -502,6 +503,45 @@ export default function App() {
     setIncomeConfig(DEFAULT_INCOME_CONFIG);
     setCurrentNavTab("home");
     setAdvisorResponse(null);
+  };
+
+  // Delete Account Handler (requires current password confirmation)
+  const handleDeleteAccount = async (password: string): Promise<void> => {
+    if (isDemoUser) {
+      throw new Error("A conta de demonstração não pode ser excluída. Use 'Sair da Conta'.");
+    }
+
+    if (supabaseActive) {
+      await deleteSupabaseAccount(password);
+    } else {
+      const res = await fetch("/api/auth/delete-account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Não foi possível excluir a conta. Verifique sua senha.");
+      }
+    }
+
+    localStorage.removeItem("finances_token");
+    localStorage.removeItem("finances_user");
+    if (user?.id) {
+      localStorage.removeItem(`user_default_salary_${user.id}`);
+      localStorage.removeItem(`user_income_config_${user.id}`);
+    }
+    setToken(null);
+    setUser(null);
+    setTransactions([]);
+    setBudgets({});
+    setIncomeConfig(DEFAULT_INCOME_CONFIG);
+    setCurrentNavTab("home");
+    setAdvisorResponse(null);
+    setIsUserMenuOpen(false);
   };
 
   // Fetch transactions and budgets from server when token is active
@@ -2061,6 +2101,7 @@ export default function App() {
             setIsAddModalOpen(true);
           }}
           onLogout={handleLogout}
+          onDeleteAccount={handleDeleteAccount}
           onScrollToAi={() => {
             setIsAiConsultantOpen(true);
             setTimeout(() => {

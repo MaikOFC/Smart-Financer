@@ -333,6 +333,100 @@ export async function signOutSupabase() {
   if (error) throw error;
 }
 
+export async function deleteSupabaseAccount(passwordPlain: string) {
+  if (!passwordPlain || !passwordPlain.trim()) {
+    throw new Error("Digite sua senha para confirmar a exclusão da conta.");
+  }
+
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  const currentUser = userData?.user;
+  if (userErr || !currentUser || !currentUser.email) {
+    throw new Error("Sessão expirada ou usuário não encontrado. Faça login novamente.");
+  }
+
+  // 1. Confirma a senha atual no Supabase Auth antes de apagar qualquer dado
+  const { data: verifyData, error: verifyErr } = await supabase.auth.signInWithPassword({
+    email: currentUser.email,
+    password: passwordPlain,
+  });
+
+  if (verifyErr) {
+    const msg = verifyErr.message.toLowerCase();
+    if (msg.includes("invalid login credentials") || msg.includes("invalid credentials")) {
+      throw new Error("Senha incorreta. Verifique sua senha e tente novamente.");
+    }
+    throw new Error(verifyErr.message || "Não foi possível validar sua senha.");
+  }
+
+  const activeUid = verifyData?.user?.id || currentUser.id;
+  const activeAccessToken = verifyData?.session?.access_token;
+
+  // 2. Remove todos os dados do usuário nas tabelas públicas (protegido por RLS)
+  const deleteSteps = [
+    supabase.from("transactions").delete().eq("user_id", activeUid),
+    supabase.from("budgets").delete().eq("user_id", activeUid),
+    supabase.from("categories").delete().eq("user_id", activeUid),
+    supabase.from("users").delete().eq("id", activeUid),
+  ];
+
+  const results = await Promise.all(deleteSteps);
+  for (const res of results) {
+    if (res.error) {
+      throw new Error("Erro ao remover seus dados financeiros: " + res.error.message);
+    }
+  }
+
+  // Tenta limpar controle de seed (caso a policy DELETE exista)
+  try {
+    await supabase.from("user_seeded").delete().eq("user_id", activeUid);
+  } catch {
+    // ignorar se a policy não estiver habilitada
+  }
+
+  // 3. Tenta remover o registro de autenticação em auth.users (via RPC segura ou endpoint admin no servidor)
+  let deletedAuthUser = false;
+  try {
+    const { error: rpcErr } = await supabase.rpc("delete_own_user");
+    if (!rpcErr) {
+      deletedAuthUser = true;
+    }
+  } catch {
+    // RPC opcional pode não estar instalada neste projeto
+  }
+
+  if (!deletedAuthUser && activeAccessToken) {
+    try {
+      const serverRes = await fetch("/api/supabase/delete-account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${activeAccessToken}`,
+        },
+        body: JSON.stringify({ password: passwordPlain }),
+      });
+      if (serverRes.status === 403) {
+        const errBody = await serverRes.json().catch(() => ({}));
+        throw new Error(errBody.error || "Senha incorreta.");
+      }
+    } catch (e: any) {
+      if (e?.message?.includes("Senha incorreta")) {
+        throw e;
+      }
+      // Segue se endpoint admin não estiver configurado com service role
+    }
+  }
+
+  // 4. Limpa cache local vinculado ao usuário e encerra sessão
+  try {
+    localStorage.removeItem(`user_default_salary_${activeUid}`);
+    localStorage.removeItem(`user_income_config_${activeUid}`);
+  } catch {}
+
+  try {
+    await supabase.auth.signOut();
+  } catch {}
+}
+
 // Envia link de recuperação de senha por e-mail via Supabase Auth
 export async function sendPasswordResetEmail(email: string) {
   const cleanEmail = email.trim().toLowerCase();

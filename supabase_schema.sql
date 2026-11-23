@@ -148,6 +148,32 @@ ON public.user_seeded FOR SELECT TO authenticated USING (user_id = auth.uid());
 CREATE POLICY "Usuários podem marcar seu próprio seed"
 ON public.user_seeded FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
 
+CREATE POLICY "Usuários podem remover seu próprio status de seed"
+ON public.user_seeded FOR DELETE TO authenticated USING (user_id = auth.uid());
+
+-- =========================================================================
+-- FUNÇÃO RPC SEGURA: AUTO-EXCLUSÃO DA CONTA DO USUÁRIO AUTENTICADO
+-- =========================================================================
+CREATE OR REPLACE FUNCTION public.delete_own_user()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+  current_uid UUID := auth.uid();
+BEGIN
+  IF current_uid IS NULL THEN
+    RAISE EXCEPTION 'Usuário não autenticado';
+  END IF;
+
+  DELETE FROM auth.users WHERE id = current_uid;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.delete_own_user() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.delete_own_user() TO authenticated;
+
 
 -- =========================================================================
 -- ÍNDICES DE PERFORMANCE (Acelera as buscas do app)

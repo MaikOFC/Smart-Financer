@@ -182,6 +182,31 @@ export function logoutUser(token: string) {
   saveDb(db);
 }
 
+export function deleteUserAccount(userId: string, passwordPlain: string) {
+  if (!passwordPlain || typeof passwordPlain !== "string") {
+    throw new Error("A senha é obrigatória para excluir a conta.");
+  }
+
+  const db = initDb();
+  const user = db.users.find((u) => u.id === userId);
+  if (!user) {
+    throw new Error("Usuário não encontrado.");
+  }
+
+  const expectedBuf = Buffer.from(user.passwordHash, "utf8");
+  const candidateBuf = Buffer.from(hashPassword(passwordPlain), "utf8");
+  if (expectedBuf.length !== candidateBuf.length || !crypto.timingSafeEqual(expectedBuf, candidateBuf)) {
+    throw new Error("Senha incorreta. Verifique sua senha e tente novamente.");
+  }
+
+  db.transactions = db.transactions.filter((t) => t.userId !== userId);
+  db.budgets = db.budgets.filter((b) => b.userId !== userId);
+  db.sessions = db.sessions.filter((s) => s.userId !== userId);
+  db.users = db.users.filter((u) => u.id !== userId);
+
+  saveDb(db);
+}
+
 // --- TRANSACTION OPERATIONS ---
 
 export function getUserTransactions(userId: string): Transaction[] {
