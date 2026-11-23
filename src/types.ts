@@ -12,6 +12,7 @@ export interface Transaction {
   startDate?: string; // YYYY-MM ou YYYY-MM-DD
   totalInstallments?: number;
   imageUrl?: string;
+  isRecurring?: boolean;
 }
 
 export interface MonthlyBudget {

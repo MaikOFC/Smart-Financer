@@ -13,8 +13,8 @@ import {
   AlertCircle,
   Copy,
   Info,
-  Layers,
   Eye,
+  Repeat,
 } from "lucide-react";
 import TransactionDetailModal from "./TransactionDetailModal";
 import AnimatedNumber from "./AnimatedNumber";
@@ -84,7 +84,8 @@ export default function TransactionTable({
     const isDuplicate = transactions.some((t) => {
       if (t.id === id) return false;
       if (t.tableSection !== currentItem.tableSection) return false;
-      const matchesMonth = !t.date || t.date.startsWith(selectedMonth);
+      const matchesMonth =
+        !!t.isRecurring || !!currentItem.isRecurring || !t.date || t.date.startsWith(selectedMonth);
       if (!matchesMonth && currentItem.tableSection !== "bottom_left") return false;
       return t.description.trim().toLowerCase() === normalizedNew;
     });
@@ -116,7 +117,8 @@ export default function TransactionTable({
   const filterByMonth = (t: Transaction) => {
     const isBottom = t.tableSection === "bottom_left" || (t.tableSection as any) === "bottom";
     const isRight = isRightSec(t.tableSection);
-    if (isBottom || isRight) return true; // Keep all receivables and future planning items visible across all months
+    const isRecurringLeft = isLeftSec(t.tableSection) && !!t.isRecurring;
+    if (isBottom || isRight || isRecurringLeft) return true; // Keep recurring expenses, receivables, and future planning visible across all months
     return !t.date || t.date.startsWith(selectedMonth);
   };
 
@@ -168,7 +170,7 @@ export default function TransactionTable({
   const displayedBottomTransactions = bottomTableFilter === "active" ? activeInstallmentsThisMonth : bottomTransactions;
 
   // Check if there are transactions in other months
-  const allLeftOtherMonths = transactions.filter((t) => isLeftSec(t.tableSection) && !t.date?.startsWith(selectedMonth));
+  const allLeftOtherMonths = transactions.filter((t) => isLeftSec(t.tableSection) && !t.isRecurring && !t.date?.startsWith(selectedMonth));
   const otherMonthsWithLeftData = Array.from(
     new Set(allLeftOtherMonths.map((t) => t.date?.substring(0, 7)).filter(Boolean))
   ).sort();
@@ -405,8 +407,10 @@ export default function TransactionTable({
                       ? "bg-purple-500/[0.03] hover:bg-purple-500/[0.08] border-l-4 border-purple-500/50 text-slate-200"
                       : t.isOrangeHighlight
                       ? "bg-amber-500/5 hover:bg-amber-500/10 text-amber-300 border-l-4 border-amber-500"
+                      : t.isRecurring && !t.isDiscount
+                      ? "bg-sky-500/[0.03] hover:bg-sky-500/[0.08] border-l-4 border-sky-500/60 text-slate-200"
                       : t.isDiscount
-                      ? "bg-slate-800/40 hover:bg-slate-800/50 text-slate-400 italic border-l-4 border-slate-600"
+                      ? "bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-300 border-l-4 border-emerald-500"
                       : "hover:bg-slate-800/30 border-l-4 border-transparent text-slate-300";
 
                     return (
@@ -444,24 +448,6 @@ export default function TransactionTable({
                           ) : (
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-semibold text-slate-100 group-hover:text-white transition-colors">{t.description}</span>
-                              {isInst && (
-                                <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-1">
-                                  <Layers className="w-3 h-3 text-purple-400" />
-                                  {(() => {
-                                    const cur = getInstallmentCurrentNumber(t, selectedMonth);
-                                    const meta = getInstallmentMeta(t);
-                                    const rem = getRemainingInstallments(t, selectedMonth);
-                                    return cur > 0 && meta.totalInstallments > 1
-                                      ? `Parcela ${cur}/${meta.totalInstallments} (${rem}x rest.)`
-                                      : `Parcela (${rem}x)`;
-                                  })()}
-                                </span>
-                              )}
-                              {t.isDiscount && (
-                                <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded uppercase font-bold not-italic">
-                                  Ganho
-                                </span>
-                              )}
                             </div>
                           )}
                         </td>
@@ -500,8 +486,8 @@ export default function TransactionTable({
                               />
                             </div>
                           ) : (
-                            <span className={`text-xs sm:text-xs font-black font-mono ${t.isDiscount ? "text-slate-400 font-normal" : "text-rose-400"}`}>
-                              {t.isDiscount ? "- " : ""}
+                            <span className={`text-xs sm:text-xs font-black font-mono ${t.isDiscount ? "text-emerald-400" : "text-rose-400"}`}>
+                              {t.isDiscount ? "+ " : ""}
                               R$ {(typeof t.amount === "number" && !isNaN(t.amount) ? t.amount : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                           )}
@@ -511,6 +497,18 @@ export default function TransactionTable({
                         <td className="py-3 px-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                           {!isEditing && (
                             <div className="flex justify-center gap-1.5">
+                              {/* Recurring Toggle */}
+                              {!isInst && (
+                                <button
+                                  onClick={() => onUpdateTransaction(t.id, { isRecurring: !t.isRecurring, isDiscount: !t.isRecurring ? false : t.isDiscount })}
+                                  title="Despesa recorrente (todo mês)"
+                                  className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                                    t.isRecurring ? "bg-sky-500 text-white" : "bg-slate-800 text-slate-500 hover:text-slate-300 hover:bg-slate-700"
+                                  }`}
+                                >
+                                  <Repeat className="w-3 h-3" />
+                                </button>
+                              )}
                               {/* Orange Highlight Toggle */}
                               <button
                                 onClick={() => onUpdateTransaction(t.id, { isOrangeHighlight: !t.isOrangeHighlight, isDiscount: false })}
@@ -523,7 +521,7 @@ export default function TransactionTable({
                               </button>
                               {/* Discount Toggle */}
                               <button
-                                onClick={() => onUpdateTransaction(t.id, { isDiscount: !t.isDiscount, isOrangeHighlight: false })}
+                                onClick={() => onUpdateTransaction(t.id, { isDiscount: !t.isDiscount, isOrangeHighlight: false, isRecurring: !t.isDiscount ? false : t.isRecurring })}
                                 title="Marcar como Desconto"
                                 className={`p-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
                                   t.isDiscount ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-500 hover:text-slate-300 hover:bg-slate-700"

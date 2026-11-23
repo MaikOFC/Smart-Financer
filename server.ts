@@ -1041,8 +1041,8 @@ ${transactions
   .map(
     (t: any) =>
       `- ${t.description}: R$ ${t.amount} [Seção: ${t.tableSection}, Tipo: ${t.type}, Categoria: ${t.category}${
-        t.isDiscount ? ", Desconto" : ""
-      }${t.note ? `, Nota: ${t.note}` : ""}]`
+        t.isRecurring ? ", Recorrente (todo mês)" : ""
+      }${t.isDiscount ? ", Desconto" : ""}${t.note ? `, Nota: ${t.note}` : ""}]`
   )
   .join("\n")}
 `;

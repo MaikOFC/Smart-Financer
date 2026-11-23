@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Tag, DollarSign, List, Calendar, Star, Percent, AlertCircle, ShieldAlert, TrendingDown, TrendingUp, Layers, Clock, Calculator, Image as ImageIcon, Loader2 } from "lucide-react";
+import { X, Tag, DollarSign, List, Calendar, Star, Percent, AlertCircle, ShieldAlert, TrendingDown, TrendingUp, Layers, Clock, Calculator, Image as ImageIcon, Loader2, Repeat } from "lucide-react";
 import { Transaction } from "../types";
 import { useModalBackHandler } from "../hooks/useBackNavigation";
 import { calculateEndDateFromInstallments, getRemainingInstallments } from "../utils/installmentUtils";
@@ -54,6 +54,7 @@ export default function AddTransactionModal({
   const [isOrangeHighlight, setIsOrangeHighlight] = useState(false);
   const [isDiscount, setIsDiscount] = useState(false);
   const [isInstallment, setIsInstallment] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -80,10 +81,12 @@ export default function AddTransactionModal({
       // Must match same effective table section
       if (t.tableSection !== effectiveSection) return false;
 
-      // For left table (gastos do mês normais), check month filter. For right and bottom_left (parcelas), check across all
+      // For left table (gastos do mês normais), check month filter OR existing recurring items.
+      // For right and bottom_left (parcelas), check across all
       if (effectiveSection === "left") {
-        const matchesMonth = !t.date || t.date.startsWith(selectedMonth);
-        if (!matchesMonth) return false;
+        const matchesMonthOrRecurring =
+          !!t.isRecurring || !t.date || t.date.startsWith(selectedMonth);
+        if (!matchesMonthOrRecurring) return false;
       }
 
       return t.description.trim().toLowerCase() === trimmedDesc;
@@ -106,6 +109,7 @@ export default function AddTransactionModal({
       setIsOrangeHighlight(false);
       setIsDiscount(section === "left" && Boolean(initialIsDiscount));
       setIsInstallment(section === "bottom_left");
+      setIsRecurring(false);
       setIsSubmitting(false);
       setSubmitError(null);
       setStartMonth(selectedMonth);
@@ -184,6 +188,7 @@ export default function AddTransactionModal({
         imageUrl: imageUrl.trim() || undefined,
         isOrangeHighlight: section === "left" && !isEffectiveInstallment ? isOrangeHighlight : false,
         isDiscount: section === "left" && !isEffectiveInstallment ? isDiscount : false,
+        isRecurring: section === "left" && !isEffectiveInstallment && !isDiscount ? isRecurring : false,
         note: section === "right" ? note.trim() : isEffectiveInstallment ? `${finalCount}x parcelas` : "",
       };
 
@@ -196,9 +201,11 @@ export default function AddTransactionModal({
     }
   };
 
+  const isEffectiveRecurring = section === "left" && !isEffectiveInstallment && !isDiscount && isRecurring;
+
   const sectionName =
     section === "left"
-      ? (isEffectiveInstallment ? "Gastos do Mês (Parcelado)" : "Gastos do Mês")
+      ? (isEffectiveInstallment ? "Gastos do Mês (Parcelado)" : isEffectiveRecurring ? "Gasto Recorrente (Todo Mês)" : "Gastos do Mês")
       : section === "right"
       ? "Planejamento & Compras Futuras"
       : "Parcelas e Devedores";
@@ -206,6 +213,8 @@ export default function AddTransactionModal({
   const sectionBadgeColor =
     isEffectiveInstallment
       ? "text-purple-400 bg-purple-500/10 border-purple-500/20"
+      : isEffectiveRecurring
+      ? "text-sky-400 bg-sky-500/10 border-sky-500/20"
       : section === "left"
       ? "text-rose-400 bg-rose-500/10 border-rose-500/20"
       : "text-amber-400 bg-amber-500/10 border-amber-500/20";
@@ -254,12 +263,16 @@ export default function AddTransactionModal({
                 <div className={`p-2.5 rounded-2xl border ${
                   isEffectiveInstallment
                     ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                    : isEffectiveRecurring
+                    ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
                     : section === "left"
                     ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
                     : "bg-amber-500/10 text-amber-400 border-amber-500/20"
                 }`}>
                   {isEffectiveInstallment ? (
                     <Layers className="w-5 h-5" />
+                  ) : isEffectiveRecurring ? (
+                    <Repeat className="w-5 h-5" />
                   ) : section === "left" ? (
                     <TrendingDown className="w-5 h-5" />
                   ) : (
@@ -268,7 +281,7 @@ export default function AddTransactionModal({
                 </div>
                 <div>
                   <span className={`text-[10px] font-black tracking-widest uppercase px-2.5 py-0.5 rounded-full border ${sectionBadgeColor}`}>
-                    {isEffectiveInstallment ? "Nova Parcela" : section === "left" ? "Adicionar Gasto" : "Adicionar Item"}
+                    {isEffectiveInstallment ? "Nova Parcela" : isEffectiveRecurring ? "Despesa Recorrente" : section === "left" ? "Adicionar Gasto" : "Adicionar Item"}
                   </span>
                   <h3 className="text-lg font-bold text-white mt-1">
                     {sectionName}
@@ -449,7 +462,7 @@ export default function AddTransactionModal({
                   {/* Data */}
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Data
+                      {isEffectiveRecurring ? "Data de Início / Referência" : "Data"}
                     </label>
                     <div className="relative">
                       <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -462,6 +475,15 @@ export default function AddTransactionModal({
                       />
                     </div>
                   </div>
+                </div>
+              )}
+
+              {isEffectiveRecurring && (
+                <div className="p-3 bg-sky-500/10 border border-sky-500/25 rounded-2xl flex items-start gap-2.5 text-xs text-sky-200">
+                  <Repeat className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                  <p className="text-[11px] leading-relaxed text-sky-200/90">
+                    Esta despesa ficará ativa <strong className="text-white">em todos os meses e períodos</strong>, somando no cálculo dos gastos até que seja excluída em qualquer mês.
+                  </p>
                 </div>
               )}
 
@@ -602,6 +624,39 @@ export default function AddTransactionModal({
                     </div>
                   </label>
 
+                  {/* Despesa recorrente (fixa todo mês) */}
+                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isRecurring}
+                      onChange={(e) => {
+                        const val = e.target.checked;
+                        setIsRecurring(val);
+                        if (val) {
+                          setIsDiscount(false);
+                          if (isInstallment) {
+                            setIsInstallment(false);
+                            const today = new Date();
+                            const todayYYYYMM = today.toISOString().slice(0, 7);
+                            if (todayYYYYMM === selectedMonth) {
+                              setDate(today.toISOString().slice(0, 10));
+                            } else {
+                              setDate(`${selectedMonth}-15`);
+                            }
+                          }
+                        }
+                      }}
+                      className="sr-only peer"
+                    />
+                    <div className="w-5 h-5 rounded-md border border-slate-700 bg-slate-950 flex items-center justify-center peer-checked:border-sky-500 peer-checked:bg-sky-500/20 text-transparent peer-checked:text-sky-400 transition-all">
+                      <Repeat className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-200">Despesa recorrente</span>
+                      <span className="text-[10px] text-sky-400/90 font-medium">Aparece em todos os meses até ser excluída</span>
+                    </div>
+                  </label>
+
                   {/* É um ganho? */}
                   <label className={`flex items-center gap-3 cursor-pointer select-none ${isInstallment ? "opacity-40 cursor-not-allowed" : ""}`}>
                     <input
@@ -613,6 +668,7 @@ export default function AddTransactionModal({
                         if (e.target.checked) {
                           setIsOrangeHighlight(false);
                           setIsInstallment(false);
+                          setIsRecurring(false);
                         }
                       }}
                       className="sr-only peer"
@@ -636,6 +692,7 @@ export default function AddTransactionModal({
                         setIsInstallment(val);
                         if (val) {
                           setIsDiscount(false);
+                          setIsRecurring(false);
                           setDate(calculateEndDateFromInstallments(startMonth, parsedInstallmentCount));
                         } else {
                           const today = new Date();

@@ -122,11 +122,15 @@ export function getInstallmentMeta(t: Transaction): InstallmentMeta {
 }
 
 /**
- * Remove a tag [meta:start=...,total=...] do campo note para exibição limpa ao usuário.
+ * Remove tags internas ([meta:...], [recorrente], [img:...]) do campo note para exibição limpa ao usuário.
  */
 export function stripMetaFromNote(note?: string): string {
   if (!note) return "";
-  return note.replace(/\[meta:start=[^,]+,total=[0-9]+\]/gi, "").trim();
+  return note
+    .replace(/\[meta:start=[^,]+,total=[0-9]+\]/gi, "")
+    .replace(/\[recorrente\]/gi, "")
+    .replace(/\[img:[^\]]+\]/gi, "")
+    .trim();
 }
 
 /**

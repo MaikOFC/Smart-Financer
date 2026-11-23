@@ -61,7 +61,9 @@ export default function FinanceCharts({
 
   // 1. DADOS DO MÊS ATUAL (GASTOS DO MÊS - GRÁFICO EM PIZZA, SEM METAS)
   const currentMonthTransactions = safeTransactions.filter(
-    (t) => isLeft(t?.tableSection) && !!t?.date && t.date.startsWith(selectedMonth)
+    (t) =>
+      isLeft(t?.tableSection) &&
+      (!!t?.isRecurring || (!!t?.date && t.date.startsWith(selectedMonth)))
   );
   const activeInstallments = getActiveInstallmentsForMonth(safeTransactions, selectedMonth);
 
@@ -190,7 +192,11 @@ export default function FinanceCharts({
     const monthNum = String(i + 1).padStart(2, "0");
     const m = `${historyYear}-${monthNum}`;
 
-    const monthTransactions = safeTransactions.filter((t) => t.date && t.date.startsWith(m));
+    const monthTransactions = safeTransactions.filter(
+      (t) =>
+        (t.date && t.date.startsWith(m)) ||
+        (isLeft(t.tableSection) && !!t.isRecurring)
+    );
     const lExp = monthTransactions
       .filter((t) => isLeft(t.tableSection) && !t.isDiscount)
       .reduce((sum, t) => {

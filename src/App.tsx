@@ -58,7 +58,7 @@ import BottomNavigationDock, { AppNavTab } from "./components/BottomNavigationDo
 import SharedReceiptModal from "./components/SharedReceiptModal";
 import TestFeaturesModal from "./components/TestFeaturesModal";
 import { getPendingSharedPayloads, SharedPayloadItem } from "./utils/shareTargetStorage";
-import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth, getRemainingInstallments } from "./utils/installmentUtils";
+import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth, getRemainingInstallments, isInstallmentActiveInMonth } from "./utils/installmentUtils";
 import {
   DEFAULT_INCOME_CONFIG,
   calculateNetIncomeForMonth,
@@ -840,7 +840,10 @@ export default function App() {
 
   // Calculations for active filtered month
   const currentMonthTransactions = transactions.filter(
-    (t) => !!t.date && t.date.startsWith(selectedMonth) && !isBottomSec(t.tableSection)
+    (t) =>
+      ((!!t.date && t.date.startsWith(selectedMonth)) ||
+        (isLeftSec(t.tableSection) && !!t.isRecurring)) &&
+      !isBottomSec(t.tableSection)
   );
 
   // Despesas diretas reais do mês corrente (contas de consumo, etc.) - apenas gastos reais, nunca negativo
@@ -901,8 +904,10 @@ export default function App() {
     const isDup = transactions.some((t) => {
       if (t.tableSection !== newTransaction.tableSection) return false;
       if (newTransaction.tableSection === "left") {
-        const matchesMonth = !t.date || t.date.startsWith(selectedMonth);
-        if (!matchesMonth) return false;
+        // Recurring items are active in every month; normal items are checked against selectedMonth or existing recurring items
+        const matchesMonthOrRecurring =
+          !!t.isRecurring || !t.date || t.date.startsWith(selectedMonth);
+        if (!matchesMonthOrRecurring) return false;
       }
       return t.description.trim().toLowerCase() === newTransaction.description.trim().toLowerCase();
     });
@@ -1054,7 +1059,13 @@ export default function App() {
   // One-click permanent deduplication for a table section
   const handleDeduplicateSection = async (section: "left" | "right" | "bottom_left") => {
     const filterByMonth = (t: Transaction) => {
-      if (t.tableSection === "bottom_left" || t.tableSection === "right") return true;
+      if (
+        t.tableSection === "bottom_left" ||
+        t.tableSection === "right" ||
+        (t.tableSection === "left" && !!t.isRecurring)
+      ) {
+        return true;
+      }
       return !t.date || t.date.startsWith(selectedMonth);
     };
 
@@ -1216,7 +1227,12 @@ export default function App() {
         signal: controller.signal,
         body: JSON.stringify({
           prompt: promptToSend,
-          transactions: transactions.filter((t) => t.date.startsWith(selectedMonth)),
+          transactions: transactions.filter(
+            (t) =>
+              (t.date && t.date.startsWith(selectedMonth)) ||
+              (isLeftSec(t.tableSection) && !!t.isRecurring) ||
+              isInstallmentActiveInMonth(t, selectedMonth)
+          ),
           budget: activeBudget,
           selectedMonth,
         }),
@@ -1302,7 +1318,14 @@ export default function App() {
         const category = (t.category || "Outros").replace(/"/g, '""');
         const is_orange_highlight = t.isOrangeHighlight ? "TRUE" : "FALSE";
         const is_discount = t.isDiscount ? "TRUE" : "FALSE";
-        const note = (t.note || "").replace(/"/g, '""');
+        const baseNote = (t.note || "").replace(/\[recorrente\]\s*/gi, "").trim();
+        const noteWithRecurring =
+          t.isRecurring && table_section === "left" && !t.isDiscount
+            ? baseNote
+              ? `[recorrente] ${baseNote}`
+              : "[recorrente]"
+            : baseNote;
+        const note = noteWithRecurring.replace(/"/g, '""');
         // If it was a preloaded seed, keep its seed_key, else empty
         const seed_key = t.id && !t.id.startsWith("manual") && !t.id.startsWith("imported") ? t.id : "";
 

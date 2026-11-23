@@ -8,7 +8,6 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Star,
   Edit2,
   Trash2,
   Check,
@@ -29,6 +28,7 @@ import {
   getRemainingInstallments,
   getInstallmentCurrentNumber,
   getInstallmentMeta,
+  stripMetaFromNote,
 } from "../utils/installmentUtils";
 
 interface FocusedSectionModalProps {
@@ -120,7 +120,9 @@ export default function FocusedSectionModal({
 
   // Data filters
   const currentMonthDirectExpenses = transactions.filter(
-    (t) => isLeftSec(t.tableSection) && (!t.date || t.date.startsWith(selectedMonth))
+    (t) =>
+      isLeftSec(t.tableSection) &&
+      (!!t.isRecurring || !t.date || t.date.startsWith(selectedMonth))
   );
   const activeInstallmentsThisMonth = getActiveInstallmentsForMonth(transactions, selectedMonth);
 
@@ -138,9 +140,6 @@ export default function FocusedSectionModal({
   // Compute Totals
   const directExpensesTotal = currentMonthDirectExpenses
     .filter((t) => !t.isDiscount)
-    .reduce((sum, t) => sum + (t.amount || 0), 0);
-  const gainsTotal = currentMonthDirectExpenses
-    .filter((t) => !!t.isDiscount)
     .reduce((sum, t) => sum + (t.amount || 0), 0);
   const monthlyInstallmentsTotal = getMonthlyInstallmentsTotal(transactions, selectedMonth);
   const expensesTotal = directExpensesTotal + monthlyInstallmentsTotal;
@@ -215,8 +214,7 @@ export default function FocusedSectionModal({
     });
   };
 
-  const currentMonthGains = currentMonthExpenses.filter((t) => !!t.isDiscount);
-  const filteredExpenses = filterAndSortList(currentMonthExpenses.filter((t) => !t.isDiscount), "expenses");
+  const filteredExpenses = filterAndSortList(currentMonthExpenses, "expenses");
   const filteredPlanning = filterAndSortList(currentMonthPlanning, "planning");
   const filteredInstallments = filterAndSortList(displayedInstallments, "installments");
 
@@ -226,61 +224,7 @@ export default function FocusedSectionModal({
   const renderSectionContent = (list: Transaction[], type: "expenses" | "planning" | "installments") => {
     return (
       <div className="space-y-4">
-        {/* SEÇÃO DESTACADA: GANHOS EXTRAS DO MÊS */}
-        {type === "expenses" && currentMonthGains.length > 0 && (
-          <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-2xl p-3.5 sm:p-4 space-y-2.5">
-            <div className="flex items-center justify-between pb-2 border-b border-emerald-500/20">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                  <TrendingUp className="w-3.5 h-3.5" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-emerald-300">Ganhos Extras do Mês</h4>
-                  <p className="text-[10px] text-emerald-400/80 font-medium">Somam na receita total e aumentam a sobra disponível</p>
-                </div>
-              </div>
-              <span className="text-xs sm:text-sm font-black font-mono text-emerald-400">
-                + R$ {gainsTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-
-            <div className="divide-y divide-emerald-500/15">
-              {currentMonthGains.map((t) => (
-                <div
-                  key={t.id}
-                  onClick={() => setSelectedTransactionForDetail(t)}
-                  className="py-2.5 flex items-center justify-between gap-3 hover:bg-emerald-500/5 px-2 rounded-xl transition-all cursor-pointer group"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs sm:text-sm font-bold text-white group-hover:text-emerald-300 transition-colors truncate">
-                        {t.description}
-                      </span>
-                      <span className="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded font-bold uppercase">
-                        Ganho
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 mt-0.5 block">
-                      {t.category || "Outros"} {t.note ? `• ${t.note}` : ""}
-                    </span>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-xs sm:text-sm font-black font-mono text-emerald-400">
-                      + R$ {(t.amount || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {list.length === 0 ? (
-          type === "expenses" && currentMonthGains.length > 0 ? (
-            <div className="py-6 text-center text-slate-400 bg-slate-900/40 rounded-2xl border border-slate-800/60 p-4">
-              <p className="text-xs font-medium">Nenhuma conta ou gasto direto registrado para este mês.</p>
-            </div>
-          ) : (
             <div className="py-16 text-center text-slate-400">
               <p className="text-sm font-medium">Nenhum registro encontrado nesta categoria.</p>
               <button
@@ -302,7 +246,6 @@ export default function FocusedSectionModal({
                 <Plus className="w-4 h-4" /> Adicionar Primeiro Item
               </button>
             </div>
-          )
         ) : (
         <div className="bg-slate-900 rounded-2xl border border-slate-800/80 overflow-hidden isolate shadow-sm">
           {list.map((t) => {
@@ -313,12 +256,14 @@ export default function FocusedSectionModal({
           const isFinished = isInst && remainingCount === 0;
           const remainingBalance = t.amount * remainingCount;
 
-          const accentStripeClass = t.isOrangeHighlight
+          const accentStripeClass = t.isDiscount
+            ? "bg-emerald-500"
+            : t.isOrangeHighlight
             ? "bg-amber-500"
             : isInst && type === "expenses"
             ? "bg-purple-500"
-            : t.isDiscount
-            ? "bg-emerald-500"
+            : t.isRecurring && type === "expenses"
+            ? "bg-sky-500"
             : type === "planning"
             ? "bg-amber-500/50 group-hover:bg-amber-500"
             : type === "installments"
@@ -327,12 +272,14 @@ export default function FocusedSectionModal({
               : "bg-purple-500/50 group-hover:bg-purple-500"
             : "bg-rose-500/50 group-hover:bg-rose-500";
 
-          const rowTintClass = t.isOrangeHighlight
+          const rowTintClass = t.isDiscount
+            ? "bg-emerald-500/5"
+            : t.isOrangeHighlight
             ? "bg-amber-500/5"
             : isInst && type === "expenses"
             ? "bg-purple-500/5"
-            : t.isDiscount
-            ? "bg-emerald-500/5"
+            : t.isRecurring && type === "expenses"
+            ? "bg-sky-500/[0.04]"
             : type === "installments" && isFinished
             ? "bg-slate-900/40 opacity-60"
             : "";
@@ -364,10 +311,14 @@ export default function FocusedSectionModal({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-sm font-bold text-white transition-colors ${
-                    t.isOrangeHighlight
+                    t.isDiscount
+                      ? "group-hover:text-emerald-300"
+                      : t.isOrangeHighlight
                       ? "group-hover:text-amber-300"
                       : isInst && type === "expenses"
                       ? "group-hover:text-purple-400"
+                      : t.isRecurring && type === "expenses"
+                      ? "group-hover:text-sky-300"
                       : type === "planning"
                       ? "group-hover:text-amber-400"
                       : type === "installments"
@@ -376,26 +327,9 @@ export default function FocusedSectionModal({
                   }`}>
                     {t.description}
                   </span>
-                  {t.isOrangeHighlight && (
-                    <span className="text-[9px] bg-amber-500/15 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold flex items-center gap-1">
-                      <Star className="w-3 h-3 fill-current text-amber-400" />
-                      Destaque
-                    </span>
-                  )}
-                  {isInst && type === "expenses" && (
-                    <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-1">
-                      <Layers className="w-3 h-3 text-purple-400" />
-                      {currentNum > 0 && meta.totalInstallments > 1 ? `Parcela ${currentNum}/${meta.totalInstallments}` : "Parcela"} ({remainingCount}x rest.)
-                    </span>
-                  )}
-                  {t.isDiscount && (
-                    <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded uppercase font-bold not-italic">
-                      Ganho
-                    </span>
-                  )}
-                  {t.note && (
+                  {type === "planning" && stripMetaFromNote(t.note) && (
                     <span className="text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-md font-mono">
-                      {t.note}
+                      {stripMetaFromNote(t.note)}
                     </span>
                   )}
                 </div>
@@ -870,7 +804,12 @@ export default function FocusedSectionModal({
 
         {/* Modal de Detalhe Individual (quando toca em um item) */}
         <TransactionDetailModal
-          transaction={selectedTransactionForDetail}
+          transaction={
+            selectedTransactionForDetail
+              ? transactions.find((item) => item.id === selectedTransactionForDetail.id) ||
+                selectedTransactionForDetail
+              : null
+          }
           isOpen={!!selectedTransactionForDetail}
           onClose={() => setSelectedTransactionForDetail(null)}
           onUpdateTransaction={onUpdateTransaction}

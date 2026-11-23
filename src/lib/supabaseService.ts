@@ -110,6 +110,12 @@ export function mapFromSupabase(row: any): Transaction {
     }
   }
 
+  let parsedIsRecurring = !!(row.is_recurring ?? row.recorrente);
+  if (cleanedNote && /\[recorrente\]/i.test(cleanedNote)) {
+    parsedIsRecurring = true;
+    cleanedNote = cleanedNote.replace(/\[recorrente\]\s*/gi, "").trim();
+  }
+
   return {
     id: String(row.id),
     description,
@@ -124,6 +130,7 @@ export function mapFromSupabase(row: any): Transaction {
     startDate: parsedStartDate,
     totalInstallments: parsedTotalInstallments,
     imageUrl: parsedImageUrl,
+    isRecurring: parsedIsRecurring,
   };
 }
 
@@ -131,8 +138,11 @@ export function mapFromSupabase(row: any): Transaction {
 export function mapToSupabase(t: Omit<Transaction, "id"> & { id?: string }, userId: string): any {
   let noteToSave = t.note ? String(t.note).trim() : "";
 
-  // Remove any stale [img:...] tag first so it doesn't duplicate
-  noteToSave = noteToSave.replace(/\[img:[^\]]+\]\s*/gi, "").trim();
+  // Remove stale tags first so they don't duplicate
+  noteToSave = noteToSave
+    .replace(/\[img:[^\]]+\]\s*/gi, "")
+    .replace(/\[recorrente\]\s*/gi, "")
+    .trim();
 
   // Se tiver imageUrl, codifica no campo note de forma segura (compatível sem alterar schema do Supabase)
   if (t.imageUrl && String(t.imageUrl).trim()) {
@@ -140,8 +150,16 @@ export function mapToSupabase(t: Omit<Transaction, "id"> & { id?: string }, user
     noteToSave = noteToSave ? `${imgTag} ${noteToSave}` : imgTag;
   }
 
+  const validSection: "left" | "right" | "bottom_left" =
+    t.tableSection === "right" || t.tableSection === "bottom_left" ? t.tableSection : "left";
+
+  // Se for despesa recorrente na seção "left", codifica [recorrente] no campo note de forma segura
+  if (t.isRecurring && validSection === "left" && !t.isDiscount) {
+    noteToSave = noteToSave ? `[recorrente] ${noteToSave}` : "[recorrente]";
+  }
+
   // Se for parcela (bottom_left) e tiver startDate/totalInstallments, codifica no campo note de forma segura
-  if (t.tableSection === "bottom_left") {
+  if (validSection === "bottom_left") {
     const startM = t.startDate ? t.startDate.substring(0, 7) : "";
     const totalInst = t.totalInstallments && t.totalInstallments > 0 ? t.totalInstallments : undefined;
 
@@ -150,9 +168,6 @@ export function mapToSupabase(t: Omit<Transaction, "id"> & { id?: string }, user
       noteToSave = noteToSave ? `${metaTag} ${noteToSave}` : metaTag;
     }
   }
-
-  const validSection: "left" | "right" | "bottom_left" =
-    t.tableSection === "right" || t.tableSection === "bottom_left" ? t.tableSection : "left";
   const validType: "expense" | "income" = t.type === "income" ? "income" : "expense";
   const rawDate = t.date ? String(t.date).trim() : "";
   const validDate = (rawDate || new Date().toISOString().slice(0, 10)).slice(0, 10);
@@ -572,13 +587,14 @@ export async function updateSupabaseTransaction(userId: string, id: string, upda
   if (updates.isOrangeHighlight !== undefined) rowUpdates.is_orange_highlight = !!updates.isOrangeHighlight;
   if (updates.isDiscount !== undefined) rowUpdates.is_discount = !!updates.isDiscount;
 
-  if (updates.note !== undefined || updates.imageUrl !== undefined) {
+  if (updates.note !== undefined || updates.imageUrl !== undefined || updates.isRecurring !== undefined) {
     let baseNote = updates.note !== undefined ? String(updates.note || "") : "";
     let existingImgTag = "";
     let existingMetaTag = "";
+    let existingRecurring = false;
 
-    // Fetch existing note if either note or imageUrl wasn't explicitly provided so we don't wipe tags
-    if (updates.note === undefined || updates.imageUrl === undefined) {
+    // Fetch existing note if any tag-backed field wasn't explicitly provided so we don't wipe tags
+    if (updates.note === undefined || updates.imageUrl === undefined || updates.isRecurring === undefined) {
       try {
         const { data: existingRow } = await supabase
           .from("transactions")
@@ -594,17 +610,32 @@ export async function updateSupabaseTransaction(userId: string, id: string, upda
         if (imgMatch) existingImgTag = imgMatch[0];
         const metaMatch = oldNote.match(/\[meta:[^\]]+\]/i);
         if (metaMatch) existingMetaTag = metaMatch[0];
+        existingRecurring = /\[recorrente\]/i.test(oldNote);
       } catch {
         // ignore
       }
     }
 
-    // Clean old [img:...] tag from baseNote
-    let cleaned = baseNote.replace(/\[img:[^\]]+\]\s*/gi, "").trim();
+    // Clean old [img:...] and [recorrente] tags from baseNote
+    let cleaned = baseNote
+      .replace(/\[img:[^\]]+\]\s*/gi, "")
+      .replace(/\[recorrente\]\s*/gi, "")
+      .trim();
 
     // Preserve [meta:...] if it was on oldNote and missing in updates.note
     if (existingMetaTag && !cleaned.includes("[meta:")) {
       cleaned = cleaned ? `${existingMetaTag} ${cleaned}` : existingMetaTag;
+    }
+
+    const shouldBeRecurring =
+      updates.isDiscount === true
+        ? false
+        : updates.isRecurring !== undefined
+        ? !!updates.isRecurring
+        : existingRecurring;
+
+    if (shouldBeRecurring) {
+      cleaned = cleaned ? `[recorrente] ${cleaned}` : "[recorrente]";
     }
 
     if (updates.imageUrl !== undefined) {

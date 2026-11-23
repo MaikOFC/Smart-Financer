@@ -19,6 +19,7 @@ import {
   Clock,
   Sparkles,
   Image as ImageIcon,
+  Repeat,
 } from "lucide-react";
 import { Transaction } from "../types";
 import { useModalBackHandler } from "../hooks/useBackNavigation";
@@ -60,6 +61,7 @@ export default function TransactionDetailModal({
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [editIsHighlight, setEditIsHighlight] = useState(false);
   const [editIsDiscount, setEditIsDiscount] = useState(false);
+  const [editIsRecurring, setEditIsRecurring] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Intercepta o botão voltar do celular para fechar os detalhes
@@ -76,6 +78,7 @@ export default function TransactionDetailModal({
       setIsImageModalOpen(false);
       setEditIsHighlight(!!transaction.isOrangeHighlight);
       setEditIsDiscount(!!transaction.isDiscount);
+      setEditIsRecurring(!!transaction.isRecurring);
       setIsEditing(false);
       setError(null);
     }
@@ -83,6 +86,11 @@ export default function TransactionDetailModal({
 
   if (!isOpen || !transaction) return null;
 
+  const rawSection = String(transaction.tableSection || "");
+  const isLeftExpenseSection =
+    rawSection === "left" ||
+    rawSection === "esquerda" ||
+    rawSection === "despesas";
   const isInst = transaction.tableSection === "bottom_left";
   const instMeta = isInst ? getInstallmentMeta(transaction) : null;
   const remainingCount = isInst ? getRemainingInstallments(transaction, selectedMonth) : 0;
@@ -91,7 +99,11 @@ export default function TransactionDetailModal({
   const cleanUserNote = stripMetaFromNote(transaction.note);
 
   const getSectionLabel = (sec: string) => {
-    if (sec === "left" || sec === "despesas") return { label: "Despesa Mensal", color: "text-rose-400 bg-rose-500/10 border-rose-500/20" };
+    if (sec === "left" || sec === "despesas" || sec === "esquerda") {
+      return transaction.isRecurring
+        ? { label: "Despesa Recorrente", color: "text-sky-400 bg-sky-500/10 border-sky-500/20" }
+        : { label: "Despesa Mensal", color: "text-rose-400 bg-rose-500/10 border-rose-500/20" };
+    }
     if (sec === "right" || sec === "planejamento") return { label: "Planejamento Futuro", color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20" };
     return { label: "Parcela / Empréstimo", color: "text-purple-400 bg-purple-500/10 border-purple-500/20" };
   };
@@ -113,6 +125,8 @@ export default function TransactionDetailModal({
       finalNote = finalNote ? `${finalNote} ${metaTag}` : metaTag;
     }
 
+    const finalRecurring = isLeftExpenseSection && !editIsDiscount ? editIsRecurring : false;
+
     onUpdateTransaction(transaction.id, {
       description: trimmed,
       amount: parsedAmount,
@@ -122,6 +136,7 @@ export default function TransactionDetailModal({
       imageUrl: editImageUrl ? editImageUrl.trim() : "",
       isOrangeHighlight: editIsHighlight,
       isDiscount: editIsDiscount,
+      isRecurring: finalRecurring,
     });
 
     setIsEditing(false);
@@ -142,8 +157,21 @@ export default function TransactionDetailModal({
     onUpdateTransaction(transaction.id, {
       isDiscount: newVal,
       isOrangeHighlight: newVal ? false : transaction.isOrangeHighlight,
+      isRecurring: newVal ? false : transaction.isRecurring,
     });
     setEditIsDiscount(newVal);
+    if (newVal) setEditIsRecurring(false);
+  };
+
+  const handleToggleRecurring = () => {
+    if (!isLeftExpenseSection) return;
+    const newVal = !transaction.isRecurring;
+    onUpdateTransaction(transaction.id, {
+      isRecurring: newVal,
+      isDiscount: newVal ? false : transaction.isDiscount,
+    });
+    setEditIsRecurring(newVal);
+    if (newVal) setEditIsDiscount(false);
   };
 
   const handleDelete = () => {
@@ -202,6 +230,12 @@ export default function TransactionDetailModal({
               <span className={`text-[11px] font-bold px-3 py-1 rounded-full border ${sectionInfo.color}`}>
                 {sectionInfo.label}
               </span>
+              {transaction.isRecurring && isLeftExpenseSection && (
+                <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 flex items-center gap-1">
+                  <Repeat className="w-3 h-3" />
+                  Todo Mês
+                </span>
+              )}
               {transaction.isOrangeHighlight && (
                 <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
                   <Star className="w-3 h-3 fill-current" />
@@ -337,6 +371,28 @@ export default function TransactionDetailModal({
                   />
                 </div>
 
+                {isLeftExpenseSection && (
+                  <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-950/60 border border-slate-800 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editIsRecurring}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setEditIsRecurring(checked);
+                        if (checked) setEditIsDiscount(false);
+                      }}
+                      className="sr-only peer"
+                    />
+                    <div className="w-5 h-5 rounded-md border border-slate-700 bg-slate-950 flex items-center justify-center peer-checked:border-sky-500 peer-checked:bg-sky-500/20 text-transparent peer-checked:text-sky-400 transition-all shrink-0">
+                      <Repeat className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-200">Despesa recorrente (fixa todo mês)</span>
+                      <span className="text-[10px] text-sky-400/90">Aparece em todos os meses e soma nas despesas até ser excluída</span>
+                    </div>
+                  </label>
+                )}
+
                 {error && (
                   <p className="text-xs text-rose-400 font-bold flex items-center gap-1.5">
                     <AlertCircle className="w-4 h-4" /> {error}
@@ -414,14 +470,18 @@ export default function TransactionDetailModal({
                     </div>
                   </div>
 
-                  {/* DATA */}
+                  {/* DATA / RECORRÊNCIA */}
                   <div className="p-3.5 bg-slate-950/40 border border-slate-800/80 rounded-xl flex items-center gap-3">
-                    <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg shrink-0">
-                      <Calendar className="w-4 h-4" />
+                    <div className={`p-2 rounded-lg shrink-0 ${transaction.isRecurring ? "bg-sky-500/10 text-sky-400" : "bg-emerald-500/10 text-emerald-400"}`}>
+                      {transaction.isRecurring ? <Repeat className="w-4 h-4" /> : <Calendar className="w-4 h-4" />}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[10px] text-slate-400 font-bold uppercase">Data</p>
-                      <p className="font-bold text-slate-200 truncate mt-0.5">{formatDateDisplay(transaction.date)}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">
+                        {transaction.isRecurring ? "Frequência" : "Data"}
+                      </p>
+                      <p className="font-bold text-slate-200 truncate mt-0.5">
+                        {transaction.isRecurring ? "Todo mês (enquanto ativo)" : formatDateDisplay(transaction.date)}
+                      </p>
                     </div>
                   </div>
 
@@ -433,7 +493,13 @@ export default function TransactionDetailModal({
                     <div className="min-w-0">
                       <p className="text-[10px] text-slate-400 font-bold uppercase">Tipo de Registro</p>
                       <p className="font-bold text-slate-200 truncate mt-0.5">
-                        {transaction.isDiscount ? "Ganho Extra / Entrada" : transaction.type === "income" ? "Entrada / Salário" : "Despesa"}
+                        {transaction.isDiscount
+                          ? "Ganho Extra / Entrada"
+                          : transaction.isRecurring
+                          ? "Despesa Recorrente"
+                          : transaction.type === "income"
+                          ? "Entrada / Salário"
+                          : "Despesa"}
                       </p>
                     </div>
                   </div>
@@ -532,7 +598,24 @@ export default function TransactionDetailModal({
 
                 {/* BOTÕES DE AÇÕES RÁPIDAS NO MODAL */}
                 <div className="pt-2 flex items-center justify-between gap-2 border-t border-slate-800/80 flex-wrap">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* TOGGLE RECORRENTE */}
+                    {isLeftExpenseSection && (
+                      <button
+                        type="button"
+                        onClick={handleToggleRecurring}
+                        className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                          transaction.isRecurring
+                            ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
+                            : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700"
+                        }`}
+                        title="Ativar/Desativar despesa recorrente em todos os meses"
+                      >
+                        <Repeat className="w-4 h-4" />
+                        <span className="hidden sm:inline">Recorrente</span>
+                      </button>
+                    )}
+
                     {/* TOGGLE HIGHLIGHT */}
                     <button
                       type="button"
@@ -570,10 +653,10 @@ export default function TransactionDetailModal({
                       type="button"
                       onClick={handleDelete}
                       className="p-2.5 text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer"
-                      title="Excluir este item"
+                      title={transaction.isRecurring ? "Excluir esta despesa recorrente de todos os meses" : "Excluir este item"}
                     >
                       <Trash2 className="w-4 h-4" />
-                      <span>Excluir</span>
+                      <span>{transaction.isRecurring ? "Excluir (todos os meses)" : "Excluir"}</span>
                     </button>
 
                     {/* EDITAR */}
