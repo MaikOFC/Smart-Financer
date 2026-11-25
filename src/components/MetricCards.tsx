@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion } from "motion/react";
 import {
   TrendingUp,
   TrendingDown,
@@ -34,7 +35,12 @@ interface MetricCardsProps {
   onOpenExpensesModal?: () => void;
   onOpenPlanningModal?: (tab?: "planning" | "installments") => void;
   onOpenAddModal?: (section: "left" | "right" | "bottom_left") => void;
+  expandedTab?: "home" | "income" | "expenses" | "planning" | "installments";
 }
+
+const BENTO_SHARED_TRANSITION = {
+  layout: { duration: 0.34, ease: [0.22, 1, 0.36, 1] as const },
+};
 
 export default function MetricCards({
   budget,
@@ -53,6 +59,7 @@ export default function MetricCards({
   onOpenExpensesModal,
   onOpenPlanningModal,
   onOpenAddModal,
+  expandedTab = "home",
 }: MetricCardsProps) {
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [budgetValueInput, setBudgetValueInput] = useState(budget ? String(budget) : "");
@@ -321,161 +328,221 @@ export default function MetricCards({
       )}
 
       {/* =========================================================================
-          2. BENTO GRID: 4 CARTÕES DE APOIO FINANCEIRO
+          2. BENTO GRID: 4 CARTÕES DE APOIO FINANCEIRO (SHARED ELEMENT EXPANSION)
           Layout limpo, acabamento obsidiana com acentos semânticos sofisticados.
          ========================================================================= */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Card 1: Receitas Totais */}
-        <div
-          onClick={() => {
-            if (onOpenIncomeTab) {
-              onOpenIncomeTab();
-            } else {
-              setBudgetValueInput(budget ? String(budget) : "");
-              setIsEditingBudget(true);
-            }
-          }}
-          className="bg-[#0b0f17] border border-slate-800/80 hover:border-slate-700 rounded-3xl p-4 sm:p-5 flex flex-col justify-between transition-all duration-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 cursor-pointer group relative overflow-hidden"
-          title="Clique para abrir a aba de Receita (Mensalista ou Horista)"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] font-bold text-slate-400 font-sans">Receitas</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <TrendingUp className="w-4 h-4 stroke-[2.2]" />
-            </div>
-          </div>
-          <div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-[11px] font-bold font-mono text-slate-500">R$</span>
-              <span
-                className={`text-base sm:text-xl font-black font-mono tracking-tight text-white tabular-nums truncate ${
-                  isPrivate ? "filter blur-xs" : ""
-                }`}
+        {/* Card 1: Receitas Totais (Verde) */}
+        {expandedTab === "income" ? (
+          <div aria-hidden="true" className="min-h-[118px] sm:min-h-[132px] rounded-3xl invisible pointer-events-none" />
+        ) : (
+          <motion.div
+            layoutId="bento-card-income"
+            whileTap={{ scale: 0.98 }}
+            transition={BENTO_SHARED_TRANSITION}
+            style={{ borderRadius: 24 }}
+            onClick={() => {
+              if (onOpenIncomeTab) {
+                onOpenIncomeTab();
+              } else {
+                setBudgetValueInput(budget ? String(budget) : "");
+                setIsEditingBudget(true);
+              }
+            }}
+            className="bg-[#0b0f17] border border-emerald-500/20 hover:border-emerald-500/45 p-4 sm:p-5 flex flex-col justify-between transition-colors duration-200 shadow-sm hover:shadow-lg hover:shadow-emerald-950/20 cursor-pointer group relative overflow-hidden"
+            title="Clique para abrir a aba de Receita (Mensalista ou Horista)"
+          >
+            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/45 to-transparent pointer-events-none" />
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-bold text-slate-400 font-sans">Receitas</span>
+              <motion.div
+                layout="position"
+                layoutId="bento-icon-income"
+                transition={BENTO_SHARED_TRANSITION}
+                style={{ borderRadius: 12 }}
+                className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center justify-center shrink-0"
               >
-                {isPrivate ? "••••••" : formatCurrency(safeTotalIncomes)}
-              </span>
+                <TrendingUp className="w-4 h-4 stroke-[2.2] transition-transform duration-200 group-hover:scale-110" />
+              </motion.div>
             </div>
-            <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 group-hover:text-emerald-400 transition-colors font-medium">
-              {safeGains > 0 ? (
-                <span className="text-emerald-400 font-semibold truncate">
-                  {incomeConfig?.mode === "hourly" ? "Horista" : "Base"} + R$ {formatCurrency(safeGains)} extras
+            <div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-[11px] font-bold font-mono text-slate-500">R$</span>
+                <span
+                  className={`text-base sm:text-xl font-black font-mono tracking-tight text-white tabular-nums truncate ${
+                    isPrivate ? "filter blur-xs" : ""
+                  }`}
+                >
+                  {isPrivate ? "••••••" : formatCurrency(safeTotalIncomes)}
                 </span>
-              ) : incomeConfig?.mode === "hourly" ? (
-                <span className="truncate">
-                  Horista · R$ {formatCurrency(incomeConfig.hourlyRate)}/h
-                  {incomeConfig.applyInssDiscount || (Number(incomeConfig.fixedDiscount) || 0) > 0 ? " (Líq.)" : ""}
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 group-hover:text-emerald-400 transition-colors font-medium">
+                {safeGains > 0 ? (
+                  <span className="text-emerald-400 font-semibold truncate">
+                    {incomeConfig?.mode === "hourly" ? "Horista" : "Base"} + R$ {formatCurrency(safeGains)} extras
+                  </span>
+                ) : incomeConfig?.mode === "hourly" ? (
+                  <span className="truncate">
+                    Horista · R$ {formatCurrency(incomeConfig.hourlyRate)}/h
+                    {incomeConfig.applyInssDiscount || (Number(incomeConfig.fixedDiscount) || 0) > 0 ? " (Líq.)" : ""}
+                  </span>
+                ) : incomeConfig?.applyInssDiscount || (Number(incomeConfig?.fixedDiscount) || 0) > 0 ? (
+                  <span className="truncate">Mensalista · Líquido</span>
+                ) : (
+                  <span className="truncate">Mensalista · Configurar</span>
+                )}
+                <ChevronRight className="w-2.5 h-2.5 inline opacity-70 shrink-0" />
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Card 2: Despesas do Mês (Vermelho) */}
+        {expandedTab === "expenses" ? (
+          <div aria-hidden="true" className="min-h-[118px] sm:min-h-[132px] rounded-3xl invisible pointer-events-none" />
+        ) : (
+          <motion.div
+            layoutId="bento-card-expenses"
+            whileTap={{ scale: 0.98 }}
+            transition={BENTO_SHARED_TRANSITION}
+            style={{ borderRadius: 24 }}
+            onClick={() => {
+              if (onOpenExpensesModal) onOpenExpensesModal();
+            }}
+            className="bg-[#0b0f17] border border-rose-500/20 hover:border-rose-500/45 p-4 sm:p-5 flex flex-col justify-between transition-colors duration-200 shadow-sm hover:shadow-lg hover:shadow-rose-950/20 cursor-pointer group relative overflow-hidden"
+            title="Clique para ver os gastos do mês"
+          >
+            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-rose-400/45 to-transparent pointer-events-none" />
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-bold text-slate-400 font-sans">Despesas do Mês</span>
+              <motion.div
+                layout="position"
+                layoutId="bento-icon-expenses"
+                transition={BENTO_SHARED_TRANSITION}
+                style={{ borderRadius: 12 }}
+                className="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-400 flex items-center justify-center shrink-0"
+              >
+                <TrendingDown className="w-4 h-4 stroke-[2.2] transition-transform duration-200 group-hover:scale-110" />
+              </motion.div>
+            </div>
+            <div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-[11px] font-bold font-mono text-slate-500">R$</span>
+                <span
+                  className={`text-base sm:text-xl font-black font-mono tracking-tight text-white tabular-nums truncate ${
+                    isPrivate ? "filter blur-xs" : ""
+                  }`}
+                >
+                  {isPrivate ? "••••••" : formatCurrency(safeLeft)}
                 </span>
-              ) : incomeConfig?.applyInssDiscount || (Number(incomeConfig?.fixedDiscount) || 0) > 0 ? (
-                <span className="truncate">Mensalista · Líquido</span>
-              ) : (
-                <span className="truncate">Mensalista · Configurar</span>
-              )}
-              <ChevronRight className="w-2.5 h-2.5 inline opacity-70 shrink-0" />
-            </p>
-          </div>
-        </div>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 group-hover:text-rose-400 transition-colors font-medium">
+                {safeInstallments > 0 ? (
+                  <span className="truncate">
+                    R$ {formatCurrency(safeDirect)} contas + R$ {formatCurrency(safeInstallments)} parcelas
+                  </span>
+                ) : (
+                  <span>Contas de consumo do mês</span>
+                )}
+                <ChevronRight className="w-2.5 h-2.5 inline opacity-70 shrink-0" />
+              </p>
+            </div>
+          </motion.div>
+        )}
 
-        {/* Card 2: Despesas do Mês (Total Real: Contas de Consumo + Parcelas Ativas) */}
-        <div
-          onClick={() => {
-            if (onOpenExpensesModal) onOpenExpensesModal();
-          }}
-          className="bg-[#0b0f17] border border-slate-800/80 hover:border-slate-700 rounded-3xl p-4 sm:p-5 flex flex-col justify-between transition-all duration-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 cursor-pointer group relative overflow-hidden"
-          title="Clique para ver os gastos do mês"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] font-bold text-slate-400 font-sans">Despesas do Mês</span>
-            <div className="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <TrendingDown className="w-4 h-4 stroke-[2.2]" />
-            </div>
-          </div>
-          <div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-[11px] font-bold font-mono text-slate-500">R$</span>
-              <span
-                className={`text-base sm:text-xl font-black font-mono tracking-tight text-white tabular-nums truncate ${
-                  isPrivate ? "filter blur-xs" : ""
-                }`}
+        {/* Card 3: Parcelas Ativas (Roxo) */}
+        {expandedTab === "installments" ? (
+          <div aria-hidden="true" className="min-h-[118px] sm:min-h-[132px] rounded-3xl invisible pointer-events-none" />
+        ) : (
+          <motion.div
+            layoutId="bento-card-installments"
+            whileTap={{ scale: 0.98 }}
+            transition={BENTO_SHARED_TRANSITION}
+            style={{ borderRadius: 24 }}
+            onClick={() => {
+              if (onOpenPlanningModal) onOpenPlanningModal("installments");
+            }}
+            className="bg-[#0b0f17] border border-purple-500/20 hover:border-purple-500/45 p-4 sm:p-5 flex flex-col justify-between transition-colors duration-200 shadow-sm hover:shadow-lg hover:shadow-purple-950/20 cursor-pointer group relative overflow-hidden"
+            title="Clique para ver parcelas e compromissos"
+          >
+            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-purple-400/45 to-transparent pointer-events-none" />
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-bold text-slate-400 font-sans">Parcelas Ativas</span>
+              <motion.div
+                layout="position"
+                layoutId="bento-icon-installments"
+                transition={BENTO_SHARED_TRANSITION}
+                style={{ borderRadius: 12 }}
+                className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/25 text-purple-400 flex items-center justify-center shrink-0"
               >
-                {isPrivate ? "••••••" : formatCurrency(safeLeft)}
-              </span>
+                <Layers className="w-4 h-4 stroke-[2.2] transition-transform duration-200 group-hover:scale-110" />
+              </motion.div>
             </div>
-            <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 group-hover:text-rose-400 transition-colors font-medium">
-              {safeInstallments > 0 ? (
-                <span className="truncate">
-                  R$ {formatCurrency(safeDirect)} contas + R$ {formatCurrency(safeInstallments)} parcelas
+            <div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-[11px] font-bold font-mono text-slate-500">R$</span>
+                <span
+                  className={`text-base sm:text-xl font-black font-mono tracking-tight text-purple-300 tabular-nums truncate ${
+                    isPrivate ? "filter blur-xs" : ""
+                  }`}
+                >
+                  {isPrivate ? "••••••" : formatCurrency(safeInstallments)}
                 </span>
-              ) : (
-                <span>Contas de consumo do mês</span>
-              )}
-              <ChevronRight className="w-2.5 h-2.5 inline opacity-70 shrink-0" />
-            </p>
-          </div>
-        </div>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 group-hover:text-purple-300 transition-colors font-medium">
+                <span>Devidas no mês</span>
+                <ChevronRight className="w-2.5 h-2.5 inline opacity-70" />
+              </p>
+            </div>
+          </motion.div>
+        )}
 
-        {/* Card 3: Parcelas Ativas (Inspirado no Nubank Ultravioleta) */}
-        <div
-          onClick={() => {
-            if (onOpenPlanningModal) onOpenPlanningModal("installments");
-          }}
-          className="bg-[#0b0f17] border border-slate-800/80 hover:border-slate-700 rounded-3xl p-4 sm:p-5 flex flex-col justify-between transition-all duration-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 cursor-pointer group relative overflow-hidden"
-          title="Clique para ver parcelas e compromissos"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] font-bold text-slate-400 font-sans">Parcelas Ativas</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <Layers className="w-4 h-4 stroke-[2.2]" />
-            </div>
-          </div>
-          <div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-[11px] font-bold font-mono text-slate-500">R$</span>
-              <span
-                className={`text-base sm:text-xl font-black font-mono tracking-tight text-purple-300 tabular-nums truncate ${
-                  isPrivate ? "filter blur-xs" : ""
-                }`}
+        {/* Card 4: Metas & Reservas (Ciano) */}
+        {expandedTab === "planning" ? (
+          <div aria-hidden="true" className="min-h-[118px] sm:min-h-[132px] rounded-3xl invisible pointer-events-none" />
+        ) : (
+          <motion.div
+            layoutId="bento-card-planning"
+            whileTap={{ scale: 0.98 }}
+            transition={BENTO_SHARED_TRANSITION}
+            style={{ borderRadius: 24 }}
+            onClick={() => {
+              if (onOpenPlanningModal) onOpenPlanningModal("planning");
+            }}
+            className="bg-[#0b0f17] border border-cyan-500/20 hover:border-cyan-400/45 p-4 sm:p-5 flex flex-col justify-between transition-colors duration-200 shadow-sm hover:shadow-lg hover:shadow-cyan-950/20 cursor-pointer group relative overflow-hidden"
+            title="Clique para ver suas metas e planejamento futuro"
+          >
+            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/45 to-transparent pointer-events-none" />
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-bold text-slate-400 font-sans">Metas & Reservas</span>
+              <motion.div
+                layout="position"
+                layoutId="bento-icon-planning"
+                transition={BENTO_SHARED_TRANSITION}
+                style={{ borderRadius: 12 }}
+                className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-400 flex items-center justify-center shrink-0"
               >
-                {isPrivate ? "••••••" : formatCurrency(safeInstallments)}
-              </span>
+                <Target className="w-4 h-4 stroke-[2.2] transition-transform duration-200 group-hover:scale-110" />
+              </motion.div>
             </div>
-            <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 group-hover:text-purple-300 transition-colors font-medium">
-              <span>Devidas no mês</span>
-              <ChevronRight className="w-2.5 h-2.5 inline opacity-70" />
-            </p>
-          </div>
-        </div>
-
-        {/* Card 4: Metas & Reservas */}
-        <div
-          onClick={() => {
-            if (onOpenPlanningModal) onOpenPlanningModal("planning");
-          }}
-          className="bg-[#0b0f17] border border-slate-800/80 hover:border-slate-700 rounded-3xl p-4 sm:p-5 flex flex-col justify-between transition-all duration-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 cursor-pointer group relative overflow-hidden"
-          title="Clique para ver suas metas e planejamento futuro"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] font-bold text-slate-400 font-sans">Metas & Reservas</span>
-            <div className="w-8 h-8 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <Target className="w-4 h-4 stroke-[2.2]" />
+            <div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-[11px] font-bold font-mono text-slate-500">R$</span>
+                <span
+                  className={`text-base sm:text-xl font-black font-mono tracking-tight text-cyan-300 tabular-nums truncate ${
+                    isPrivate ? "filter blur-xs" : ""
+                  }`}
+                >
+                  {isPrivate ? "••••••" : formatCurrency(safeRight)}
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 group-hover:text-cyan-300 transition-colors font-medium">
+                <span>Projeções futuras</span>
+                <ChevronRight className="w-2.5 h-2.5 inline opacity-70" />
+              </p>
             </div>
-          </div>
-          <div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-[11px] font-bold font-mono text-slate-500">R$</span>
-              <span
-                className={`text-base sm:text-xl font-black font-mono tracking-tight text-teal-300 tabular-nums truncate ${
-                  isPrivate ? "filter blur-xs" : ""
-                }`}
-              >
-                {isPrivate ? "••••••" : formatCurrency(safeRight)}
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 group-hover:text-teal-300 transition-colors font-medium">
-              <span>Projeções futuras</span>
-              <ChevronRight className="w-2.5 h-2.5 inline opacity-70" />
-            </p>
-          </div>
-        </div>
+          </motion.div>
+        )}
       </div>
     </div>
   );

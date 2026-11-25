@@ -277,6 +277,25 @@ html.light .border-teal-500\/40 {
   border-color: #99f6e4 !important;
 }
 
+html.light .text-cyan-400,
+html.light .text-cyan-300 {
+  color: #0e7490 !important;
+}
+
+html.light .bg-cyan-500\/10,
+html.light .bg-cyan-500\/15,
+html.light .bg-cyan-500\/20 {
+  background-color: #cffafe !important;
+  color: #155e75 !important;
+}
+
+html.light .border-cyan-500\/20,
+html.light .border-cyan-500\/25,
+html.light .border-cyan-500\/30,
+html.light .border-cyan-500\/40 {
+  border-color: #a5f3fc !important;
+}
+
 html.light .text-indigo-400,
 html.light .text-indigo-300,
 html.light .text-indigo-200 {
@@ -363,4 +382,36 @@ body {
 
 .safe-bottom-padding {
   padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+/* =========================================================================
+   ANIMAÇÕES DE ENTRADA DA NOVA TELA (.tela-nova e .item com --i)
+   ========================================================================= */
+@keyframes entrar {
+  from {
+    transform: translate3d(0, 20px, 0) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+.tela-nova {
+  animation: entrar 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.tela-nova .item {
+  animation: entrar 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(min(var(--i, 0), 10) * 35ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tela-nova,
+  .tela-nova .item {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
 }

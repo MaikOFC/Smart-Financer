@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, LayoutGroup, MotionConfig } from "motion/react";
 import {
   Wallet,
   Calendar,
@@ -58,6 +58,7 @@ import BottomNavigationDock, { AppNavTab } from "./components/BottomNavigationDo
 import SharedReceiptModal from "./components/SharedReceiptModal";
 import TestFeaturesModal from "./components/TestFeaturesModal";
 import { getPendingSharedPayloads, SharedPayloadItem } from "./utils/shareTargetStorage";
+import { useModalBackHandler } from "./hooks/useBackNavigation";
 import { getMonthlyInstallmentsTotal, getActiveInstallmentsForMonth, getRemainingInstallments, isInstallmentActiveInMonth } from "./utils/installmentUtils";
 import {
   DEFAULT_INCOME_CONFIG,
@@ -283,6 +284,13 @@ export default function App() {
   // Aba / Tela Principal Ativa (Início / Despesas / Metas / Parcelas)
   const [currentNavTab, setCurrentNavTab] = useState<AppNavTab>("home");
 
+  // Fecha aba expandida pelo botão voltar do celular/navegador
+  useModalBackHandler(
+    currentNavTab !== "home",
+    () => setCurrentNavTab("home"),
+    "expanded_bento_tab"
+  );
+
   // Modal de Seção Focada (Legado / fallback se necessário)
   const [isFocusedSectionOpen, setIsFocusedSectionOpen] = useState(false);
   const [focusedSectionType, setFocusedSectionType] = useState<"expenses" | "planning" | "installments">("expenses");
@@ -293,8 +301,16 @@ export default function App() {
   const touchStartTimeRef = React.useRef<number>(0);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    // Não intercepta se houver modais abertos
-    if (isAddModalOpen || isAdminModalOpen || isWelcomeModalOpen || isUserMenuOpen || isFocusedSectionOpen) return;
+    // Não intercepta se houver modais ou aba expandida abertos
+    if (
+      currentNavTab !== "home" ||
+      isAddModalOpen ||
+      isAdminModalOpen ||
+      isWelcomeModalOpen ||
+      isUserMenuOpen ||
+      isFocusedSectionOpen
+    )
+      return;
     touchStartXRef.current = e.touches[0].clientX;
     touchStartYRef.current = e.touches[0].clientY;
     touchStartTimeRef.current = Date.now();
@@ -328,17 +344,14 @@ export default function App() {
 
   const handleOpenIncomeTab = () => {
     setCurrentNavTab("income");
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleOpenExpensesModal = () => {
     setCurrentNavTab("expenses");
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleOpenPlanningModal = (tab: "planning" | "installments" = "planning") => {
     setCurrentNavTab(tab);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // Auth Success Handler
@@ -1528,9 +1541,11 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-[max(3rem,calc(env(safe-area-inset-bottom,0px)+1.5rem))] selection:bg-indigo-500/35 selection:text-white">
-      {/* HEADER PRINCIPAL */}
-      <header className="bg-slate-900/80 border-b border-slate-800/80 backdrop-blur-md sticky top-0 z-50 pt-[env(safe-area-inset-top,0px)]">
+    <MotionConfig reducedMotion="user">
+      <LayoutGroup id="bento-shared-expansion">
+        <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-[max(3rem,calc(env(safe-area-inset-bottom,0px)+1.5rem))] selection:bg-indigo-500/35 selection:text-white">
+          {/* HEADER PRINCIPAL */}
+          <header className="bg-slate-900/80 border-b border-slate-800/80 backdrop-blur-md sticky top-0 z-30 pt-[env(safe-area-inset-top,0px)]">
         <div className="max-w-7xl mx-auto px-3 py-2 sm:px-6 sm:py-3.5 lg:px-8">
           {/* LAYOUT MOBILE (md:hidden) - LINHA ÚNICA COMPACTA ESTILO BANCO DIGITAL */}
           <div className="flex items-center justify-between gap-2 md:hidden">
@@ -1895,7 +1910,10 @@ export default function App() {
         ) : (
           <>
             {/* CONTEÚDO MENSAL COM ANIMAÇÃO FLUIDA DE DESLIZE */}
-            <div className="overflow-hidden">
+            <div
+              aria-hidden={currentNavTab !== "home"}
+              className={`overflow-x-clip ${currentNavTab !== "home" ? "pointer-events-none select-none" : ""}`}
+            >
               <AnimatePresence mode="wait" custom={slideDirection} initial={false}>
                 <motion.div
                   key={selectedMonth}
@@ -1923,103 +1941,54 @@ export default function App() {
                   }}
                   className="space-y-8"
                 >
-                  {/* RENDERIZAÇÃO CONDICIONAL POR ABA: INÍCIO (DASHBOARD) VS TELAS SEPARADAS (DESPESAS / METAS / PARCELAS) */}
-                  {currentNavTab === "home" ? (
-                    <div className="space-y-8">
-                      {/* RESUMOS / METRICS (INTERATIVOS) */}
-                      <MetricCards
-                        budget={activeBudget}
-                        setBudget={handleSetBudget}
-                        leftExpensesTotal={leftExpensesTotal}
-                        rightExpensesTotal={rightExpensesTotal}
-                        bottomIncomesTotal={bottomIncomesTotal}
-                        sobra={sobra}
-                        viewMode={viewMode}
-                        monthlyInstallmentsTotal={monthlyInstallmentsTotal}
-                        directExpensesTotal={directLeftExpensesTotal}
-                        gainsTotal={currentMonthGainsTotal}
-                        totalIncomes={totalMonthlyIncomes}
-                        incomeConfig={incomeConfig}
-                        onOpenIncomeTab={handleOpenIncomeTab}
-                        onOpenExpensesModal={handleOpenExpensesModal}
-                        onOpenPlanningModal={handleOpenPlanningModal}
-                      />
+                  <div className="space-y-8">
+                    {/* RESUMOS / METRICS (INTERATIVOS COM SHARED ELEMENT LAYOUTID) */}
+                    <MetricCards
+                      budget={activeBudget}
+                      setBudget={handleSetBudget}
+                      leftExpensesTotal={leftExpensesTotal}
+                      rightExpensesTotal={rightExpensesTotal}
+                      bottomIncomesTotal={bottomIncomesTotal}
+                      sobra={sobra}
+                      viewMode={viewMode}
+                      monthlyInstallmentsTotal={monthlyInstallmentsTotal}
+                      directExpensesTotal={directLeftExpensesTotal}
+                      gainsTotal={currentMonthGainsTotal}
+                      totalIncomes={totalMonthlyIncomes}
+                      incomeConfig={incomeConfig}
+                      expandedTab={currentNavTab}
+                      onOpenIncomeTab={handleOpenIncomeTab}
+                      onOpenExpensesModal={handleOpenExpensesModal}
+                      onOpenPlanningModal={handleOpenPlanningModal}
+                    />
 
-                      {/* MODO PLANILHA COMPLETA (SE ESCOLHIDO) */}
-                      {viewMode === "full" && (
-                        <TransactionTable
-                          transactions={transactions}
-                          onAddTransaction={(section) => {
-                            setAddModalInitialGain(false);
-                            setAddModalSection(section);
-                            setIsAddModalOpen(true);
-                          }}
-                          onUpdateTransaction={handleUpdateTransaction}
-                          onDeleteTransaction={handleDeleteTransaction}
-                          onDeduplicateSection={handleDeduplicateSection}
-                          selectedMonth={selectedMonth}
-                          categories={categories}
-                          onSelectMonth={(m) => changeMonth(m)}
-                        />
-                      )}
-
-                      {/* VISUALIZAÇÃO GRÁFICA / CHARTS */}
-                      <FinanceCharts
+                    {/* MODO PLANILHA COMPLETA (SE ESCOLHIDO) */}
+                    {viewMode === "full" && (
+                      <TransactionTable
                         transactions={transactions}
-                        budgets={budgets}
+                        onAddTransaction={(section) => {
+                          setAddModalInitialGain(false);
+                          setAddModalSection(section);
+                          setIsAddModalOpen(true);
+                        }}
+                        onUpdateTransaction={handleUpdateTransaction}
+                        onDeleteTransaction={handleDeleteTransaction}
+                        onDeduplicateSection={handleDeduplicateSection}
                         selectedMonth={selectedMonth}
-                        defaultSalary={defaultSalary}
-                        incomeConfig={incomeConfig}
+                        categories={categories}
+                        onSelectMonth={(m) => changeMonth(m)}
                       />
-                    </div>
-                  ) : currentNavTab === "income" ? (
-                    /* ABA DEDICADA DE RECEITA (MENSALISTA / HORISTA) */
-                    <IncomeSectionTab
+                    )}
+
+                    {/* VISUALIZAÇÃO GRÁFICA / CHARTS */}
+                    <FinanceCharts
+                      transactions={transactions}
+                      budgets={budgets}
                       selectedMonth={selectedMonth}
-                      activeBudget={activeBudget}
                       defaultSalary={defaultSalary}
                       incomeConfig={incomeConfig}
-                      currentMonthGains={currentMonthGainsList}
-                      categories={categories}
-                      onSaveIncomeConfig={handleSaveIncomeConfig}
-                      onBackToHome={() => {
-                        setCurrentNavTab("home");
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
-                      onAddExtraGain={() => {
-                        setAddModalSection("left");
-                        setAddModalInitialGain(true);
-                        setIsAddModalOpen(true);
-                      }}
-                      onUpdateTransaction={handleUpdateTransaction}
-                      onDeleteTransaction={handleDeleteTransaction}
                     />
-                  ) : (
-                    /* TELA SEPARADA PARA A ABA SELECIONADA: DESPESAS, METAS OU PARCELAS */
-                    <HomeSectionTabs
-                      transactions={transactions}
-                      selectedMonth={selectedMonth}
-                      categories={categories}
-                      activeTab={currentNavTab as HomeSectionTab}
-                      onTabChange={(tab) => {
-                        setCurrentNavTab(tab);
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
-                      onBackToHome={() => {
-                        setCurrentNavTab("home");
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
-                      onAddTransaction={(section) => {
-                        setAddModalInitialGain(false);
-                        setAddModalSection(section);
-                        setIsAddModalOpen(true);
-                      }}
-                      onUpdateTransaction={handleUpdateTransaction}
-                      onDeleteTransaction={handleDeleteTransaction}
-                      onDeduplicateSection={handleDeduplicateSection}
-                      defaultSalary={defaultSalary}
-                    />
-                  )}
+                  </div>
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -2103,11 +2072,12 @@ export default function App() {
           onLogout={handleLogout}
           onDeleteAccount={handleDeleteAccount}
           onScrollToAi={() => {
+            setCurrentNavTab("home");
             setIsAiConsultantOpen(true);
             setTimeout(() => {
               const el = document.getElementById("ai-consultant-section");
               el?.scrollIntoView({ behavior: "smooth" });
-            }, 100);
+            }, 150);
           }}
           viewMode={viewMode}
           onSetViewMode={handleSetViewMode}
@@ -2275,12 +2245,56 @@ export default function App() {
         )}
       </main>
 
+      {/* TELAS EXPANDIDAS EM TELA INTEIRA (SHARED ELEMENT LAYOUTID) FORA DE ANCESTRAIS TRANSFORMADOS */}
+      {!fetchError && !dataLoading && currentNavTab === "income" && (
+        <IncomeSectionTab
+          selectedMonth={selectedMonth}
+          activeBudget={activeBudget}
+          defaultSalary={defaultSalary}
+          incomeConfig={incomeConfig}
+          currentMonthGains={currentMonthGainsList}
+          categories={categories}
+          onSaveIncomeConfig={handleSaveIncomeConfig}
+          onBackToHome={() => setCurrentNavTab("home")}
+          onAddExtraGain={() => {
+            setAddModalSection("left");
+            setAddModalInitialGain(true);
+            setIsAddModalOpen(true);
+          }}
+          onUpdateTransaction={handleUpdateTransaction}
+          onDeleteTransaction={handleDeleteTransaction}
+        />
+      )}
+
+      {!fetchError &&
+        !dataLoading &&
+        (currentNavTab === "expenses" ||
+          currentNavTab === "planning" ||
+          currentNavTab === "installments") && (
+          <HomeSectionTabs
+            transactions={transactions}
+            selectedMonth={selectedMonth}
+            categories={categories}
+            activeTab={currentNavTab as HomeSectionTab}
+            onTabChange={(tab) => setCurrentNavTab(tab)}
+            onBackToHome={() => setCurrentNavTab("home")}
+            onAddTransaction={(section) => {
+              setAddModalInitialGain(false);
+              setAddModalSection(section);
+              setIsAddModalOpen(true);
+            }}
+            onUpdateTransaction={handleUpdateTransaction}
+            onDeleteTransaction={handleDeleteTransaction}
+            onDeduplicateSection={handleDeduplicateSection}
+            defaultSalary={defaultSalary}
+          />
+        )}
+
       {/* BARRA DE NAVEGAÇÃO FLUTUANTE (DOCK) COM AS 4 ABAS (INÍCIO, DESPESAS, METAS, PARCELAS) E BOTÃO (+) INTEGRADO */}
       <BottomNavigationDock
         activeTab={currentNavTab}
         onTabChange={(tab) => {
           setCurrentNavTab(tab);
-          window.scrollTo({ top: 0, behavior: "smooth" });
         }}
         onOpenAddModal={() => {
           const section =
@@ -2300,5 +2314,7 @@ export default function App() {
         installmentsCount={homeInstallmentsCount}
       />
     </div>
+      </LayoutGroup>
+    </MotionConfig>
   );
 }

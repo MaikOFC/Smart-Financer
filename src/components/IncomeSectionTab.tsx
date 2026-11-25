@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { motion } from "motion/react";
 import {
   ArrowLeft,
   Clock,
@@ -374,52 +375,85 @@ export default function IncomeSectionTab({
 
   const fgtsPercentLabel = employmentType === "apprentice" ? "2%" : "8%";
 
+  const sharedLayoutTransition = {
+    layout: { duration: 0.34, ease: [0.22, 1, 0.36, 1] as const },
+  };
+
   return (
-    <section id="income-section-tab" className="space-y-4">
-      <div className="bg-slate-900 rounded-3xl border border-slate-800/80 p-4 sm:p-6 shadow-xl space-y-6">
-        {/* CABEÇALHO DA ABA RECEITA */}
-        <div className="flex items-start justify-between gap-3 pb-4 border-b border-slate-800/80">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              onClick={onBackToHome}
-              className="min-h-[44px] min-w-[44px] rounded-2xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0 active:scale-95"
-              title="Voltar para o Início"
-              aria-label="Voltar para o Início"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="min-w-0">
-              <h2 className="text-base sm:text-xl font-black text-white truncate">
-                Receita do Mês
-              </h2>
-              <p className="text-xs text-slate-400 font-medium flex items-center gap-1.5 mt-0.5 truncate">
-                <span>{monthLabel}</span>
-                <span aria-hidden="true">·</span>
-                <span>{mode === "hourly" ? "Horista" : "Mensalista"}</span>
-              </p>
-            </div>
-          </div>
+    <>
+      <motion.section
+        id="income-section-tab"
+        layoutId="bento-card-income"
+        transition={sharedLayoutTransition}
+        style={{ borderRadius: 0 }}
+        className="fixed inset-0 z-[35] bg-slate-950 overflow-y-auto overscroll-contain pb-32 sm:pb-36"
+      >
+        {/* Hairline superior e glow leve em verde esmeralda */}
+        <div
+          aria-hidden="true"
+          className="fixed inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-400/65 to-transparent pointer-events-none z-20"
+        />
+        <div
+          aria-hidden="true"
+          style={{ background: "radial-gradient(circle, rgba(16,185,129,0.16) 0%, transparent 70%)" }}
+          className="pointer-events-none fixed -top-24 right-[-4rem] w-80 h-80 rounded-full"
+        />
 
-          <div className="text-right shrink-0">
-            <span className="text-[11px] font-semibold text-slate-400 block leading-tight">
-              {hasAnyPayrollDiscount ? "Receita líquida" : "Receita total"}
-            </span>
-            <div className="text-lg sm:text-2xl font-black font-mono tabular-nums text-emerald-400 leading-tight mt-0.5">
-              R$ <AnimatedNumber value={previewTotalIncome} decimals={2} />
-            </div>
-            {gainsTotal > 0 && (
-              <span className="text-[11px] font-mono tabular-nums text-slate-400 block mt-0.5">
-                Base R$ {formatMoney(previewBaseIncome)} + Extras R$ {formatMoney(gainsTotal)}
-              </span>
-            )}
-          </div>
-        </div>
+        <div className="relative max-w-4xl mx-auto px-3.5 sm:px-6 pt-[max(1rem,env(safe-area-inset-top,0px))] pb-6">
+          <div className="bg-slate-900 rounded-3xl border border-slate-800/80 p-4 sm:p-6 shadow-xl space-y-6">
+            {/* CABEÇALHO DA ABA RECEITA (FORA DO .tela-nova PARA NÃO INTERFERIR NO FLIP DO ÍCONE) */}
+            <div className="flex items-start justify-between gap-3 pb-4 border-b border-slate-800/80">
+              <div className="flex items-center gap-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={onBackToHome}
+                  className="min-h-[44px] min-w-[44px] rounded-2xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 text-slate-300 hover:text-emerald-300 flex items-center justify-center transition-colors cursor-pointer shrink-0 active:scale-95"
+                  title="Voltar para o Início"
+                  aria-label="Voltar para o Início"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <motion.div
+                  layout="position"
+                  layoutId="bento-icon-income"
+                  transition={sharedLayoutTransition}
+                  style={{ borderRadius: 12 }}
+                  className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center justify-center shrink-0"
+                >
+                  <TrendingUp className="w-5 h-5 stroke-[2.2]" />
+                </motion.div>
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-xl font-black text-white truncate">
+                    Receita do Mês
+                  </h2>
+                  <p className="text-xs text-slate-400 font-medium flex items-center gap-1.5 mt-0.5 truncate">
+                    <span>{monthLabel}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{mode === "hourly" ? "Horista" : "Mensalista"}</span>
+                  </p>
+                </div>
+              </div>
 
-        {/* FORMULÁRIO PRINCIPAL */}
-        <form onSubmit={handleSave} className="space-y-6">
-          {/* SELETOR DE REGIME: MENSALISTA vs HORISTA */}
-          <div className="space-y-2">
+              <div className="text-right shrink-0">
+                <span className="text-[11px] font-semibold text-slate-400 block leading-tight">
+                  {hasAnyPayrollDiscount ? "Receita líquida" : "Receita total"}
+                </span>
+                <div className="text-lg sm:text-2xl font-black font-mono tabular-nums text-emerald-400 leading-tight mt-0.5">
+                  R$ <AnimatedNumber value={previewTotalIncome} decimals={2} />
+                </div>
+                {gainsTotal > 0 && (
+                  <span className="text-[11px] font-mono tabular-nums text-slate-400 block mt-0.5">
+                    Base R$ {formatMoney(previewBaseIncome)} + Extras R$ {formatMoney(gainsTotal)}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="tela-nova space-y-6">
+              {/* FORMULÁRIO PRINCIPAL */}
+              <form onSubmit={handleSave} className="space-y-6">
+              {/* SELETOR DE REGIME: MENSALISTA vs HORISTA */}
+              <div style={{ "--i": 0 } as React.CSSProperties} className="item space-y-2">
             <label className="text-xs font-semibold text-slate-300 block">
               Modelo de remuneração
             </label>
@@ -468,7 +502,7 @@ export default function IncomeSectionTab({
 
           {mode === "monthly" ? (
             /* ================= MODO MENSALISTA ================= */
-            <div className="space-y-5">
+            <div style={{ "--i": 1 } as React.CSSProperties} className="item space-y-5">
               <div className="space-y-2">
                 <label
                   htmlFor="input-monthly-salary"
@@ -504,7 +538,7 @@ export default function IncomeSectionTab({
             </div>
           ) : (
             /* ================= MODO HORISTA ================= */
-            <div className="space-y-6">
+            <div style={{ "--i": 1 } as React.CSSProperties} className="item space-y-6">
               {/* CAMPOS PRINCIPAIS: VALOR/HORA, HORAS/DIA E HORAS/SEMANA */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
@@ -774,7 +808,7 @@ export default function IncomeSectionTab({
           )}
 
           {/* DESCONTOS EM FOLHA (INSS / CESTA BÁSICA) E FGTS INFORMATIVO */}
-          <div className="space-y-3.5 pt-4 border-t border-slate-800/80">
+          <div style={{ "--i": 2 } as React.CSSProperties} className="item space-y-3.5 pt-4 border-t border-slate-800/80">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
                 <Percent className="w-3.5 h-3.5 text-rose-400" />
@@ -1137,7 +1171,7 @@ export default function IncomeSectionTab({
         </form>
 
         {/* GANHOS EXTRAS DO MÊS */}
-        <div className="pt-5 border-t border-slate-800/80 space-y-3">
+        <div style={{ "--i": 3 } as React.CSSProperties} className="item pt-5 border-t border-slate-800/80 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -1164,11 +1198,12 @@ export default function IncomeSectionTab({
             </p>
           ) : (
             <div className="divide-y divide-slate-800/80 border-t border-slate-800/60">
-              {currentMonthGains.map((g) => (
+              {currentMonthGains.map((g, index) => (
                 <div
                   key={g.id}
+                  style={{ "--i": index + 4 } as React.CSSProperties}
                   onClick={() => setSelectedGainForDetail(g)}
-                  className="py-3 flex items-center justify-between gap-3 hover:bg-slate-800/40 px-2 rounded-xl transition-colors cursor-pointer"
+                  className="item py-3 flex items-center justify-between gap-3 hover:bg-slate-800/40 px-2 rounded-xl transition-colors cursor-pointer"
                 >
                   <div className="min-w-0 flex-1">
                     <span className="text-sm font-bold text-white block truncate">
@@ -1187,7 +1222,10 @@ export default function IncomeSectionTab({
             </div>
           )}
         </div>
-      </div>
+            </div>
+          </div>
+        </div>
+      </motion.section>
 
       {/* MODAL DE DETALHE DO GANHO EXTRA */}
       <TransactionDetailModal
@@ -1199,6 +1237,6 @@ export default function IncomeSectionTab({
         categories={categories}
         selectedMonth={selectedMonth}
       />
-    </section>
+    </>
   );
 }
