@@ -187,7 +187,7 @@ export default function HomeSectionTabs({
         id="home-section-viewer"
         layoutId={`bento-card-${activeTab}`}
         transition={sharedLayoutTransition}
-        style={{ borderRadius: 0 }}
+        style={{ borderRadius: 0, willChange: "transform, opacity" }}
         className="fixed inset-0 z-[35] bg-slate-950 overflow-y-auto overscroll-contain pb-32 sm:pb-36"
       >
         {/* Hairline superior e glow leve mantendo a cor de destaque do card */}
@@ -202,7 +202,7 @@ export default function HomeSectionTabs({
         />
 
         <div className="relative max-w-4xl mx-auto px-3.5 sm:px-6 pt-[max(1rem,env(safe-area-inset-top,0px))] pb-6 space-y-5">
-          {/* CABEÇALHO DO CONTEÚDO EXPANDIDO (FORA DO .tela-nova PARA NÃO INTERFERIR NO FLIP DO ÍCONE) */}
+          {/* CABEÇALHO DO CONTEÚDO EXPANDIDO */}
           <div className="bg-slate-900 rounded-3xl border border-slate-800/80 p-4 sm:p-6 shadow-xl flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               {onBackToHome && (
@@ -217,12 +217,9 @@ export default function HomeSectionTabs({
                 </button>
               )}
 
-              <motion.div
-                layout="position"
-                layoutId={`bento-icon-${activeTab}`}
-                transition={sharedLayoutTransition}
-                style={{ borderRadius: 12 }}
-                className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${accentTheme.iconBox}`}
+              <div
+                key={`icon-${activeTab}`}
+                className={`bento-icon-enter w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${accentTheme.iconBox}`}
               >
                 {activeTab === "expenses" ? (
                   <TrendingDown className="w-5 h-5 stroke-[2.2]" />
@@ -231,7 +228,7 @@ export default function HomeSectionTabs({
                 ) : (
                   <Target className="w-5 h-5 stroke-[2.2]" />
                 )}
-              </motion.div>
+              </div>
 
               <div className="min-w-0">
                 <h2 className="text-base sm:text-xl font-black text-white truncate">

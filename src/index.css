@@ -385,7 +385,8 @@ body {
 }
 
 /* =========================================================================
-   ANIMAÇÕES DE ENTRADA DA NOVA TELA (.tela-nova e .item com --i)
+   ANIMAÇÕES DE ENTRADA DA NOVA TELA (.tela-nova, .item e .bento-icon-enter)
+   Puramente baseadas em transform + opacity com aceleração GPU (sem filter)
    ========================================================================= */
 @keyframes entrar {
   from {
@@ -398,20 +399,40 @@ body {
   }
 }
 
+@keyframes iconPopEnter {
+  from {
+    transform: translate3d(0, 6px, 0) scale(0.86);
+    opacity: 0;
+  }
+  to {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+  }
+}
+
 .tela-nova {
   animation: entrar 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
 }
 
 .tela-nova .item {
   animation: entrar 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
   animation-delay: calc(min(var(--i, 0), 10) * 35ms);
+  will-change: transform, opacity;
+}
+
+.bento-icon-enter {
+  animation: iconPopEnter 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .tela-nova,
-  .tela-nova .item {
+  .tela-nova .item,
+  .bento-icon-enter {
     animation: none !important;
     transform: none !important;
     opacity: 1 !important;
+    will-change: auto !important;
   }
 }

@@ -385,7 +385,7 @@ export default function IncomeSectionTab({
         id="income-section-tab"
         layoutId="bento-card-income"
         transition={sharedLayoutTransition}
-        style={{ borderRadius: 0 }}
+        style={{ borderRadius: 0, willChange: "transform, opacity" }}
         className="fixed inset-0 z-[35] bg-slate-950 overflow-y-auto overscroll-contain pb-32 sm:pb-36"
       >
         {/* Hairline superior e glow leve em verde esmeralda */}
@@ -401,7 +401,7 @@ export default function IncomeSectionTab({
 
         <div className="relative max-w-4xl mx-auto px-3.5 sm:px-6 pt-[max(1rem,env(safe-area-inset-top,0px))] pb-6">
           <div className="bg-slate-900 rounded-3xl border border-slate-800/80 p-4 sm:p-6 shadow-xl space-y-6">
-            {/* CABEÇALHO DA ABA RECEITA (FORA DO .tela-nova PARA NÃO INTERFERIR NO FLIP DO ÍCONE) */}
+            {/* CABEÇALHO DA ABA RECEITA */}
             <div className="flex items-start justify-between gap-3 pb-4 border-b border-slate-800/80">
               <div className="flex items-center gap-3 min-w-0">
                 <button
@@ -413,15 +413,9 @@ export default function IncomeSectionTab({
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <motion.div
-                  layout="position"
-                  layoutId="bento-icon-income"
-                  transition={sharedLayoutTransition}
-                  style={{ borderRadius: 12 }}
-                  className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center justify-center shrink-0"
-                >
+                <div className="bento-icon-enter w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center justify-center shrink-0">
                   <TrendingUp className="w-5 h-5 stroke-[2.2]" />
-                </motion.div>
+                </div>
                 <div className="min-w-0">
                   <h2 className="text-base sm:text-xl font-black text-white truncate">
                     Receita do Mês

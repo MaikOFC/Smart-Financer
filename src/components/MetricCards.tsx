@@ -124,11 +124,15 @@ export default function MetricCards({
         {/* Hairline metálico superior com gradiente sutil esmeralda/ultravioleta */}
         <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-purple-500/35 via-emerald-400/35 to-transparent pointer-events-none" />
 
-        {/* Glow atmosférico suave no fundo */}
+        {/* Glow atmosférico suave no fundo (radial-gradient sem filter blur) */}
         <div
-          className={`absolute -top-20 -right-20 w-56 h-56 rounded-full blur-[90px] pointer-events-none opacity-25 transition-colors duration-500 ${
-            isHealthy ? "bg-emerald-500/20" : "bg-rose-500/20"
-          }`}
+          aria-hidden="true"
+          style={{
+            background: isHealthy
+              ? "radial-gradient(circle, rgba(16,185,129,0.16) 0%, transparent 70%)"
+              : "radial-gradient(circle, rgba(244,63,94,0.16) 0%, transparent 70%)",
+          }}
+          className="absolute -top-24 -right-24 w-64 h-64 rounded-full pointer-events-none"
         />
 
         {/* Linha Superior: Rótulo + Status de Saúde + Controles Táteis */}
@@ -217,9 +221,9 @@ export default function MetricCards({
               R$
             </span>
             <div
-              className={`text-3xl sm:text-5xl font-black font-mono tracking-tight tabular-nums transition-all duration-300 ${
+              className={`text-3xl sm:text-5xl font-black font-mono tracking-tight tabular-nums transition-opacity duration-200 ${
                 isPrivate
-                  ? "filter blur-md select-none text-slate-400"
+                  ? "opacity-50 tracking-widest select-none text-slate-400"
                   : isHealthy
                   ? "text-white"
                   : "text-rose-400"
@@ -237,7 +241,7 @@ export default function MetricCards({
               <span>Comprometido:</span>
               <span
                 className={`font-mono tabular-nums ${
-                  isPrivate ? "filter blur-xs" : isHealthy ? "text-slate-200" : "text-rose-400 font-bold"
+                  isPrivate ? "opacity-50 select-none" : isHealthy ? "text-slate-200" : "text-rose-400 font-bold"
                 }`}
               >
                 {isPrivate ? "••••" : `R$ ${formatCurrency(safeLeft)}`}
@@ -248,7 +252,7 @@ export default function MetricCards({
               <span>Livre:</span>
               <span
                 className={`font-mono tabular-nums ${
-                  isPrivate ? "filter blur-xs" : isHealthy ? "text-emerald-400 font-bold" : "text-slate-400"
+                  isPrivate ? "opacity-50 select-none" : isHealthy ? "text-emerald-400 font-bold" : "text-slate-400"
                 }`}
               >
                 {isPrivate ? "••••" : `R$ ${formatCurrency(safeSobra)}`}
@@ -340,7 +344,7 @@ export default function MetricCards({
             layoutId="bento-card-income"
             whileTap={{ scale: 0.98 }}
             transition={BENTO_SHARED_TRANSITION}
-            style={{ borderRadius: 24 }}
+            style={{ borderRadius: 24, willChange: "transform, opacity" }}
             onClick={() => {
               if (onOpenIncomeTab) {
                 onOpenIncomeTab();
@@ -349,28 +353,25 @@ export default function MetricCards({
                 setIsEditingBudget(true);
               }
             }}
-            className="bg-[#0b0f17] border border-emerald-500/20 hover:border-emerald-500/45 p-4 sm:p-5 flex flex-col justify-between transition-colors duration-200 shadow-sm hover:shadow-lg hover:shadow-emerald-950/20 cursor-pointer group relative overflow-hidden"
+            className="bg-[#0b0f17] border border-emerald-500/20 hover:border-emerald-500/45 p-4 sm:p-5 flex flex-col justify-between transition-[border-color] duration-150 shadow-sm cursor-pointer group relative overflow-hidden"
             title="Clique para abrir a aba de Receita (Mensalista ou Horista)"
           >
             <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/45 to-transparent pointer-events-none" />
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-bold text-slate-400 font-sans">Receitas</span>
-              <motion.div
-                layout="position"
-                layoutId="bento-icon-income"
-                transition={BENTO_SHARED_TRANSITION}
-                style={{ borderRadius: 12 }}
-                className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center justify-center shrink-0"
+              <div
+                style={{ willChange: "transform, opacity" }}
+                className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105"
               >
-                <TrendingUp className="w-4 h-4 stroke-[2.2] transition-transform duration-200 group-hover:scale-110" />
-              </motion.div>
+                <TrendingUp className="w-4 h-4 stroke-[2.2]" />
+              </div>
             </div>
             <div>
               <div className="flex items-baseline gap-1">
                 <span className="text-[11px] font-bold font-mono text-slate-500">R$</span>
                 <span
                   className={`text-base sm:text-xl font-black font-mono tracking-tight text-white tabular-nums truncate ${
-                    isPrivate ? "filter blur-xs" : ""
+                    isPrivate ? "opacity-50 select-none" : ""
                   }`}
                 >
                   {isPrivate ? "••••••" : formatCurrency(safeTotalIncomes)}
@@ -405,32 +406,29 @@ export default function MetricCards({
             layoutId="bento-card-expenses"
             whileTap={{ scale: 0.98 }}
             transition={BENTO_SHARED_TRANSITION}
-            style={{ borderRadius: 24 }}
+            style={{ borderRadius: 24, willChange: "transform, opacity" }}
             onClick={() => {
               if (onOpenExpensesModal) onOpenExpensesModal();
             }}
-            className="bg-[#0b0f17] border border-rose-500/20 hover:border-rose-500/45 p-4 sm:p-5 flex flex-col justify-between transition-colors duration-200 shadow-sm hover:shadow-lg hover:shadow-rose-950/20 cursor-pointer group relative overflow-hidden"
+            className="bg-[#0b0f17] border border-rose-500/20 hover:border-rose-500/45 p-4 sm:p-5 flex flex-col justify-between transition-[border-color] duration-150 shadow-sm cursor-pointer group relative overflow-hidden"
             title="Clique para ver os gastos do mês"
           >
             <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-rose-400/45 to-transparent pointer-events-none" />
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-bold text-slate-400 font-sans">Despesas do Mês</span>
-              <motion.div
-                layout="position"
-                layoutId="bento-icon-expenses"
-                transition={BENTO_SHARED_TRANSITION}
-                style={{ borderRadius: 12 }}
-                className="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-400 flex items-center justify-center shrink-0"
+              <div
+                style={{ willChange: "transform, opacity" }}
+                className="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-400 flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105"
               >
-                <TrendingDown className="w-4 h-4 stroke-[2.2] transition-transform duration-200 group-hover:scale-110" />
-              </motion.div>
+                <TrendingDown className="w-4 h-4 stroke-[2.2]" />
+              </div>
             </div>
             <div>
               <div className="flex items-baseline gap-1">
                 <span className="text-[11px] font-bold font-mono text-slate-500">R$</span>
                 <span
                   className={`text-base sm:text-xl font-black font-mono tracking-tight text-white tabular-nums truncate ${
-                    isPrivate ? "filter blur-xs" : ""
+                    isPrivate ? "opacity-50 select-none" : ""
                   }`}
                 >
                   {isPrivate ? "••••••" : formatCurrency(safeLeft)}
@@ -458,32 +456,29 @@ export default function MetricCards({
             layoutId="bento-card-installments"
             whileTap={{ scale: 0.98 }}
             transition={BENTO_SHARED_TRANSITION}
-            style={{ borderRadius: 24 }}
+            style={{ borderRadius: 24, willChange: "transform, opacity" }}
             onClick={() => {
               if (onOpenPlanningModal) onOpenPlanningModal("installments");
             }}
-            className="bg-[#0b0f17] border border-purple-500/20 hover:border-purple-500/45 p-4 sm:p-5 flex flex-col justify-between transition-colors duration-200 shadow-sm hover:shadow-lg hover:shadow-purple-950/20 cursor-pointer group relative overflow-hidden"
+            className="bg-[#0b0f17] border border-purple-500/20 hover:border-purple-500/45 p-4 sm:p-5 flex flex-col justify-between transition-[border-color] duration-150 shadow-sm cursor-pointer group relative overflow-hidden"
             title="Clique para ver parcelas e compromissos"
           >
             <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-purple-400/45 to-transparent pointer-events-none" />
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-bold text-slate-400 font-sans">Parcelas Ativas</span>
-              <motion.div
-                layout="position"
-                layoutId="bento-icon-installments"
-                transition={BENTO_SHARED_TRANSITION}
-                style={{ borderRadius: 12 }}
-                className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/25 text-purple-400 flex items-center justify-center shrink-0"
+              <div
+                style={{ willChange: "transform, opacity" }}
+                className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/25 text-purple-400 flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105"
               >
-                <Layers className="w-4 h-4 stroke-[2.2] transition-transform duration-200 group-hover:scale-110" />
-              </motion.div>
+                <Layers className="w-4 h-4 stroke-[2.2]" />
+              </div>
             </div>
             <div>
               <div className="flex items-baseline gap-1">
                 <span className="text-[11px] font-bold font-mono text-slate-500">R$</span>
                 <span
                   className={`text-base sm:text-xl font-black font-mono tracking-tight text-purple-300 tabular-nums truncate ${
-                    isPrivate ? "filter blur-xs" : ""
+                    isPrivate ? "opacity-50 select-none" : ""
                   }`}
                 >
                   {isPrivate ? "••••••" : formatCurrency(safeInstallments)}
@@ -505,32 +500,29 @@ export default function MetricCards({
             layoutId="bento-card-planning"
             whileTap={{ scale: 0.98 }}
             transition={BENTO_SHARED_TRANSITION}
-            style={{ borderRadius: 24 }}
+            style={{ borderRadius: 24, willChange: "transform, opacity" }}
             onClick={() => {
               if (onOpenPlanningModal) onOpenPlanningModal("planning");
             }}
-            className="bg-[#0b0f17] border border-cyan-500/20 hover:border-cyan-400/45 p-4 sm:p-5 flex flex-col justify-between transition-colors duration-200 shadow-sm hover:shadow-lg hover:shadow-cyan-950/20 cursor-pointer group relative overflow-hidden"
+            className="bg-[#0b0f17] border border-cyan-500/20 hover:border-cyan-400/45 p-4 sm:p-5 flex flex-col justify-between transition-[border-color] duration-150 shadow-sm cursor-pointer group relative overflow-hidden"
             title="Clique para ver suas metas e planejamento futuro"
           >
             <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/45 to-transparent pointer-events-none" />
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-bold text-slate-400 font-sans">Metas & Reservas</span>
-              <motion.div
-                layout="position"
-                layoutId="bento-icon-planning"
-                transition={BENTO_SHARED_TRANSITION}
-                style={{ borderRadius: 12 }}
-                className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-400 flex items-center justify-center shrink-0"
+              <div
+                style={{ willChange: "transform, opacity" }}
+                className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-400 flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105"
               >
-                <Target className="w-4 h-4 stroke-[2.2] transition-transform duration-200 group-hover:scale-110" />
-              </motion.div>
+                <Target className="w-4 h-4 stroke-[2.2]" />
+              </div>
             </div>
             <div>
               <div className="flex items-baseline gap-1">
                 <span className="text-[11px] font-bold font-mono text-slate-500">R$</span>
                 <span
                   className={`text-base sm:text-xl font-black font-mono tracking-tight text-cyan-300 tabular-nums truncate ${
-                    isPrivate ? "filter blur-xs" : ""
+                    isPrivate ? "opacity-50 select-none" : ""
                   }`}
                 >
                   {isPrivate ? "••••••" : formatCurrency(safeRight)}

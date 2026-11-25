@@ -51,14 +51,15 @@ export default function BottomNavigationDock({
               type="button"
               onClick={() => onTabChange("home")}
               title="Início"
-              className={`flex items-center justify-center py-2.5 px-2 rounded-2xl transition-all cursor-pointer ${
+              className={`flex items-center justify-center py-2.5 px-2 rounded-2xl transition-colors duration-150 cursor-pointer ${
                 activeTab === "home"
                   ? "bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 shadow-sm"
                   : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent"
               }`}
             >
               <div
-                className={`p-2 rounded-xl transition-transform ${
+                style={{ willChange: "transform" }}
+                className={`p-2 rounded-xl transition-transform duration-150 ${
                   activeTab === "home"
                     ? "bg-emerald-500 text-slate-950 scale-110 shadow-md shadow-emerald-500/25"
                     : "text-slate-400"
@@ -74,14 +75,15 @@ export default function BottomNavigationDock({
               type="button"
               onClick={() => onTabChange("expenses")}
               title={`Despesas (${expensesCount})`}
-              className={`flex items-center justify-center py-2.5 px-2 rounded-2xl transition-all cursor-pointer ${
+              className={`flex items-center justify-center py-2.5 px-2 rounded-2xl transition-colors duration-150 cursor-pointer ${
                 activeTab === "expenses"
                   ? "bg-rose-500/15 border border-rose-500/40 text-rose-300 shadow-sm"
                   : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent"
               }`}
             >
               <div
-                className={`p-2 rounded-xl transition-transform ${
+                style={{ willChange: "transform" }}
+                className={`p-2 rounded-xl transition-transform duration-150 ${
                   activeTab === "expenses"
                     ? "bg-rose-500 text-white scale-110 shadow-md shadow-rose-500/25"
                     : "text-slate-400"
@@ -97,14 +99,15 @@ export default function BottomNavigationDock({
               type="button"
               onClick={() => onTabChange("planning")}
               title={`Metas (${planningCount})`}
-              className={`flex items-center justify-center py-2.5 px-2 rounded-2xl transition-all cursor-pointer ${
+              className={`flex items-center justify-center py-2.5 px-2 rounded-2xl transition-colors duration-150 cursor-pointer ${
                 activeTab === "planning"
                   ? "bg-teal-500/15 border border-teal-500/40 text-teal-300 shadow-sm"
                   : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent"
               }`}
             >
               <div
-                className={`p-2 rounded-xl transition-transform ${
+                style={{ willChange: "transform" }}
+                className={`p-2 rounded-xl transition-transform duration-150 ${
                   activeTab === "planning"
                     ? "bg-teal-500 text-white scale-110 shadow-md shadow-teal-500/25"
                     : "text-slate-400"
@@ -120,14 +123,15 @@ export default function BottomNavigationDock({
               type="button"
               onClick={() => onTabChange("installments")}
               title={`Parcelas (${installmentsCount})`}
-              className={`flex items-center justify-center py-2.5 px-2 rounded-2xl transition-all cursor-pointer ${
+              className={`flex items-center justify-center py-2.5 px-2 rounded-2xl transition-colors duration-150 cursor-pointer ${
                 activeTab === "installments"
                   ? "bg-purple-500/15 border border-purple-500/40 text-purple-300 shadow-sm"
                   : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent"
               }`}
             >
               <div
-                className={`p-2 rounded-xl transition-transform ${
+                style={{ willChange: "transform" }}
+                className={`p-2 rounded-xl transition-transform duration-150 ${
                   activeTab === "installments"
                     ? "bg-purple-500 text-white scale-110 shadow-md shadow-purple-500/25"
                     : "text-slate-400"
